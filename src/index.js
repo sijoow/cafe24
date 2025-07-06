@@ -6,7 +6,8 @@ import App from './App';
 import axios from 'axios';
 // 1) Antd v5 reset 스타일
 import 'antd/dist/reset.css';
-import { message } from 'antd';
+import { message, ConfigProvider } from 'antd';  // ← ConfigProvider 추가
+
 message.config({
   top: 100,    
   duration: 2, 
@@ -21,6 +22,16 @@ axios.defaults.baseURL =
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BrowserRouter>
-    <App />
+    <ConfigProvider
+      theme={{
+        token: {
+         colorPrimary: '#fe6326',     // 기본
+         colorPrimaryHover: '#FE753F', // 호버 (원본보다 약간 밝게)
+         colorPrimaryActive: '#FD500C',// 클릭(Active, 약간 어둡게)
+        },
+      }}
+    >
+      <App />
+    </ConfigProvider>
   </BrowserRouter>
 );
