@@ -20,10 +20,12 @@ import Participation      from  './pages/Participation'
 //유입환경
 import InflowEnvironment from './pages/InflowEnvironment'
 
-
+//결제 서비스
+import Payment from './pages/PayMent'
 
 //모바일 메뉴 환경
 import OverlayLayout from './components/OverLayout';
+import CheckoutPage from './pages/CheckPage';
 
 const { Sider, Content } = AntLayout;
 const { useBreakpoint } = Grid;
@@ -107,7 +109,12 @@ export default function App() {
             <Route path="reward/coupon" element={<RewardCoupon />} />
             <Route path="stats/pageview"     element={<PageView />} />
             <Route path="stats/participation" element={<Participation />} />
-            <Route path="stats/environment"  element={<InflowEnvironment />} />
+            <Route path="stats/environment" element={<InflowEnvironment />} />
+            <Route path="payment" elemnet={<Payment />} />
+            <Route path="check" elemnet={ <CheckoutPage/>}/>
+            
+            <Route path="stats/environment" element={<InflowEnvironment />} />
+            
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
