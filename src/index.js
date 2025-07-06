@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import axios from 'axios';
+import '@fontsource/noto-sans-kr/400.css';  // Regular
+import '@fontsource/noto-sans-kr/500.css';  // Medium
+import '@fontsource/noto-sans-kr/700.css';  // Bold
+
 // 1) Antd v5 reset 스타일
 import 'antd/dist/reset.css';
 import { message, ConfigProvider } from 'antd';  // ← ConfigProvider 추가
@@ -27,7 +31,8 @@ root.render(
         token: {
          colorPrimary: '#fe6326',     // 기본
          colorPrimaryHover: '#FE753F', // 호버 (원본보다 약간 밝게)
-         colorPrimaryActive: '#FD500C',// 클릭(Active, 약간 어둡게)
+          colorPrimaryActive: '#FD500C',// 클릭(Active, 약간 어둡게)
+          fontFamily: `'Noto Sans KR', sans-serif`
         },
       }}
     >

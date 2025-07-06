@@ -15,12 +15,16 @@
   /* AntD dark 색상과 같게 */
 }
 
+
+:where(.css-dev-only-do-not-override-3kvbe2).ant-menu-dark,
+:where(.css-dev-only-do-not-override-3kvbe2).ant-menu-dark>.ant-menu{background:#000!important;}
 .sidebar-logo {
   max-height: 32px;
   max-width: 100%;
   margin-right: 8px;
 }
-
+.ant-menu-title-content{color:#fff!important;}
+.ant-table-cell a{color:#000!important;}
 .collapse-icon {
   font-size: 20px;
   color: #fff;
