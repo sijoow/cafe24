@@ -39,7 +39,16 @@ export default function EventEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const imgRef = useRef(null);
-
+  //텝삭제
+ const removeTab = idx => {
+   setTabs(prev => {
+     if (prev.length <= 2) {
+       message.warning('최소 2개의 탭은 남아있어야 합니다');
+       return prev;
+     }
+     return prev.filter((_, i) => i !== idx);
+   });
+ };
   // ── Steps & 기본 정보 ─────────────────────────────────────────
   const [current, setCurrent] = useState(0);
   const [docId, setDocId] = useState(null);
@@ -672,6 +681,12 @@ export default function EventEdit() {
                         </Option>
                       ))}
                   </Select>
+                  <Button
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    danger
+                    onClick={() => removeTab(i)}
+                  />
                 </Space>
               ))}
               <Button

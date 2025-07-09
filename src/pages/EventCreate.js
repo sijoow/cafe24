@@ -1,6 +1,7 @@
 // src/pages/EventCreate.js
 
 import React, { useState, useEffect, useRef } from 'react';
+import MorePrd from './MorePrd';
 import {
   Card,
   Steps,
@@ -14,14 +15,18 @@ import {
   Select,
   message,
   Tabs,
-  Tooltip,
   Tag,
   Grid
 } from 'antd';
-import { InboxOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  InboxOutlined,
+  DeleteOutlined,
+  PlusOutlined
+} from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import './EventCreate.css';
 
 const { Step } = Steps;
@@ -29,6 +34,7 @@ const { TabPane } = Tabs;
 const { useBreakpoint } = Grid;
 
 export default function EventCreate() {
+  
   const navigate = useNavigate();
   const [msgApi, msgCtx] = message.useMessage();
 
@@ -36,15 +42,27 @@ export default function EventCreate() {
     process.env.REACT_APP_API_BASE_URL ||
     'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
-  // ─── 반응형 브레이크포인트 ─────────────────────────────────────────────────
+  // 반응형
   const screens = useBreakpoint();
-  const isMobile = screens.sm === false; // sm 이하 모바일
+  const isMobile = screens.sm === false;
 
-  // ─── Wizard 단계 ───────────────────────────────────────────────────
+  //새로고침시 데이터 초기화
+  useEffect(() => {
+    // sessionStorage에 남아 있는 모든 키를 검사해서
+    // 'MorePrd_'로 시작하는 키는 모두 삭제합니다.
+    Object.keys(sessionStorage)
+      .filter(key => key.startsWith('MorePrd_'))
+      .forEach(key => sessionStorage.removeItem(key));
+  }, []); // 빈 deps 배열 → 컴포넌트 최초 마운트(즉, 페이지 로드 혹은 새로고침) 시 한 번만 실행
+
+
+  // Wizard 단계
   const [current, setCurrent] = useState(0);
   const titleRef = useRef(null);
   useEffect(() => {
-    if (current === 0) setTimeout(() => titleRef.current?.focus(), 0);
+    if (current === 0) {
+      setTimeout(() => titleRef.current?.focus(), 0);
+    }
   }, [current]);
   const next = () => {
     if (current === 0) {
@@ -53,25 +71,29 @@ export default function EventCreate() {
     } else if (current === 1 && images.length === 0) {
       msgApi.warning('이미지를 업로드하세요.');
     } else if (current === 2) {
-      if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
-      else if (!layoutType) msgApi.warning('노출 방식을 선택해주세요.');
-      else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.');
-      else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.');
-      else setCurrent(3);
+      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
+      else if (registerMode === 'category') {
+        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
+        else if (!layoutType) msgApi.warning('노출 방식을 선택해주세요.');
+        else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.');
+        else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.');
+        else setCurrent(3);
+      } else {
+        setCurrent(3);
+      }
     } else {
       setCurrent(c => c + 1);
     }
   };
   const prev = () => setCurrent(c => c - 1);
 
-  // ─── 1) 제목 ────────────────────────────────────────────────────────
+  // 1) 제목
   const [title, setTitle] = useState('');
 
-  // ─── 2) 이미지 & 매핑 ────────────────────────────────────────────────
+  // 2) 이미지 & 매핑
   const [images, setImages] = useState([]); // { id, src, file?, regions: [] }
   const [selectedId, setSelectedId] = useState(null);
   const imgRef = useRef(null);
-
   const uploadProps = {
     name: 'file',
     accept: 'image/*',
@@ -92,7 +114,6 @@ export default function EventCreate() {
       reader.readAsDataURL(file);
     },
   };
-
   const onDragEnd = result => {
     if (!result.destination) return;
     const a = Array.from(images);
@@ -100,7 +121,6 @@ export default function EventCreate() {
     a.splice(result.destination.index, 0, m);
     setImages(a);
   };
-
   const [mapForm] = Form.useForm();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState('link');
@@ -143,7 +163,6 @@ export default function EventCreate() {
     setDragStart(null);
     setDragCurrent(null);
   };
-
   const saveRegion = () => {
     if (!pendingRegion) return;
     const vals = mapForm.getFieldsValue();
@@ -173,7 +192,6 @@ export default function EventCreate() {
     setModalVisible(false);
     setPendingRegion(null);
   };
-
   const deleteRegion = () => {
     if (!pendingRegion) {
       setModalVisible(false);
@@ -192,7 +210,6 @@ export default function EventCreate() {
     setPendingRegion(null);
     setModalVisible(false);
   };
-
   const editRegion = region => {
     setPendingRegion(region);
     setModalMode(region.coupon ? 'coupon' : 'link');
@@ -204,7 +221,7 @@ export default function EventCreate() {
     setModalVisible(true);
   };
 
-  // ─── 3) 카테고리 & 레이아웃 ─────────────────────────────────────────
+  // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
     axios
@@ -213,32 +230,78 @@ export default function EventCreate() {
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, []);
 
-  const roots = allCats.filter(c => c.category_depth === 1);
-  const [gridSize, setGridSize] = useState(2);
-  const [layoutType, setLayoutType] = useState(null);
+  // move hooks for singleRoot/singleSub BEFORE using subs
   const [singleRoot, setSingleRoot] = useState(null);
-  const subs = allCats.filter(
-    c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot
-  );
   const [singleSub, setSingleSub] = useState(null);
 
+  const [gridSize, setGridSize]     = useState(2);
+  const [layoutType, setLayoutType] = useState(null);
+
+  // 1) 탭 배열 상태
   const [tabs, setTabs] = useState([
     { title: '', root: null, sub: null },
     { title: '', root: null, sub: null },
   ]);
+
   const [activeColor, setActiveColor] = useState('#1890ff');
-  const addTab = () =>
-    tabs.length < 4 && setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
-  const updateTab = (i, k, v) => {
+  // 2) 탭 추가 헬퍼 (세션 삭제 포함)
+  const addTab = () => {
+    if (tabs.length >= 4) return;
+    const newIndex = tabs.length;
+    // 새 탭 인덱스에 해당하는 저장소 비우기
+    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedKeys`);
+    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedDetails`);
+    // 탭 추가
+    setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
+  };
+  
+
+  // 3) 탭 수정 헬퍼 (updateTab)
+  const updateTab = (index, key, value) => {
     setTabs(ts => {
-      const a = [...ts];
-      a[i][k] = v;
-      if (k === 'root') a[i].sub = null;
-      return a;
+      const newTabs = [...ts];
+      newTabs[index] = {
+        ...newTabs[index],
+        [key]: value,
+        ...(key === 'root' ? { sub: null } : {}),
+      };
+      return newTabs;
     });
   };
+  
 
-  // ─── 쿠폰 목록 ───────────────────────────────────────────────────────
+  
+  
+  const roots = allCats.filter(c => c.category_depth === 1);
+  const subs  = allCats.filter(
+    c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot
+  );
+
+  // 3-1) 상품 등록 방식
+  const [registerMode, setRegisterMode]           = useState('category'); // 'category' | 'direct' | 'none'
+  const [directProducts, setDirectProducts]       = useState([]);         // 단품 직접 등록 상품번호
+  const [tabDirectProducts, setTabDirectProducts] = useState({});         // 탭별 직접 등록 { tabIdx: [번호,..] }
+  const [initialSelected, setInitialSelected] = useState([]);
+
+  // 3-2) MorePrd 모달 제어
+  const [morePrdVisible, setMorePrdVisible]       = useState(false);
+  const [morePrdTarget, setMorePrdTarget]         = useState('direct');   // 'direct' | 'tab'
+  const [morePrdTabIndex, setMorePrdTabIndex]     = useState(0);
+
+
+   // ★ openMorePrd 헬퍼: 모달 열기 직전에 initialSelected 갱신
+   const openMorePrd = (target, tabIndex = 0) => {
+     setMorePrdTarget(target);
+     if (target === 'direct') {
+      setInitialSelected(directProducts.map(p => p.product_no));
+     } else {
+      setInitialSelected((tabDirectProducts[tabIndex]||[]).map(p => p.product_no));
+     }
+     setMorePrdTabIndex(tabIndex);
+     setMorePrdVisible(true);
+   };
+
+  // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
     axios
@@ -253,14 +316,13 @@ export default function EventCreate() {
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
   }, []);
-
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
       {String(label).length > 6 ? String(label).slice(0, 6) + '…' : label}
     </Tag>
   );
 
-  // ─── 4) 미리보기 및 등록 ────────────────────────────────────────────
+  // 5) 최종 제출
   const handleSubmit = async () => {
     try {
       const uploaded = await Promise.all(
@@ -290,20 +352,29 @@ export default function EventCreate() {
             yRatio: r.yRatio,
             wRatio: r.wRatio,
             hRatio: r.hRatio,
-            href: r.href,
+            href:   r.href,
             coupon: r.coupon,
           })),
         })),
         gridSize,
         layoutType,
-        categoryRoot: layoutType === 'single' ? singleRoot : null,
-        categorySub: layoutType === 'single' ? singleSub : null,
-        classification:
-          layoutType === 'single'
+        classification: {
+          // 싱글 모드면 root/sub, 탭 모드면 tabs/activeColor
+          ...(layoutType === 'single'
             ? { root: singleRoot, sub: singleSub }
-            : { tabs, activeColor },
+            : { tabs, activeColor }),
+          // 등록 방식
+          registerMode,
+          // 단일 직접등록
+          ...(registerMode === 'direct' && layoutType === 'single'
+            ? { directProducts }
+            : {}),
+          // 탭별 직접등록
+          ...(registerMode === 'direct' && layoutType === 'tabs'
+            ? { tabDirectProducts }
+            : {}),
+        }
       };
-
       await axios.post(`${API_BASE}/api/events`, payload);
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list');
@@ -313,7 +384,6 @@ export default function EventCreate() {
     }
   };
 
-  // ─── 렌더링 ─────────────────────────────────────────────────────────
   return (
     <>
       {msgCtx}
@@ -338,7 +408,7 @@ export default function EventCreate() {
           <Step title="확인 & 등록" />
         </Steps>
 
-        {/* Step 1 */}
+        {/* Step 1: 제목 입력 */}
         {current === 0 && (
           <Input
             ref={titleRef}
@@ -348,7 +418,7 @@ export default function EventCreate() {
           />
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: 이미지 업로드 & 매핑 */}
         {current === 1 && (
           <>
             <Upload.Dragger
@@ -412,6 +482,7 @@ export default function EventCreate() {
 
                 <div
                   className="mapping-container"
+                  ref={imgRef}
                   onMouseDown={onMouseDown}
                   onMouseMove={onMouseMove}
                   onMouseUp={onMouseUp}
@@ -423,7 +494,6 @@ export default function EventCreate() {
                   }}
                 >
                   <img
-                    ref={imgRef}
                     src={selectedImage?.src}
                     alt=""
                     className="mapping-image"
@@ -496,95 +566,67 @@ export default function EventCreate() {
           </>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: 레이아웃 구성 & 상품 등록 방식 */}
         {current === 2 && (
           <>
-            <h4>1) 그리드 사이즈</h4>
-            <Space wrap style={{ gap: 8, marginBottom: 24 }}>
-              {[2, 3, 4].map(n => (
-                <Button
-                  key={n}
-                  block={isMobile}
-                  style={{ flex: isMobile ? 'none' : 1 }}
-                  type={gridSize === n ? 'primary' : 'default'}
-                  onClick={() => setGridSize(n)}
-                >
-                  {n}×{n}
-                </Button>
-              ))}
-            </Space>
-
-            <h4 style={{ marginBottom: 16 }}>2) 노출 방식</h4>
+            <h4>상품 등록 방식</h4>
             <Segmented
               options={[
-                { label: '단품상품', value: 'single' },
-                { label: '탭상품', value: 'tabs' },
-                { label: '노출안함', value: 'none' },
+                { label: '카테고리 상품 등록', value: 'category' },
+                { label: '직접 상품 등록',   value: 'direct'   },
+                { label: '노출안함',         value: 'none'     },
               ]}
-              value={layoutType}
-              onChange={val => {
-                setLayoutType(val);
-                setSingleRoot(null);
-                setSingleSub(null);
-                setTabs([
-                  { title: '', root: null, sub: null },
-                  { title: '', root: null, sub: null },
-                ]);
-                setActiveColor('#1890ff');
-              }}
+              value={registerMode}
+              onChange={setRegisterMode}
               block={isMobile}
+              style={{ marginBottom: 24 }}
             />
 
-            {layoutType === 'single' && (
-              <div style={{ marginTop: 24 }}>
-                <Select
-                  placeholder="대분류"
-                  style={{ width: '100%', maxWidth: 300, marginBottom: 16 }}
-                  value={singleRoot}
-                  onChange={setSingleRoot}
-                >
-                  {roots.map(r => (
-                    <Select.Option key={r.category_no} value={String(r.category_no)}>
-                      {r.category_name}
-                    </Select.Option>
+            {/* 카테고리 상품 등록 */}
+            {registerMode === 'category' && (
+              <>
+                <h4>1) 그리드 사이즈</h4>
+                <Space wrap style={{ gap: 8, marginBottom: 24 }}>
+                  {[2,3,4].map(n => (
+                    <Button
+                      key={n}
+                      block={isMobile}
+                      style={{ flex: isMobile ? 'none' : 1 }}
+                      type={gridSize === n ? 'primary' : 'default'}
+                      onClick={() => setGridSize(n)}
+                    >
+                      {n}×{n}
+                    </Button>
                   ))}
-                </Select>
-                {subs.length > 0 && (
-                  <Select
-                    placeholder="소분류"
-                    style={{ width: '100%', maxWidth: 300 }}
-                    value={singleSub}
-                    onChange={setSingleSub}
-                  >
-                    {subs.map(s => (
-                      <Select.Option key={s.category_no} value={String(s.category_no)}>
-                        {s.category_name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                )}
-              </div>
-            )}
+                </Space>
 
-            {layoutType === 'tabs' && (
-              <div style={{ marginTop: 24 }}>
-                {tabs.map((t, i) => (
-                  <Space
-                    key={i}
-                    direction={isMobile ? 'vertical' : 'horizontal'}
-                    style={{ marginBottom: 16, width: '100%', alignItems: 'center' }}
-                  >
-                    <Input
-                      placeholder={`탭 ${i + 1} 제목`}
-                      value={t.title}
-                      onChange={e => updateTab(i, 'title', e.target.value)}
-                      style={{ flex: 1 }}
-                    />
+                <h4 style={{ marginBottom: 16 }}>2) 노출 방식</h4>
+                <Segmented
+                  options={[
+                    { label: '단품상품', value: 'single' },
+                    { label: '탭상품',   value: 'tabs'   },
+                  ]}
+                  value={layoutType}
+                  onChange={val => {
+                    setLayoutType(val);
+                    setSingleRoot(null);
+                    setSingleSub(null);
+                    setTabs([
+                      { title:'', root:null, sub:null },
+                      { title:'', root:null, sub:null },
+                    ]);
+                    setActiveColor('#1890ff');
+                  }}
+                  block={isMobile}
+                />
+
+                {layoutType === 'single' && (
+                  <div style={{ marginTop: 24 }}>
                     <Select
                       placeholder="대분류"
-                      style={{ width: isMobile ? '100%' : 150 }}
-                      value={t.root}
-                      onChange={v => updateTab(i, 'root', v)}
+                      style={{ width: '100%', maxWidth: 300, marginBottom: 16 }}
+                      value={singleRoot}
+                      onChange={setSingleRoot}
                     >
                       {roots.map(r => (
                         <Select.Option key={r.category_no} value={String(r.category_no)}>
@@ -592,54 +634,196 @@ export default function EventCreate() {
                         </Select.Option>
                       ))}
                     </Select>
-                    <Select
-                      placeholder="소분류"
-                      style={{ width: isMobile ? '100%' : 150 }}
-                      value={t.sub}
-                      onChange={v => updateTab(i, 'sub', v)}
-                    >
-                      {allCats
-                        .filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root)
-                        .map(s => (
+                    {subs.length > 0 && (
+                      <Select
+                        placeholder="소분류"
+                        style={{ width: '100%', maxWidth: 300 }}
+                        value={singleSub}
+                        onChange={setSingleSub}
+                      >
+                        {subs.map(s => (
                           <Select.Option key={s.category_no} value={String(s.category_no)}>
                             {s.category_name}
                           </Select.Option>
                         ))}
-                    </Select>
-                    {tabs.length > 2 && (
-                      <DeleteOutlined onClick={() => setTabs(ts => ts.filter((_, ix) => ix !== i))} />
+                      </Select>
                     )}
-                  </Space>
-                ))}
-                <Button
-                  type="dashed"
-                  block
-                  onClick={addTab}
-                  disabled={tabs.length >= 4}
-                  style={{ marginBottom: 16 }}
-                >
-                  <PlusOutlined /> 탭 추가
-                </Button>
-                <Space style={{ alignItems: 'center', gap: 8 }}>
-                  <span>활성 탭 색:</span>
-                  <Input
-                    type="color"
-                    value={activeColor}
-                    onChange={e => setActiveColor(e.target.value)}
-                    style={{ width: 40, height: 32, padding: 0, border: 'none' }}
-                  />
-                  <span>{activeColor}</span>
+                  </div>
+                )}
+
+                {layoutType === 'tabs' && (
+                  <div style={{ marginTop: 24 }}>
+                    {tabs.map((t, i) => (
+                      <Space
+                        key={i}
+                        direction={isMobile ? 'vertical' : 'horizontal'}
+                        style={{ marginBottom: 16, width: '100%', alignItems: 'center' }}
+                      >
+                        <Input
+                          placeholder={`탭 ${i + 1} 제목`}
+                          value={t.title}
+                          onChange={e => updateTab(i, 'title', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <Select
+                          placeholder="대분류"
+                          style={{ width: isMobile ? '100%' : 150 }}
+                          value={t.root}
+                          onChange={v => updateTab(i, 'root', v)}
+                        >
+                          {roots.map(r => (
+                            <Select.Option key={r.category_no} value={String(r.category_no)}>
+                              {r.category_name}
+                            </Select.Option>
+                          ))}
+                        </Select>
+                        <Select
+                          placeholder="소분류"
+                          style={{ width: isMobile ? '100%' : 150 }}
+                          value={t.sub}
+                          onChange={v => updateTab(i, 'sub', v)}
+                        >
+                          {allCats
+                            .filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root)
+                            .map(s => (
+                              <Select.Option key={s.category_no} value={String(s.category_no)}>
+                                {s.category_name}
+                              </Select.Option>
+                            ))}
+                        </Select>
+                        {tabs.length >= 3 && (
+                          <DeleteOutlined
+                            onClick={() =>
+                              setTabs(ts => ts.filter((_, idx) => idx !== i))
+                            }
+                          />
+                        )}
+                      </Space>
+                    ))}
+                    <Button
+                      type="dashed"
+                      block
+                      onClick={addTab}
+                      disabled={tabs.length >= 4}
+                      style={{ marginBottom: 16 }}
+                    >
+                      + 탭 추가
+                    </Button>
+                    <Space style={{ alignItems: 'center', gap: 8 }}>
+                      <span>활성 탭 색:</span>
+                      <Input
+                        type="color"
+                        value={activeColor}
+                        onChange={e => setActiveColor(e.target.value)}
+                        style={{ width: 40, height: 32, padding: 0, border: 'none' }}
+                      />
+                      <span>{activeColor}</span>
+                    </Space>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 직접 상품 등록 */}
+            {registerMode === 'direct' && (
+              <>
+                <h4>1) 그리드 사이즈</h4>
+                <Space wrap style={{ gap: 8, marginBottom: 24 }}>
+                  {[2,3,4].map(n => (
+                    <Button
+                      key={n}
+                      block={isMobile}
+                      style={{ flex: isMobile ? 'none' : 1 }}
+                      type={gridSize === n ? 'primary' : 'default'}
+                      onClick={() => setGridSize(n)}
+                    >
+                      {n}×{n}
+                    </Button>
+                  ))}
                 </Space>
+
+                <h4 style={{ marginBottom: 16 }}>2) 노출 방식</h4>
+                <Segmented
+                  options={[
+                    { label: '단품상품', value: 'single' },
+                    { label: '탭상품',   value: 'tabs'   },
+                  ]}
+                  value={layoutType}
+                  onChange={val => {
+                    setLayoutType(val);
+                    setTabs([
+                          { title: '', root: null, sub: null },
+                          { title: '', root: null, sub: null },
+                        ]);
+                  }}
+                  block={isMobile}
+                />
+
+                {layoutType === 'single' && (
+                  <div style={{ marginTop: 24 }}>
+                    <Button
+                      type="dashed"
+                      block={isMobile}
+                      onClick={() => openMorePrd('direct')}
+                    >
+                      상품 직접 등록
+                    </Button>
+                  </div>
+                )}
+
+                {layoutType === 'tabs' && (
+                  <div style={{ marginTop: 24 }}>
+                    {tabs.map((t, i) => (
+                      <Space
+                        key={i}
+                        direction={isMobile ? 'vertical' : 'horizontal'}
+                        style={{ marginBottom: 16, width: '100%', alignItems: 'center' }}
+                      >
+                        <Input
+                          placeholder={`탭 ${i + 1} 제목`}
+                          value={t.title}
+                          onChange={e => updateTab(i, 'title', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <Button onClick={() => openMorePrd('tab', i)}>
+                          상품 직접 등록
+                        </Button>
+                        {tabs.length > 2 && (
+                          <DeleteOutlined
+                            onClick={() =>
+                              setTabs(ts => ts.filter((_, idx) => idx !== i))
+                            }
+                            style={{ color: '#fe6326', fontSize: 14, cursor: 'pointer' }}
+                          />
+                        )}
+                      </Space>
+                    ))}
+                    <Button
+                      type="dashed"
+                      block
+                      onClick={addTab}
+                      disabled={tabs.length >= 4}
+                    >
+                      탭 추가
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 노출안함 */}
+            {registerMode === 'none' && (
+              <div style={{ textAlign:'center', color:'#999', padding:'32px 0' }}>
+                상품을 노출하지 않습니다.
               </div>
             )}
           </>
         )}
 
-        {/* Step 4 */}
+        {/* Step 4: 미리보기 & 등록 */}
         {current === 3 && (
           <div style={{ marginTop: 24 }}>
             <h4>미리보기</h4>
-            {/* 이미지 미리보기 그리드 */}
             <div
               style={{
                 display: 'grid',
@@ -657,7 +841,6 @@ export default function EventCreate() {
               ))}
             </div>
 
-            {/* 레이아웃 미리보기 */}
             {layoutType === 'single' && (
               <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>
             )}
@@ -689,7 +872,7 @@ export default function EventCreate() {
           </div>
         )}
 
-        {/* 이전/다음 */}
+        {/* 이전/다음 버튼 */}
         <Space
           direction={isMobile ? 'vertical' : 'horizontal'}
           style={{ marginTop: 24, width: '100%', justifyContent: 'space-between' }}
@@ -744,6 +927,34 @@ export default function EventCreate() {
           </Form>
         </Modal>
       </Card>
+
+      {/* MorePrd 모달 */}
+      {morePrdVisible && (
+  <MorePrd
+        // key를 탭 인덱스까지 포함해서 리마운트 트리거
+        key={`${morePrdTarget}-${morePrdTabIndex}`}
+        visible={morePrdVisible}
+        target={morePrdTarget}
+        tabIndex={morePrdTabIndex}
+        initialSelected={
+          morePrdTarget === 'direct'
+            ? directProducts.map(p => p.product_no)
+            : (tabDirectProducts[morePrdTabIndex] || []).map(p => p.product_no)
+        }
+        onOk={selected => {
+          if (morePrdTarget === 'direct') {
+            setDirectProducts(selected);
+          } else {
+            setTabDirectProducts(prev => ({
+              ...prev,
+              [morePrdTabIndex]: selected
+            }));
+          }
+          setMorePrdVisible(false);
+        }}
+        onCancel={() => setMorePrdVisible(false)}
+      />
+    )}
     </>
   );
 }
