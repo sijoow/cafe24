@@ -111,7 +111,7 @@ export default function App() {
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="redirect" elemnet={ <Redirect/>}/>
+            <Route path="redirect" element={ <Redirect/>}/>
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
