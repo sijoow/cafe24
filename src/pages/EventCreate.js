@@ -14,27 +14,26 @@ import {
   Form,
   Select,
   message,
-  Tabs,
   Tag,
   Grid
 } from 'antd';
 import {
   InboxOutlined,
   DeleteOutlined,
-  PlusOutlined
+  PlusOutlined,
+  LinkOutlined,
+  TagOutlined,
+  BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import dayjs from 'dayjs';
 import './EventCreate.css';
 
 const { Step } = Steps;
-const { TabPane } = Tabs;
 const { useBreakpoint } = Grid;
 
 export default function EventCreate() {
-  
   const navigate = useNavigate();
   const [msgApi, msgCtx] = message.useMessage();
 
@@ -46,15 +45,12 @@ export default function EventCreate() {
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  //새로고침시 데이터 초기화
+  // 새로고침시 sessionStorage 초기화
   useEffect(() => {
-    // sessionStorage에 남아 있는 모든 키를 검사해서
-    // 'MorePrd_'로 시작하는 키는 모두 삭제합니다.
     Object.keys(sessionStorage)
       .filter(key => key.startsWith('MorePrd_'))
       .forEach(key => sessionStorage.removeItem(key));
-  }, []); // 빈 deps 배열 → 컴포넌트 최초 마운트(즉, 페이지 로드 혹은 새로고침) 시 한 번만 실행
-
+  }, []);
 
   // Wizard 단계
   const [current, setCurrent] = useState(0);
@@ -74,7 +70,7 @@ export default function EventCreate() {
       if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
       else if (registerMode === 'category') {
         if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
-        else if (!layoutType) msgApi.warning('노출 방식을 선택해주세요.');
+        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.');
         else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.');
         else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.');
         else setCurrent(3);
@@ -94,6 +90,7 @@ export default function EventCreate() {
   const [images, setImages] = useState([]); // { id, src, file?, regions: [] }
   const [selectedId, setSelectedId] = useState(null);
   const imgRef = useRef(null);
+
   const uploadProps = {
     name: 'file',
     accept: 'image/*',
@@ -114,6 +111,7 @@ export default function EventCreate() {
       reader.readAsDataURL(file);
     },
   };
+
   const onDragEnd = result => {
     if (!result.destination) return;
     const a = Array.from(images);
@@ -121,12 +119,15 @@ export default function EventCreate() {
     a.splice(result.destination.index, 0, m);
     setImages(a);
   };
-  const [mapForm] = Form.useForm();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState('link');
+
+  // 영역 매핑 상태
+  const [addingMode, setAddingMode] = useState(false);
+  const [addType, setAddType] = useState(null); // 'link' | 'coupon'
   const [pendingRegion, setPendingRegion] = useState(null);
   const [dragStartPos, setDragStart] = useState(null);
   const [dragCurrent, setDragCurrent] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
   const selectedImage = images.find(img => img.id === selectedId);
 
   const onMouseDown = e => {
@@ -157,25 +158,26 @@ export default function EventCreate() {
       wRatio: w / W,
       hRatio: h / H,
     });
-    setModalMode('link');
-    mapForm.resetFields();
     setModalVisible(true);
     setDragStart(null);
     setDragCurrent(null);
   };
+
+  const [mapForm] = Form.useForm();
+
   const saveRegion = () => {
     if (!pendingRegion) return;
     const vals = mapForm.getFieldsValue();
     let updated = { ...pendingRegion };
-    if (modalMode === 'link') {
+    if (addType === 'link') {
       let href = (vals.href || '').trim();
-      if (!href) return msgApi.error('URL을 입력하세요');
+      if (!href) return msgApi.error('URL을 입력하세요.');
       if (!/^https?:\/\//.test(href)) href = 'https://' + href;
       updated.href = href;
       delete updated.coupon;
     } else {
       const coupon = (vals.coupon || []).join(',');
-      if (!coupon) return msgApi.error('쿠폰을 선택하세요');
+      if (!coupon) return msgApi.error('쿠폰을 선택하세요.');
       updated.coupon = coupon;
       delete updated.href;
     }
@@ -192,6 +194,7 @@ export default function EventCreate() {
     setModalVisible(false);
     setPendingRegion(null);
   };
+
   const deleteRegion = () => {
     if (!pendingRegion) {
       setModalVisible(false);
@@ -210,9 +213,11 @@ export default function EventCreate() {
     setPendingRegion(null);
     setModalVisible(false);
   };
+
   const editRegion = region => {
+    setSelectedId(selectedId); // ensure image still selected
     setPendingRegion(region);
-    setModalMode(region.coupon ? 'coupon' : 'link');
+    setAddType(region.coupon ? 'coupon' : 'link');
     mapForm.setFieldsValue(
       region.coupon
         ? { coupon: region.coupon.split(',') }
@@ -230,76 +235,60 @@ export default function EventCreate() {
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, []);
 
-  // move hooks for singleRoot/singleSub BEFORE using subs
   const [singleRoot, setSingleRoot] = useState(null);
   const [singleSub, setSingleSub] = useState(null);
 
   const [gridSize, setGridSize]     = useState(2);
   const [layoutType, setLayoutType] = useState(null);
 
-  // 1) 탭 배열 상태
+  // 탭 상태
   const [tabs, setTabs] = useState([
     { title: '', root: null, sub: null },
     { title: '', root: null, sub: null },
   ]);
-
-  const [activeColor, setActiveColor] = useState('#1890ff');
-  // 2) 탭 추가 헬퍼 (세션 삭제 포함)
+  //탭상품 레이아웃 지정색상
+  const [activeColor, setActiveColor] = useState('#fe6326');
   const addTab = () => {
     if (tabs.length >= 4) return;
     const newIndex = tabs.length;
-    // 새 탭 인덱스에 해당하는 저장소 비우기
     sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedKeys`);
     sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedDetails`);
-    // 탭 추가
     setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
   };
-  
-
-  // 3) 탭 수정 헬퍼 (updateTab)
-  const updateTab = (index, key, value) => {
+  const updateTab = (i, key, val) => {
     setTabs(ts => {
-      const newTabs = [...ts];
-      newTabs[index] = {
-        ...newTabs[index],
-        [key]: value,
-        ...(key === 'root' ? { sub: null } : {}),
-      };
-      return newTabs;
+      const a = [...ts];
+      a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) };
+      return a;
     });
   };
-  
 
-  
-  
   const roots = allCats.filter(c => c.category_depth === 1);
   const subs  = allCats.filter(
     c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot
   );
 
   // 3-1) 상품 등록 방식
-  const [registerMode, setRegisterMode]           = useState('category'); // 'category' | 'direct' | 'none'
-  const [directProducts, setDirectProducts]       = useState([]);         // 단품 직접 등록 상품번호
-  const [tabDirectProducts, setTabDirectProducts] = useState({});         // 탭별 직접 등록 { tabIdx: [번호,..] }
-  const [initialSelected, setInitialSelected] = useState([]);
+  const [registerMode, setRegisterMode]           = useState('category'); 
+  const [directProducts, setDirectProducts]       = useState([]);         
+  const [tabDirectProducts, setTabDirectProducts] = useState({});         
+  const [initialSelected, setInitialSelected]     = useState([]);
 
-  // 3-2) MorePrd 모달 제어
-  const [morePrdVisible, setMorePrdVisible]       = useState(false);
-  const [morePrdTarget, setMorePrdTarget]         = useState('direct');   // 'direct' | 'tab'
-  const [morePrdTabIndex, setMorePrdTabIndex]     = useState(0);
+  // 3-2) MorePrd 모달
+  const [morePrdVisible, setMorePrdVisible]   = useState(false);
+  const [morePrdTarget, setMorePrdTarget]     = useState('direct');
+  const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
 
-
-   // ★ openMorePrd 헬퍼: 모달 열기 직전에 initialSelected 갱신
-   const openMorePrd = (target, tabIndex = 0) => {
-     setMorePrdTarget(target);
-     if (target === 'direct') {
+  const openMorePrd = (target, tabIndex = 0) => {
+    setMorePrdTarget(target);
+    if (target === 'direct') {
       setInitialSelected(directProducts.map(p => p.product_no));
-     } else {
+    } else {
       setInitialSelected((tabDirectProducts[tabIndex]||[]).map(p => p.product_no));
-     }
-     setMorePrdTabIndex(tabIndex);
-     setMorePrdVisible(true);
-   };
+    }
+    setMorePrdTabIndex(tabIndex);
+    setMorePrdVisible(true);
+  };
 
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
@@ -316,6 +305,7 @@ export default function EventCreate() {
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
   }, []);
+
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
       {String(label).length > 6 ? String(label).slice(0, 6) + '…' : label}
@@ -347,7 +337,7 @@ export default function EventCreate() {
           _id: img.id,
           src: img.src,
           regions: img.regions.map(r => ({
-            _id: r.id,
+            _id:    r.id,
             xRatio: r.xRatio,
             yRatio: r.yRatio,
             wRatio: r.wRatio,
@@ -359,17 +349,13 @@ export default function EventCreate() {
         gridSize,
         layoutType,
         classification: {
-          // 싱글 모드면 root/sub, 탭 모드면 tabs/activeColor
           ...(layoutType === 'single'
             ? { root: singleRoot, sub: singleSub }
             : { tabs, activeColor }),
-          // 등록 방식
           registerMode,
-          // 단일 직접등록
           ...(registerMode === 'direct' && layoutType === 'single'
             ? { directProducts }
             : {}),
-          // 탭별 직접등록
           ...(registerMode === 'direct' && layoutType === 'tabs'
             ? { tabDirectProducts }
             : {}),
@@ -404,7 +390,7 @@ export default function EventCreate() {
         >
           <Step title="제목 입력" />
           <Step title="이미지 업로드" />
-          <Step title="레이아웃 구성" />
+          <Step title="상품등록 방식 설정" />
           <Step title="확인 & 등록" />
         </Steps>
 
@@ -429,11 +415,41 @@ export default function EventCreate() {
                 padding: isMobile ? 12 : 24,
               }}
             >
-              <p>
-                <InboxOutlined style={{ fontSize: 24 }} />
-              </p>
+              <p><InboxOutlined style={{ fontSize: 24 }} /></p>
               <p>이미지를 드래그 또는 클릭하여 업로드</p>
             </Upload.Dragger>
+
+            {/* URL/쿠폰 추가 버튼 */}
+            <Space style={{ margin: '12px 0' }}>
+              <Button
+                icon={<LinkOutlined />}
+                type={addingMode && addType==='link' ? 'primary' : 'default'}
+                onClick={() => {
+                  if (!selectedImage) {
+                    msgApi.warning('이미지를 선택한 후 추가 가능합니다.');
+                    return;
+                  }
+                  setAddType('link');
+                  setAddingMode(true);
+                }}
+              >
+                URL 추가
+              </Button>
+              <Button
+                icon={<TagOutlined />}
+                type={addingMode && addType==='coupon' ? 'primary' : 'default'}
+                onClick={() => {
+                  if (!selectedImage) {
+                    msgApi.warning('이미지를 선택한 후 추가 가능합니다.');
+                    return;
+                  }
+                  setAddType('coupon');
+                  setAddingMode(true);
+                }}
+              >
+                쿠폰 추가
+              </Button>
+            </Space>
 
             {images.length > 0 && (
               <>
@@ -483,14 +499,15 @@ export default function EventCreate() {
                 <div
                   className="mapping-container"
                   ref={imgRef}
-                  onMouseDown={onMouseDown}
-                  onMouseMove={onMouseMove}
-                  onMouseUp={onMouseUp}
+                  onMouseDown={addingMode ? onMouseDown : undefined}
+                  onMouseMove={addingMode ? onMouseMove : undefined}
+                  onMouseUp={addingMode ? onMouseUp : undefined}
                   style={{
                     position: 'relative',
                     width: '100%',
                     height: '100%',
                     marginTop: 16,
+                    cursor: addingMode ? 'crosshair' : 'default',
                   }}
                 >
                   <img
@@ -505,6 +522,7 @@ export default function EventCreate() {
                     }}
                     draggable={false}
                   />
+
                   {dragStartPos && dragCurrent && (
                     <div
                       className="drag-box"
@@ -519,6 +537,7 @@ export default function EventCreate() {
                       }}
                     />
                   )}
+
                   {selectedImage?.regions.map(r => {
                     const base = {
                       position: 'absolute',
@@ -615,7 +634,7 @@ export default function EventCreate() {
                       { title:'', root:null, sub:null },
                       { title:'', root:null, sub:null },
                     ]);
-                    setActiveColor('#1890ff');
+                    setActiveColor('#fe6326');
                   }}
                   block={isMobile}
                 />
@@ -696,6 +715,7 @@ export default function EventCreate() {
                             onClick={() =>
                               setTabs(ts => ts.filter((_, idx) => idx !== i))
                             }
+                            style={{ color: activeColor, fontSize: 14, cursor: 'pointer' }}
                           />
                         )}
                       </Space>
@@ -752,9 +772,9 @@ export default function EventCreate() {
                   onChange={val => {
                     setLayoutType(val);
                     setTabs([
-                          { title: '', root: null, sub: null },
-                          { title: '', root: null, sub: null },
-                        ]);
+                      { title: '', root: null, sub: null },
+                      { title: '', root: null, sub: null },
+                    ]);
                   }}
                   block={isMobile}
                 />
@@ -762,11 +782,13 @@ export default function EventCreate() {
                 {layoutType === 'single' && (
                   <div style={{ marginTop: 24 }}>
                     <Button
-                      type="dashed"
                       block={isMobile}
+                      type={directProducts.length > 0 ? 'primary' : 'dashed'}
                       onClick={() => openMorePrd('direct')}
                     >
-                      상품 직접 등록
+                      {directProducts.length > 0
+                        ? `상품 ${directProducts.length}개 등록됨`
+                        : '상품 직접 등록'}
                     </Button>
                   </div>
                 )}
@@ -785,8 +807,13 @@ export default function EventCreate() {
                           onChange={e => updateTab(i, 'title', e.target.value)}
                           style={{ flex: 1 }}
                         />
-                        <Button onClick={() => openMorePrd('tab', i)}>
-                          상품 직접 등록
+                        <Button
+                          type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'}
+                          onClick={() => openMorePrd('tab', i)}
+                        >
+                          {(tabDirectProducts[i] || []).length > 0
+                            ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨`
+                            : '상품 직접 등록'}
                         </Button>
                         {tabs.length > 2 && (
                           <DeleteOutlined
@@ -806,6 +833,17 @@ export default function EventCreate() {
                     >
                       탭 추가
                     </Button>
+                    {/* 탭 색상 선택 UI 추가 */}
+                    <Space style={{ marginTop: 16, alignItems: 'center', gap: 8 }}>
+                      <span>활성 탭 색:</span>
+                      <Input
+                        type="color"
+                        value={activeColor}
+                        onChange={e => setActiveColor(e.target.value)}
+                        style={{ width: 40, height: 32, padding: 0, border: 'none' }}
+                      />
+                      <span>{activeColor}</span>
+                    </Space>                   
                   </div>
                 )}
               </>
@@ -813,7 +851,7 @@ export default function EventCreate() {
 
             {/* 노출안함 */}
             {registerMode === 'none' && (
-              <div style={{ textAlign:'center', color:'#999', padding:'32px 0' }}>
+              <div style={{ textAlign:'left', color:'#fe6326', padding:'5px 5px' }}>
                 상품을 노출하지 않습니다.
               </div>
             )}
@@ -827,7 +865,8 @@ export default function EventCreate() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : `repeat(${gridSize}, 1fr)`,
+                maxWidth:'800px',
+                margin:'0 auto',
                 gap: 16,
               }}
             >
@@ -845,7 +884,7 @@ export default function EventCreate() {
               <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>
             )}
             {layoutType === 'tabs' && (
-              <div style={{ marginTop: 24 }}>
+              <div style={{ margin:'24px auto' ,maxWidth:800}}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   {tabs.map((t, i) => (
                     <Button
@@ -881,17 +920,25 @@ export default function EventCreate() {
           {current < 3 && <Button type="primary" onClick={next} block={isMobile}>다음</Button>}
         </Space>
 
-        {/* 영역 설정 모달 */}
+        {/* 5) 영역 설정 모달 */}
         <Modal
           open={modalVisible}
-          title="영역 설정"
+          title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'}
           onCancel={() => {
             setModalVisible(false);
             setPendingRegion(null);
+            setAddingMode(false);
           }}
           footer={[
             pendingRegion && (
-              <Button key="delete" danger onClick={deleteRegion}>
+              <Button
+                key="delete"
+                danger
+                onClick={() => {
+                  deleteRegion();
+                  setAddingMode(false);
+                }}
+              >
                 삭제
               </Button>
             ),
@@ -900,28 +947,45 @@ export default function EventCreate() {
               onClick={() => {
                 setModalVisible(false);
                 setPendingRegion(null);
+                setAddingMode(false);
               }}
             >
               취소
             </Button>,
-            <Button key="ok" type="primary" onClick={saveRegion}>
+            <Button
+              key="ok"
+              type="primary"
+              onClick={() => {
+                saveRegion();
+                setAddingMode(false);
+              }}
+            >
               확인
             </Button>,
           ]}
           width={isMobile ? '90%' : 600}
         >
-          <Tabs activeKey={modalMode} onChange={setModalMode}>
-            <TabPane key="link" tab="영역 링크" disabled={!!pendingRegion?.coupon} />
-            <TabPane key="coupon" tab="쿠폰 설정" disabled={!!pendingRegion?.href} />
-          </Tabs>
           <Form form={mapForm} layout="vertical">
-            {modalMode === 'link' ? (
-              <Form.Item name="href" label="URL" rules={[{ required: true }]}>
-                <Input placeholder="https://..." />
+            {addType === 'link' ? (
+              <Form.Item
+                name="href"
+                label="URL"
+                rules={[{ required: true, message: 'URL을 입력해주세요.' }]}
+              >
+                <Input placeholder="https://example.com" />
               </Form.Item>
             ) : (
-              <Form.Item name="coupon" label="쿠폰 선택" rules={[{ required: true }]}>
-                <Select mode="multiple" options={couponOptions} tagRender={tagRender} />
+              <Form.Item
+                name="coupon"
+                label="쿠폰 선택"
+                rules={[{ required: true, message: '쿠폰을 선택해주세요.' }]}
+              >
+                <Select
+                  mode="multiple"
+                  options={couponOptions}
+                  tagRender={tagRender}
+                  placeholder="쿠폰을 선택하세요"
+                />
               </Form.Item>
             )}
           </Form>
@@ -930,31 +994,29 @@ export default function EventCreate() {
 
       {/* MorePrd 모달 */}
       {morePrdVisible && (
-  <MorePrd
-        // key를 탭 인덱스까지 포함해서 리마운트 트리거
-        key={`${morePrdTarget}-${morePrdTabIndex}`}
-        visible={morePrdVisible}
-        target={morePrdTarget}
-        tabIndex={morePrdTabIndex}
-        initialSelected={
-          morePrdTarget === 'direct'
+        <MorePrd
+          key={`${morePrdTarget}-${morePrdTabIndex}`}
+          visible={morePrdVisible}
+          target={morePrdTarget}
+          tabIndex={morePrdTabIndex}
+          initialSelected={morePrdTarget === 'direct'
             ? directProducts.map(p => p.product_no)
             : (tabDirectProducts[morePrdTabIndex] || []).map(p => p.product_no)
-        }
-        onOk={selected => {
-          if (morePrdTarget === 'direct') {
-            setDirectProducts(selected);
-          } else {
-            setTabDirectProducts(prev => ({
-              ...prev,
-              [morePrdTabIndex]: selected
-            }));
           }
-          setMorePrdVisible(false);
-        }}
-        onCancel={() => setMorePrdVisible(false)}
-      />
-    )}
+          onOk={selected => {
+            if (morePrdTarget === 'direct') {
+              setDirectProducts(selected);
+            } else {
+              setTabDirectProducts(prev => ({
+                ...prev,
+                [morePrdTabIndex]: selected
+              }));
+            }
+            setMorePrdVisible(false);
+          }}
+          onCancel={() => setMorePrdVisible(false)}
+        />
+      )}
     </>
   );
 }
@@ -971,22 +1033,23 @@ function renderGrid(cols) {
         margin: '24px auto',
       }}
     >
-      {Array.from({ length: cols * cols }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            height: 120,
-            background: '#f0f0f0',
-            borderRadius: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#999',
-          }}
-        >
-          상품
-        </div>
-      ))}
+    {Array.from({ length: cols * cols }).map((_, i) => (
+      <div
+        key={i}
+        style={{
+          height: 120,
+          background: '#f0f0f0',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#999',
+        }}
+      >
+        {/* 텍스트 대신 아이콘 */}
+        <BlockOutlined  style={{ fontSize: 30}} />
+      </div>
+    ))}
     </div>
   );
 }

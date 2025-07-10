@@ -63,9 +63,10 @@ export default function EventDetail() {
     gridSize,
     classification = {},
     images = [],
-    directProducts = [],      // 직접 등록 상품 번호 배열
   } = event;
-
+  // 단품 직접등록 상품 목록은 classification 안에 들어있습니다.
+  const directProducts = classification.directProducts || [];
+  
   const activeColor = classification.activeColor || '#1890ff';
   const tabs = classification.tabs || [];
   const singleRoot = classification.root;
