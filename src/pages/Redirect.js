@@ -8,19 +8,22 @@ export default function Redirect() {
   const navigate = useNavigate();
   const [message, setMessage] = useState('인증 처리 중입니다…');
 
+  // env 파일에서 불러온 API 기본 URL
+  const API_BASE = process.env.REACT_APP_API_BASE_URL
+  ? process.env.REACT_APP_API_BASE_URL.replace(/\/+$/, '')
+  : 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const code   = params.get('code');
-    const state  = params.get('state'); // 필요 시 사용
-
-    if (!code) {
-      setMessage('인증 코드가 없습니다.');
+    const code = params.get('code');
+    const shop = params.get('shop');
+    if (!code || !shop) {
+      setMessage('code 또는 shop 파라미터가 없습니다.');
       return;
     }
 
-    // 백엔드에 토큰 교환 요청
     axios
-      .get('/api/oauth/callback', { params: { code, state } })
+      .get(`${API_BASE}/redirect`, { params: { code, shop } })
       .then(() => {
         setMessage('인증에 성공했습니다! 곧 이동합니다…');
         setTimeout(() => navigate('/admin'), 1500);
