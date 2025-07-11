@@ -25,6 +25,9 @@ export default function Redirect() {
 
     axios.get(`${API_BASE}/redirect`, { params: { code, shop } })
       .then(() => {
+        // 인증에 성공한 shop(=mallId)를 저장
+        localStorage.setItem('shop', shop);
+
         setMsg('인증에 성공했습니다! 1.5초 후 관리자 페이지로 이동합니다.');
         setTimeout(() => navigate('/admin'), 1500);
       })
