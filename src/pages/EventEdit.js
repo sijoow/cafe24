@@ -288,11 +288,10 @@ export default function EventEdit() {
       message.error('이미지 삭제 실패');
     }
   };
-
-  // ── 저장 ───────────────────────────────────────────────────────
+  // ── 싱픔 수정데이터 저장 ───────────────────────────────────────────────────────
   const handleSave = async () => {
     try {
-      // ① 파일 업로드
+      // ① 파일 업로드 (미리보기 → 실제 URL 교체)
       const uploaded = await Promise.all(
         images.map(async img => {
           if (img.file) {
@@ -305,21 +304,48 @@ export default function EventEdit() {
         })
       );
 
-      // ② 나머지 payload 구성 & 전송
+      // ② payload 구성 & 전송
       const payload = {
-        // ...다른 필드들
+        title,        // 제목
+        gridSize,     // 그리드 사이즈
+        layoutType,   // single | tabs
+        classification: {
+          registerMode,  // category | direct | none
+
+          // 카테고리 등록일 때
+          ...(registerMode === 'category' && {
+            root: singleRoot,
+            sub: singleSub,
+          }),
+
+          // 직접 등록(single)일 때
+          ...(registerMode === 'direct' && layoutType === 'single' && {
+            directProducts,
+          }),
+
+          // 직접 등록(tabs)일 때
+          ...(registerMode === 'direct' && layoutType === 'tabs' && {
+            tabDirectProducts,
+            tabs,
+            activeColor,
+          }),
+        },
+
         images: uploaded.map(img => ({
           _id: img.id,
           src: img.src,
           regions: img.regions.map(r => ({
             _id: r.id,
-            xRatio: r.xRatio, yRatio: r.yRatio,
-            wRatio: r.wRatio, hRatio: r.hRatio,
-            href: r.href, coupon: r.coupon
-          }))
+            xRatio: r.xRatio,
+            yRatio: r.yRatio,
+            wRatio: r.wRatio,
+            hRatio: r.hRatio,
+            href: r.href,
+            coupon: r.coupon,
+          })),
         })),
-        // ...
       };
+
       await axios.put(`/api/events/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
