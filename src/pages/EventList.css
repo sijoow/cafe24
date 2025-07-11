@@ -1,0 +1,11 @@
+/* src/pages/EventList.css (선택) */
+
+.ant-card {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.ant-table {
+  /* 필요시 스타일 커스터마이징 */
+}
+
