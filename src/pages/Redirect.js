@@ -8,7 +8,6 @@ export default function Redirect() {
   const navigate = useNavigate();
   const [message, setMessage] = useState('인증 처리 중입니다…');
 
-<<<<<<< HEAD
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code   = params.get('code');
@@ -31,8 +30,6 @@ export default function Redirect() {
         setMessage('인증에 실패했습니다. 다시 시도해주세요.');
       });
   }, [location.search, navigate]);
-=======
->>>>>>> f05e3d03574a190f9c5b7d1c3f039c1681900d81
 
   return (
     <div style={{ padding: 20, textAlign: 'center' }}>
