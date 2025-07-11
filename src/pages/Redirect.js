@@ -16,7 +16,7 @@ export default function Redirect() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
-    const shop = params.get('shop');
+    const shop = params.get('shop') || params.get('mall_id');
     if (!code || !shop) {
       setMessage('code 또는 shop 파라미터가 없습니다.');
       return;
