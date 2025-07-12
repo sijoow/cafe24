@@ -9,7 +9,7 @@ export default function Redirect() {
   const [msg, setMsg] = useState('인증 처리 중입니다…');
 
   // API 기본 URL (맨 끝 슬래시 제거)
-  const API_BASE = (process.env.REACT_APP_API_BASE_URL || 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app')
+  const API_BASE = (process.env.REACT_APP_API_BASE_URL || 'https://onimon.shop')
     .replace(/\/+$/, '');
 
   useEffect(() => {
