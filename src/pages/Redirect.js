@@ -25,7 +25,7 @@ export default function Redirect() {
     }
 
     // OAuth 콜백 처리
-    axios.get(`${API_BASE}/redirect`, { params: { code, shop } })
+    axios.get(`${API_BASE}/api/redirect`, { params: { code, shop } })
       .then(() => {
         localStorage.setItem('shop', shop);
         setMsg('인증에 성공했습니다! 관리자 페이지로 이동합니다…');
