@@ -20,7 +20,7 @@ export default function Redirect() {
     // code/shop 없으면 바로 /admin 으로
     if (!code || !shop) {
       setMsg('잘못된 접근입니다. 관리자 페이지로 이동합니다…');
-      //setTimeout(() => navigate('/admin'), 1500);
+      setTimeout(() => navigate('/admin'), 1500);
       return;
     }
 
