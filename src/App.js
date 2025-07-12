@@ -53,7 +53,7 @@ export default function App() {
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
-          <Route path="admin"  element={<Admin/>} />
+          <Route path="admin" element={<Admin    />} />
           
           <Route path="*" element={<Dashboard />} />
         </Routes>
@@ -113,7 +113,8 @@ export default function App() {
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="redirect" element={ <Redirect/>}/>
+            <Route path="redirect" element={<Redirect />} />
+            <Route path="admin" element={<Admin    />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
