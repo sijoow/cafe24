@@ -7,20 +7,21 @@ export default function RedirectHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const installed = qs.get('installed');
-    const shop      = qs.get('shop');
-    const error     = qs.get('error_description');
     const returnedState = qs.get('state');
-    const savedState   = sessionStorage.getItem('oauth_state');
+    const savedState    = sessionStorage.getItem('oauth_state');
+    sessionStorage.removeItem('oauth_state');  // 1회용
 
-    // 1) state 검증
+    // 1) CSRF state 검증
     if (returnedState !== savedState) {
       alert('Invalid state. CSRF 검사에 실패했습니다.');
       return navigate('/', { replace: true });
     }
-    sessionStorage.removeItem('oauth_state');
 
-    // 2) 처리
+    // 2) 설치 성공/실패 처리
+    const installed = qs.get('installed');
+    const shop      = qs.get('shop');
+    const error     = qs.get('error_description');
+
     if (installed === 'true' && shop) {
       alert(`${shop} 쇼핑몰에 앱 설치가 완료되었습니다!`);
     } else {
