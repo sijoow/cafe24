@@ -6,7 +6,7 @@ import { Routes, Route } from 'react-router-dom';
 
 import Sidebar   from './components/Sidebar';
 import AppHeader from './components/AppHeader';
-import EventDetail from './pages/EventDetai';
+import EventDetail from './pages/EventDetail';
 import EventEdit    from './pages/EventEdit';   // ← 이 줄
 
 // 각 페이지 컴포넌트
