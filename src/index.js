@@ -19,7 +19,7 @@ message.config({
 });
 
 axios.defaults.baseURL =
-  process.env.REACT_APP_API_BASE_URL ||
+  process.env.REACT_APP_API_BASE ||
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 // 3) 렌더링 — BrowserRouter 한 번만 감싸 주세요

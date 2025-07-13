@@ -5,27 +5,29 @@ import { useSearchParams } from 'react-router-dom';
 export default function Authorize() {
   const [qs] = useSearchParams();
   const shop = qs.get('shop');
-  
+
   useEffect(() => {
     if (!shop) return;
-    
-    const clientId    = 'WRIVy34WDJHhUJfG3aY5SF'
-    const redirectUri = 'https://onimon.shop/redirect'
-    const scope       = encodeURIComponent('mall.read_category,mall.read_product,mall.read_analytics');
-    // 진짜 랜덤 state
-    const state = Math.random().toString(36).substr(2) + Date.now().toString(36);
-    sessionStorage.setItem('oauth_state', state);
 
+    const clientId    = process.env.REACT_APP_CAFE24_CLIENT_ID;
+    const redirectUri = encodeURIComponent(process.env.REACT_APP_REDIRECT_URI);
+    const scope       = encodeURIComponent('mall.read_category,mall.read_product,mall.read_analytics');
+
+    // CSRF용 state는 서버에서 관리하므로 여기는 고정 플로우
     const url =
       `https://${shop}.cafe24api.com/api/v2/oauth/authorize` +
       `?response_type=code` +
       `&client_id=${clientId}` +
       `&redirect_uri=${redirectUri}` +
       `&scope=${scope}` +
-      `&state=${state}`;
+      `&state=app_install`;  // 서버가 이 state를 검증합니다
 
     window.location.replace(url);
-  }, [qs]);
-  
-  return <p>카페24 인증 화면으로 이동 중…</p>;
+  }, [shop]);
+
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <p>카페24 인증 페이지로 이동 중…</p>
+    </div>
+  );
 }

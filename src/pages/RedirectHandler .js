@@ -1,3 +1,4 @@
+// src/pages/RedirectHandler.jsx
 import React, { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
@@ -6,8 +7,7 @@ export default function RedirectHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('🔔 redirect params:', Object.fromEntries(qs.entries()));
-
+    console.log('🔔 Redirect params:', Object.fromEntries(qs.entries()));
     const installed = qs.get('installed');
     const shop      = qs.get('shop');
     const error     = qs.get('error_description');
