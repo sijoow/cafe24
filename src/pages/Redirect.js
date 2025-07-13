@@ -1,32 +1,15 @@
-// src/pages/RedirectHandler.jsx
-import React, { useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+// src/pages/Redirect.jsx
+import React, { useEffect, useState } from 'react';
 
-export default function RedirectHandler() {
-  const [qs]     = useSearchParams();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // 쿼리 파라미터 확인
-    console.log('🔔 Redirect params:', Object.fromEntries(qs.entries()));
-
-    const installed = qs.get('installed');
-    const shop      = qs.get('shop');
-    const error     = qs.get('error_description');
-
-    if (installed === 'true' && shop) {
-      alert(`${shop} 쇼핑몰에 앱 설치가 완료되었습니다!`);
-    } else {
-      alert(`앱 설치에 실패했습니다:\n${error || 'Unknown error'}`);
-    }
-
-    // 홈으로 되돌아가기
-    navigate('/', { replace: true });
-  }, [qs, navigate]);
+export default function Redirect() {
 
   return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <p>앱 설치 처리 중… 잠시만 기다려 주세요.</p>
+    <div style={{ padding: 20, textAlign: 'center' }}>
+      <h2>OAuth 인증 콜백</h2>
+      
     </div>
   );
 }
+
+
+
