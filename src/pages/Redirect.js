@@ -10,20 +10,28 @@ export default function RedirectHandler() {
     const installed = qs.get('installed');
     const shop      = qs.get('shop');
     const error     = qs.get('error_description');
+    const returnedState = qs.get('state');
+    const savedState   = sessionStorage.getItem('oauth_state');
 
+    // 1) state 검증
+    if (returnedState !== savedState) {
+      alert('Invalid state. CSRF 검사에 실패했습니다.');
+      return navigate('/', { replace: true });
+    }
+    sessionStorage.removeItem('oauth_state');
+
+    // 2) 처리
     if (installed === 'true' && shop) {
       alert(`${shop} 쇼핑몰에 앱 설치가 완료되었습니다!`);
-      // 홈으로 돌아가면서 쿼리는 지워버리기
-      navigate('/', { replace: true });
     } else {
       alert(`앱 설치에 실패했습니다:\n${error || 'Unknown error'}`);
-      navigate('/', { replace: true });
     }
+    navigate('/', { replace: true });
   }, [qs, navigate]);
 
   return (
     <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <p>앱 설치 중...</p>
+      <p>앱 설치 중… 잠시만 기다려 주세요.</p>
     </div>
   );
 }
