@@ -38,13 +38,13 @@ export default function App() {
           <Route path=":mallId/event/list"   element={<EventList />} />
           <Route path=":mallId/event/detail/:id" element={<EventDetail />} />
           <Route path=":mallId/event/edit/:id"   element={<EventEdit />} />
-          <Route path=":mallId/event/create"     element={<EventCreate />} />
-
-          <Route path="reward/coupon"    element={<RewardCoupon />} />
-          <Route path="stats/pageview"     element={<PageView />} />
-          <Route path="stats/participation" element={<Participation />} />
-          <Route path="stats/environment"   element={<InflowEnvironment />} />
-          <Route path="redirect"         element={<Redirect />} />
+          <Route path=":mallId/event/create" element={<EventCreate />} />
+          
+            <Route path=":mallId/reward/coupon"   element={<RewardCoupon />} />
+            <Route path=":mallId/stats/pageview"       element={<PageView />} />
+            <Route path=":mallId/stats/participation"  element={<Participation />} />
+            <Route path=":mallId/stats/environment"    element={<InflowEnvironment />} />
+            <Route path=":mallId/auth/callback" element={<Redirect />} />
           <Route path="admin"            element={<Admin />} />
 
           <Route path="*" element={<Dashboard />} />
@@ -85,12 +85,12 @@ export default function App() {
             <Route path=":mallId/event/edit/:id"   element={<EventEdit />} />
             <Route path=":mallId/event/create"     element={<EventCreate />} />
 
-            <Route path="reward/coupon"    element={<RewardCoupon />} />
-            <Route path="stats/pageview"     element={<PageView />} />
-            <Route path="stats/participation" element={<Participation />} />
-            <Route path="stats/environment"   element={<InflowEnvironment />} />
+            <Route path=":mallId/reward/coupon"   element={<RewardCoupon />} />
+            <Route path=":mallId/stats/pageview"       element={<PageView />} />
+            <Route path=":mallId/stats/participation"  element={<Participation />} />
+            <Route path=":mallId/stats/environment"    element={<InflowEnvironment />} />
 
-            <Route path="/auth/callback" element={<Redirect />} />
+            <Route path=":mallId/auth/callback" element={<Redirect />} />
             <Route path="admin"         element={<Admin />} />
 
             <Route path="*" element={<Dashboard />} />
