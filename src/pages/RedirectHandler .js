@@ -6,6 +6,7 @@ export default function RedirectHandler() {
   const [qs] = useSearchParams();
   const navigate = useNavigate();
 
+  useEffect(() => {
     const installed = qs.get('installed');
     const shop      = qs.get('shop');
     const error     = qs.get('error_description');
@@ -15,8 +16,10 @@ export default function RedirectHandler() {
     } else {
       alert(`앱 설치에 실패했습니다:\n${error || 'Unknown error'}`);
     }
-    navigate('/', { replace: true });
 
+    // alert 다음에 이동
+    navigate('/', { replace: true });
+  }, [qs, navigate]);
 
   return (
     <div style={{ padding: '2rem', textAlign: 'center' }}>
