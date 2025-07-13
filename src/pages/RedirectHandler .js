@@ -1,12 +1,13 @@
-// src/pages/RedirectHandler.jsx
 import React, { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export default function RedirectHandler() {
-  const [qs] = useSearchParams();
+  const [qs]     = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('🔔 redirect params:', Object.fromEntries(qs.entries()));
+
     const installed = qs.get('installed');
     const shop      = qs.get('shop');
     const error     = qs.get('error_description');
@@ -16,8 +17,6 @@ export default function RedirectHandler() {
     } else {
       alert(`앱 설치에 실패했습니다:\n${error || 'Unknown error'}`);
     }
-
-    // alert 다음에 이동
     navigate('/', { replace: true });
   }, [qs, navigate]);
 
