@@ -26,8 +26,7 @@ import OverlayLayout from './components/OverLayout';
 //리다이렉트 페이지
 import Redirect from './pages/Redirect'
 import Admin from './pages/Admin';
-import Authorize from './pages/Authorize';
-import RedirectHandler     from './pages/RedirectHandler ';
+
 
 
 const { Sider, Content } = AntLayout;
@@ -58,8 +57,6 @@ export default function App() {
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
           <Route path="admin" element={<Admin    />} />
-          <Route path="authorize" element={<Authorize     />} />
-          <Route path="redirectHandler" element={<RedirectHandler  />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
@@ -118,10 +115,9 @@ export default function App() {
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="redirect" element={<Redirect />} />
+            <Route path="/auth/callback" element={<Redirect />} />
             <Route path="admin" element={<Admin />} />
-            <Route path="authorize" element={<Authorize />} />
-            <Route path="redirectHandler " element={<RedirectHandler  />} />
+
             
             <Route path="*" element={<Dashboard />} />
           </Routes>
