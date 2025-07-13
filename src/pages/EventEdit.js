@@ -40,7 +40,7 @@ const { Step } = Steps;
 const { Option } = Select;
 
 export default function EventEdit() {
-  const { id } = useParams();
+  const { mallId, id } = useParams();
   const navigate = useNavigate();
   const imgRef = useRef(null);
 
@@ -110,7 +110,7 @@ export default function EventEdit() {
     axios.get('/api/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => message.error('카테고리 로드 실패'));
-    axios.get('/api/coupons')
+    axios.get(`/api/${mallId}/coupons`)
       .then(res => setCouponOptions(
         res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)` }))
       ))
@@ -279,7 +279,7 @@ export default function EventEdit() {
       return message.success('이미지 삭제 완료');
     }
     try {
-      await axios.delete(`/api/events/${id}/images/${imageId}`);
+      await axios.delete(`/api/${mallId}/events/${id}/images/${imageId}`);
       setImages(imgs => imgs.filter((_, i) => i !== idx));
       setSelectedIdx(0);
       message.success('이미지 삭제 완료');
@@ -297,7 +297,7 @@ export default function EventEdit() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await axios.post('/api/uploads/image', form);
+            const { data } = await axios.post(`/api/${mallId}/uploads/image`, form);
             return { ...img, src: data.url, file: undefined };
           }
           return img;
@@ -346,7 +346,7 @@ export default function EventEdit() {
         })),
       };
 
-      await axios.put(`/api/events/${id}`, payload);
+      await axios.put(`/api/${mallId}/events/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
     } catch (err) {

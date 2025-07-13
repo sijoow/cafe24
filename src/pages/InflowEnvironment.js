@@ -14,6 +14,7 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
@@ -25,11 +26,10 @@ const API_BASE =
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function InflowEnvironment() {
-  // 반응형
+  const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  // 상태 선언
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [urls, setUrls]                   = useState([]);
@@ -42,7 +42,7 @@ export default function InflowEnvironment() {
 
   // 1) 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`${API_BASE}/api/events`)
+    axios.get(`${API_BASE}/api/${mallId}/events`)
       .then(res => {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -61,12 +61,12 @@ export default function InflowEnvironment() {
         }
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
-  }, []);
+  }, [mallId]);
 
   // 2) selectedEvent 변경 시 URL & 날짜 초기화
   useEffect(() => {
     if (!selectedEvent) return;
-    axios.get(`${API_BASE}/api/analytics/${selectedEvent}/urls`)
+    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -80,7 +80,7 @@ export default function InflowEnvironment() {
       setMinDate(start);
       setRange([start, dayjs()]);
     }
-  }, [selectedEvent, events]);
+  }, [mallId, selectedEvent, events]);
 
   // 3) 데이터 조회
   const fetchData = useCallback(async () => {
@@ -89,13 +89,13 @@ export default function InflowEnvironment() {
     const [s, e] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${s}T00:00:00+09:00`,
-      end_date: `${e}T23:59:59.999+09:00`,
-      url: selectedUrl,
+      end_date:   `${e}T23:59:59.999+09:00`,
+      url:        selectedUrl,
     };
     try {
       // pie 데이터
       const devRes = await axios.get(
-        `${API_BASE}/api/analytics/${selectedEvent}/devices`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices`,
         { params },
       );
       const rawPie = Array.isArray(devRes.data) ? devRes.data : [];
@@ -107,7 +107,7 @@ export default function InflowEnvironment() {
 
       // line 데이터
       const lineRes = await axios.get(
-        `${API_BASE}/api/analytics/${selectedEvent}/devices-by-date`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,
         { params },
       );
       const rawLine = Array.isArray(lineRes.data) ? lineRes.data : [];
@@ -115,7 +115,7 @@ export default function InflowEnvironment() {
       // 전체 날짜 축 생성
       const dates = [];
       let cursor = range[0].startOf('day');
-      const last = range[1].startOf('day');
+      const last   = range[1].startOf('day');
       while (cursor.isSameOrBefore(last, 'day')) {
         dates.push(cursor.format('YYYY-MM-DD'));
         cursor = cursor.add(1, 'day');
@@ -135,7 +135,7 @@ export default function InflowEnvironment() {
     } finally {
       setLoading(false);
     }
-  }, [selectedEvent, selectedUrl, range]);
+  }, [mallId, selectedEvent, selectedUrl, range]);
 
   useEffect(() => {
     if (selectedEvent && selectedUrl) fetchData();

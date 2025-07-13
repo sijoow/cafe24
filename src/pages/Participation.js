@@ -15,15 +15,19 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function Participation() {
-  // 반응형
+  const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
@@ -45,7 +49,7 @@ export default function Participation() {
 
   // 1) 마운트: 이벤트 목록 로드
   useEffect(() => {
-    axios.get('/api/events')
+    axios.get(`${API_BASE}/api/${mallId}/events`)
       .then(res => {
         const sorted = (res.data||[])
           .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
@@ -62,7 +66,7 @@ export default function Participation() {
         console.error('[EVENTS LOAD ERROR]', err);
         message.error('이벤트 목록 로드 실패');
       });
-  }, []);
+  }, [mallId]);
 
   // 2) 이벤트 변경 시 URL & 날짜 리셋
   useEffect(() => {
@@ -70,7 +74,7 @@ export default function Participation() {
       setUrls([]); setSelectedUrl(null); setMinDate(null);
       return;
     }
-    axios.get(`/api/analytics/${selectedEvent}/urls`)
+    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -88,7 +92,7 @@ export default function Participation() {
       setMinDate(start);
       setRange([start, dayjs()]);
     }
-  }, [selectedEvent, events]);
+  }, [mallId, selectedEvent, events]);
 
   // 3) 날짜 배열 생성
   const dates = useMemo(() => {
@@ -111,7 +115,7 @@ export default function Participation() {
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
       const { data } = await axios.get(
-        `/api/analytics/${selectedEvent}/clicks-by-date`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
         { params: {
             start_date: `${start}T00:00:00+09:00`,
             end_date:   `${end}T23:59:59.999+09:00`,
@@ -145,7 +149,6 @@ export default function Participation() {
     }
   }, [selectedEvent, selectedUrl, range]);
 
-  // 테이블 컬럼
   const columns = [
     { title: '날짜',     dataIndex: 'date',    key: 'date' },
     { title: 'URL 클릭', dataIndex: 'product', key: 'product', align:'right' },

@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
 
 const { Step } = Steps;
@@ -35,6 +35,7 @@ const { useBreakpoint } = Grid;
 
 export default function EventCreate() {
   const navigate = useNavigate();
+  const { mallId } = useParams();
   const [msgApi, msgCtx] = message.useMessage();
 
   const API_BASE =
@@ -230,7 +231,7 @@ export default function EventCreate() {
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
     axios
-      .get(`${API_BASE}/api/categories/all`)
+      .get(`${API_BASE}/api/${mallId}/categories/all`)   // ← mallId 삽입
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, []);
@@ -294,7 +295,7 @@ export default function EventCreate() {
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
     axios
-      .get(`${API_BASE}/api/coupons`)
+      .get(`${API_BASE}/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -321,7 +322,7 @@ export default function EventCreate() {
             const form = new FormData();
             form.append('file', img.file);
             const { data } = await axios.post(
-              `${API_BASE}/api/uploads/image`,
+              `${API_BASE}/api/${mallId}/uploads/image`,   // ← mallId 삽입
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -361,7 +362,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await axios.post(`${API_BASE}/api/events`, payload);
+      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list');
     } catch (e) {

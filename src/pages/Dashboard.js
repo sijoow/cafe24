@@ -1,6 +1,7 @@
 // src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom'; 
 import {
   Card,
   Row,
@@ -19,6 +20,8 @@ import './NormalSection.css';
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
+  const { mallId } = useParams();  // ← mallId 추가
+
   // 1) 이벤트 & URL
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -48,7 +51,7 @@ export default function Dashboard() {
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
     // 이벤트 목록
-    axios.get('/api/events')
+    axios.get(`/api/${mallId}/events`)
       .then(res => {
         const sorted = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -56,7 +59,6 @@ export default function Dashboard() {
         setEventCount(sorted.length);
         if (sorted.length) {
           setSelectedEvent(sorted[0]._id);
-          // minDate, range는 아래 selectedEvent effect에서 설정됩니다
         }
       })
       .catch(() => {
@@ -64,10 +66,10 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
-    axios.get('/api/coupons')
+    axios.get(`/api/${mallId}/coupons`)
       .then(res => setCouponCount(res.data.length))
       .catch(() => {});
-  }, []);
+  }, [mallId]);
 
   // ─── selectedEvent 변경 시: 최소일 설정 + URL 목록 로드 ───────────────────
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회 & 기본 선택
-    axios.get(`/api/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -101,7 +103,7 @@ export default function Dashboard() {
         setUrls([]);
         setSelectedUrl(null);
       });
-  }, [selectedEvent, events]);
+  }, [mallId, selectedEvent, events]);
 
   // ─── 날짜 축 생성 ───────────────────────────────────────────────
   useEffect(() => {
@@ -126,9 +128,9 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-    const visReq   = axios.get(`/api/analytics/${selectedEvent}/visitors-by-date`, { params });
-    const clickReq = axios.get(`/api/analytics/${selectedEvent}/clicks-by-date`,     { params });
-    const devReq   = axios.get(`/api/analytics/${selectedEvent}/devices-by-date`,    { params });
+    const visReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
+    const clickReq = axios.get(`/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,     { params });
+    const devReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
 
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
@@ -168,7 +170,7 @@ export default function Dashboard() {
   };
 
   // ─── fetchData 자동 호출 ───────────────────────────────────
-  useEffect(fetchData, [selectedEvent, selectedUrl, range, dates]);
+  useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
 
   // ─── 차트 옵션 ───────────────────────────────────────────────
   const visitorLineOpt = {
@@ -215,10 +217,7 @@ export default function Dashboard() {
         <Space wrap>
           <Select
             placeholder="이벤트 선택"
-            options={events.map(e => ({
-              label: e.title || '(제목없음)',
-              value: e._id
-            }))}
+            options={events.map(e => ({ label: e.title || '(제목없음)', value: e._id }))}
             value={selectedEvent}
             onChange={setSelectedEvent}
             style={{ width: 200 }}

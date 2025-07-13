@@ -3,13 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Select, Space, message, Typography } from 'antd';
 import axios from 'axios';
+import { useParams } from 'react-router-dom';  // ← 추가
 const { Title } = Typography;
 const { Option } = Select;
 
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+
 export default function RewardCoupon() {
-  const [coupons, setCoupons]   = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [view, setView]         = useState('all'); // 'all' | 'active' | 'upcoming'
+  const { mallId } = useParams();              // ← mallId 추출
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState('all');     // 'all' | 'active' | 'upcoming'
 
   const columns = [
     { title: '쿠폰번호',    dataIndex: 'coupon_no',        key: 'coupon_no',      width: 180 },
@@ -24,9 +30,10 @@ export default function RewardCoupon() {
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/coupons', {
-        params: { view },
-      });
+      const res = await axios.get(
+        `${API_BASE}/api/${mallId}/coupons`,    // ← mallId 경로에 포함
+        { params: { view } }
+      );
       setCoupons(res.data);
     } catch (err) {
       console.error(err);
@@ -37,8 +44,8 @@ export default function RewardCoupon() {
   };
 
   useEffect(() => {
-    fetchCoupons();
-  }, [view]);
+    if (mallId) fetchCoupons();
+  }, [mallId, view]);
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%', padding: 24 }}>

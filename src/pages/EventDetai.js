@@ -24,7 +24,7 @@ const API_BASE =
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function EventDetail() {
-  const { id } = useParams();
+  const { mallId, id } = useParams();  
   const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
@@ -35,7 +35,7 @@ export default function EventDetail() {
 
   // 1) 이벤트 데이터 로드
   useEffect(() => {
-    axios.get(`${API_BASE}/api/events/${id}`)
+    axios.get(`${API_BASE}/api/${mallId}/events/${id}`)
       .then(res => {
         const ev = res.data;
         // images, regions에 id 매핑
@@ -175,7 +175,7 @@ export default function EventDetail() {
   
     // 4) widget.js 스크립트 태그 (쿠폰만 전역으로)
     const scriptAttrs = [
-      `src="${API_BASE}/widget.js"`,
+      `src="${API_BASE}/api/${mallId}/widget.js"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${tabs.length}"`,

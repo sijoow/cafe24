@@ -12,17 +12,18 @@ import {
   Grid,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 
 const { useBreakpoint } = Grid;
 
 export default function EventList() {
-  const navigate = useNavigate();
-  const [data, setData] = useState([]);
+  const { mallId } = useParams();
+  const navigate   = useNavigate();
+  const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const screens = useBreakpoint();
+  const screens  = useBreakpoint();
   const isMobile = screens.sm === false;
 
   const R2_PUBLIC_BASE =
@@ -31,9 +32,8 @@ export default function EventList() {
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/events'
-      );
+      // mallId 포함된 API 경로
+      const res = await axios.get(`/api/${mallId}/events`);
       const list = res.data.map(ev => ({
         ...ev,
         id: ev._id,
@@ -52,13 +52,12 @@ export default function EventList() {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [mallId]);
 
   const handleDelete = async id => {
     try {
-      await axios.delete(
-        `https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/events/${id}`
-      );
+      // mallId 포함된 삭제 API
+      await axios.delete(`/api/${mallId}/events/${id}`);
       message.success('이벤트가 삭제되었습니다.');
       await fetchEvents();
     } catch (err) {
@@ -74,7 +73,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/event/detail/${id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             lineHeight: 1.2,
@@ -85,7 +84,7 @@ export default function EventList() {
             display: 'inline-block',
             maxWidth: isMobile ? 100 : 180,
             cursor: 'pointer',
-            color: '#000'    // ← black
+            color: '#000'
           }}
         >
           {id}
@@ -97,8 +96,7 @@ export default function EventList() {
       dataIndex: 'images',
       width: 120,
       render: images => {
-        const src =
-          Array.isArray(images) && images.length > 0 ? images[0].src : null;
+        const src = Array.isArray(images) && images.length > 0 ? images[0].src : null;
         if (!src) return <span>—</span>;
         const url = src.startsWith('http') ? src : `${R2_PUBLIC_BASE}/${src}`;
         return (
@@ -109,7 +107,10 @@ export default function EventList() {
             style={{ objectFit: 'cover', cursor: 'pointer' }}
             preview={false}
             alt="썸네일"
-            onClick={() => navigate(`/event/detail/${images[0]._id || images[0].id}`)}
+            onClick={() => {
+              const evId = images[0]._id || images[0].id;
+              navigate(`/${mallId}/event/detail/${evId}`);
+            }}
           />
         );
       },
@@ -120,7 +121,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/event/detail/${record.id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '13px' : '16px',
             lineHeight: 1.3,
@@ -130,7 +131,7 @@ export default function EventList() {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             cursor: 'pointer',
-            color: '#000'  // ← 대표 컬러
+            color: '#000'
           }}
         >
           {text}
@@ -143,12 +144,12 @@ export default function EventList() {
       width: 120,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/event/detail/${record.id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             whiteSpace: 'nowrap',
             cursor: 'pointer',
-            color: '#000'    // ← black
+            color: '#000'
           }}
         >
           {text}
@@ -163,12 +164,12 @@ export default function EventList() {
         const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
         return (
           <span
-            onClick={() => navigate(`/event/detail/${record.id}`)}
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'    // ← black
+              color: '#000'
             }}
           >
             {label}
@@ -182,20 +183,18 @@ export default function EventList() {
       width: 100,
       render: (images, record) => {
         const count = Array.isArray(images)
-          ? images.reduce(
-              (sum, img) =>
-                sum + (Array.isArray(img.regions) ? img.regions.length : 0),
-              0
-            )
+          ? images.reduce((sum, img) =>
+              sum + (Array.isArray(img.regions) ? img.regions.length : 0)
+            , 0)
           : 0;
         return (
           <span
-            onClick={() => navigate(`/event/detail/${record.id}`)}
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'    // ← black
+              color: '#000'
             }}
           >
             {count}
@@ -213,7 +212,7 @@ export default function EventList() {
             size="small"
             onClick={e => {
               e.stopPropagation();
-              navigate(`/event/edit/${record.id}`);
+              navigate(`/${mallId}/event/edit/${record.id}`);
             }}
           >
             수정
@@ -244,7 +243,7 @@ export default function EventList() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate('/event/create')}
+          onClick={() => navigate(`/${mallId}/event/create`)}
         >
           새 이벤트 생성
         </Button>

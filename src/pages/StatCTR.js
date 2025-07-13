@@ -4,10 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { Card, Select, DatePicker, Button, Table, Space, message } from 'antd';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import { useParams } from 'react-router-dom';  // ← 추가
 
 const { RangePicker } = DatePicker;
 
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+
 export default function StatCTR() {
+  const { mallId } = useParams();               // ← mallId 추출
+
   // 1) 이벤트 목록
   const [events, setEvents]         = useState([]);
   const [selectedEvent, setEventId] = useState(null);
@@ -34,7 +41,8 @@ export default function StatCTR() {
 
   // ─── 1) 마운트 시 이벤트 목록 로드 ────────────────────────────
   useEffect(() => {
-    axios.get('https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/events')
+    if (!mallId) return;
+    axios.get(`${API_BASE}/api/${mallId}/events`)   // ← mallId 포함
       .then(res => {
         setEvents(
           res.data.map(ev => ({
@@ -47,17 +55,17 @@ export default function StatCTR() {
         console.error('▶ 이벤트 목록 로드 실패', err);
         message.error('이벤트 목록 로드 실패');
       });
-  }, []);
+  }, [mallId]);
 
   // ─── 2) 이벤트 선택 시 URL 목록 로드 ─────────────────────────
   useEffect(() => {
-    if (!selectedEvent) {
+    if (!mallId || !selectedEvent) {
       setUrls([]);
       setUrl(null);
       return;
     }
     axios.get(
-      `https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/analytics/${selectedEvent}/urls`
+      `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls` // ← mallId 포함
     )
     .then(res => {
       const paths = res.data
@@ -75,10 +83,14 @@ export default function StatCTR() {
       console.error('▶ URL 목록 로드 실패:', err);
       message.error('URL 목록 로드 실패');
     });
-  }, [selectedEvent]);
+  }, [mallId, selectedEvent]);
 
   // ─── 3) 조회 버튼 클릭 시 ────────────────────────────────────
   const fetchStats = async () => {
+    if (!mallId) {
+      message.warning('mallId가 없습니다.');
+      return;
+    }
     if (!selectedEvent) {
       message.warning('이벤트를 선택하세요');
       return;
@@ -104,7 +116,7 @@ export default function StatCTR() {
       const results = await Promise.all(
         days.map(async date => {
           const res = await axios.get(
-            'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/api/pages/view',
+            `${API_BASE}/api/${mallId}/pages/view`,    // ← mallId 포함
             {
               params: {
                 start_date: date,
@@ -179,4 +191,3 @@ export default function StatCTR() {
     </Card>
   );
 }
-

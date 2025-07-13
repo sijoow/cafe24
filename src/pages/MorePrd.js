@@ -8,6 +8,7 @@ import {
   Droppable,
   Draggable,
 } from 'react-beautiful-dnd';
+import { useParams } from 'react-router-dom';
 
 /** 썸네일 컴포넌트 */
 function Thumbnail({ src }) {
@@ -39,6 +40,8 @@ export default function MorePrd({
   onOk,
   onCancel,
 }) {
+  const { mallId } = useParams();
+
   // 탭별 storage 키
   const keyPrefix        = `MorePrd_${target}_${tabIndex}`;
   const storageKeyKeys   = `${keyPrefix}_selectedKeys`;
@@ -75,7 +78,7 @@ export default function MorePrd({
   const fetchPage = async (page, pageSize) => {
     setLoading(true);
     try {
-      const { data } = await axios.get('/api/products', {
+      const { data } = await axios.get(`/api/${mallId}/products`, {
         params: { offset: (page - 1) * pageSize, limit: pageSize },
       });
       setProducts(data.products);
@@ -93,7 +96,7 @@ export default function MorePrd({
     try {
       let all = [], offset = 0, chunk = 100;
       while (true) {
-        const res = await axios.get('/api/products', {
+        const res = await axios.get(`/api/${mallId}/products`, {
           params: { offset, limit: chunk },
         });
         all = all.concat(res.data.products);
@@ -121,28 +124,29 @@ export default function MorePrd({
     setSearchText('');
     fetchPage(1, pagination.pageSize);
 
-    // 2) 탭별로 분리된 sessionStorage에서 선택 상태 복원
+    // 2) sessionStorage에서 선택 상태 복원
     const savedKeys = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]');
     setSelectedRowKeys(savedKeys);
 
     const savedDetails = JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]');
     setSelectedDetails(savedDetails);
 
-    // 3) 혹시 savedDetails에 부족한 키가 있으면 보충
+    // 3) 부족한 상세는 API로 보충
     const toLoad = savedKeys.filter(
       k => !savedDetails.some(d => String(d.product_no) === String(k))
     );
     if (toLoad.length > 0) {
       Promise.all(
-        toLoad.map(k => axios.get(`/api/products/${k}`, { params: { shop_no: 1 } }).then(r => r.data))
+        toLoad.map(k =>
+          axios.get(`/api/${mallId}/products/${k}`).then(r => r.data)
+        )
       )
       .then(arr => {
         setSelectedDetails(prev => [...prev, ...arr]);
       })
       .catch(() => message.error('선택 상품 상세 로드 실패'));
     }
-
-  }, [visible, target, tabIndex]);
+  }, [visible, target, tabIndex, mallId]);
 
   // 7) 체크박스 변경 시 상세 보충
   useEffect(() => {
@@ -152,18 +156,19 @@ export default function MorePrd({
     if (!missing.length) return;
     Promise.all(
       missing.map(k => {
-        const loc = products.find(p => p.product_no === k) ||
-                    searchResults.find(p => p.product_no === k) ||
-                    selectedDetails.find(d => d.product_no === k);
+        const loc =
+          products.find(p => p.product_no === k) ||
+          searchResults.find(p => p.product_no === k) ||
+          selectedDetails.find(d => d.product_no === k);
         if (loc) return Promise.resolve({ data: loc });
-        return axios.get(`/api/products/${k}`, { params: { shop_no: 1 } });
+        return axios.get(`/api/${mallId}/products/${k}`);
       })
     )
       .then(resps => {
         setSelectedDetails(prev => [...prev, ...resps.map(r => r.data)]);
       })
       .catch(() => message.error('선택 상품 상세 추가 로드 실패'));
-  }, [selectedRowKeys, products, searchResults]);
+  }, [selectedRowKeys, products, searchResults, selectedDetails, mallId]);
 
   // 8) 페이지 변경
   const onTableChange = (page, pageSize) => {
