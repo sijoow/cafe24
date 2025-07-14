@@ -1,73 +1,120 @@
-// src/components/Sidebar.jsx
-import React from 'react';
-import { Link, useParams, useLocation } from 'react-router-dom';
-import { Menu } from 'antd';
+// src/App.js
+import React, { useState } from 'react';
+import { Layout as AntLayout, Grid } from 'antd';
 import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  DashboardOutlined,
-  AppstoreOutlined,
-  UnorderedListOutlined,
-  BarChartOutlined,
-  TeamOutlined,
-  ShareAltOutlined,
-} from '@ant-design/icons';
-import '../src/components/Sidebar';
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useParams
+} from 'react-router-dom';
 
-export default function Sidebar({ collapsed, onToggle }) {
+import Sidebar   from './components/Sidebar';
+import AppHeader from './components/AppHeader';
+import OverlayLayout      from './components/OverLayout';
+
+import Dashboard    from './pages/Dashboard';
+import EventList    from './pages/EventList';
+import EventCreate  from './pages/EventCreate';
+import EventDetail  from './pages/EventDetail';
+import EventEdit    from './pages/EventEdit';
+import RewardCoupon from './pages/RewardCoupon';
+import PageView     from './pages/PageView';
+import Participation      from './pages/Participation';
+import InflowEnvironment from './pages/InflowEnvironment';
+import Redirect           from './pages/Redirect';
+import Admin              from './pages/Admin';
+
+const { Sider, Content } = AntLayout;
+const { useBreakpoint }  = Grid;
+
+// ─── (A) 루트("/") 접근 시 mall_id 쿼리 읽고 해당 mallId/dashboard 로 리다이렉트
+function RedirectToMall() {
+  const { search } = useLocation();
+  const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
+  return <Navigate to={`/${mallId}/dashboard`} replace />;
+}
+
+// ─── (B) "/:mallId/*" 하위 라우트를 모두 처리하는 레이아웃
+function MainLayout() {
+  const screens  = useBreakpoint();
+  const isMobile = !screens.md;
   const { mallId } = useParams();
-  const { pathname } = useLocation();
-  // URL 예: "/yogibo/event/list" → split[2] === "event"
-  const parts = pathname.split('/');
-  const selected = parts[2] || 'dashboard';
+  const [collapsed, setCollapsed] = useState(false);
+
+  // (1) 모바일 레이아웃
+  if (isMobile) {
+    return (
+      <OverlayLayout>
+        <Routes>
+          <Route path="auth/callback"      element={<Redirect />} />
+          <Route path="dashboard"          element={<Dashboard />} />
+          <Route path="event/list"         element={<EventList />} />
+          <Route path="event/create"       element={<EventCreate />} />
+          <Route path="event/detail/:id"   element={<EventDetail />} />
+          <Route path="event/edit/:id"     element={<EventEdit />} />
+          <Route path="reward/coupon"      element={<RewardCoupon />} />
+          <Route path="stats/pageview"     element={<PageView />} />
+          <Route path="stats/participation"element={<Participation />} />
+          <Route path="stats/environment"  element={<InflowEnvironment />} />
+          <Route path="admin"              element={<Admin />} />
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      </OverlayLayout>
+    );
+  }
+
+  // (2) 데스크탑 레이아웃
+  const SIDER_WIDTH     = 240;
+  const COLLAPSED_WIDTH = 80;
 
   return (
-    <div className="sidebar-wrapper">
-      <div className="sidebar-header">
-        <img
-          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/icon_png.png"
-          alt="몬몬 로고"
-          className="sidebar-logo"
-        />
-        <span className="collapse-icon" onClick={onToggle}>
-          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-        </span>
-      </div>
-
-      <Menu
-        mode="inline"
-        theme="dark"
-        inlineCollapsed={collapsed}
-        selectedKeys={[selected]}
-        style={{ flex: 1, borderRight: 0 }}
+    <AntLayout style={{ minHeight: '100vh' }}>
+      <Sider
+        breakpoint="md"
+        collapsible
+        collapsedWidth={COLLAPSED_WIDTH}
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        width={SIDER_WIDTH}
       >
-        <Menu.Item key="dashboard" icon={<DashboardOutlined />}>
-          <Link to={`/${mallId}/dashboard`}>대시보드</Link>
-        </Menu.Item>
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+      </Sider>
+      <AntLayout
+        style={{
+          marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
+          transition: 'margin-left 0.2s'
+        }}
+      >
+        <AppHeader />
+        <Content style={{ margin: 16, padding: 16 }}>
+          <Routes>
+            <Route path="auth/callback"      element={<Redirect />} />
+            <Route path="dashboard"          element={<Dashboard />} />
+            <Route path="event/list"         element={<EventList />} />
+            <Route path="event/create"       element={<EventCreate />} />
+            <Route path="event/detail/:id"   element={<EventDetail />} />
+            <Route path="event/edit/:id"     element={<EventEdit />} />
+            <Route path="reward/coupon"      element={<RewardCoupon />} />
+            <Route path="stats/pageview"     element={<PageView />} />
+            <Route path="stats/participation"element={<Participation />} />
+            <Route path="stats/environment"  element={<InflowEnvironment />} />
+            <Route path="admin"              element={<Admin />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Routes>
+        </Content>
+      </AntLayout>
+    </AntLayout>
+  );
+}
 
-        <Menu.ItemGroup key="event" title="이벤트">
-          <Menu.Item key="event">
-            <Link to={`/${mallId}/event/list`} icon={<UnorderedListOutlined />}>
-              나의 이벤트 목록
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="event/create" icon={<AppstoreOutlined />}>
-            <Link to={`/${mallId}/event/create`}>이벤트 페이지 제작</Link>
-          </Menu.Item>
-        </Menu.ItemGroup>
-
-        <Menu.ItemGroup key="stats" title="통계">
-          <Menu.Item key="stats/pageview" icon={<BarChartOutlined />}>
-            <Link to={`/${mallId}/stats/pageview`}>페이지뷰 통계</Link>
-          </Menu.Item>
-          <Menu.Item key="stats/participation" icon={<TeamOutlined />}>
-            <Link to={`/${mallId}/stats/participation`}>이벤트 참여자 현황</Link>
-          </Menu.Item>
-          <Menu.Item key="stats/environment" icon={<ShareAltOutlined />}>
-            <Link to={`/${mallId}/stats/environment`}>유입 환경</Link>
-          </Menu.Item>
-        </Menu.ItemGroup>
-      </Menu>
-    </div>
+// ─── 최상위 App: "/" 는 RedirectToMall, "/:mallId/*" 는 MainLayout, 그 외는 다시 "/"
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/"       element={<RedirectToMall />} />
+      <Route path="/:mallId/*" element={<MainLayout />} />
+      <Route path="*"       element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
