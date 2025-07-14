@@ -1,25 +1,32 @@
 // src/pages/Redirect.jsx
-import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+
+import React, { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { message, Spin } from 'antd';
 
 export default function Redirect() {
   const navigate = useNavigate();
-  const { search } = useLocation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const mallId = params.get('state');    // 설치 시 state 로 넘긴 mallId
-    // 실제로 토큰이 DB에 들어간 뒤
-    if (mallId) {
-      // ① 로컬 스토리지에 저장
-      localStorage.setItem('mallId', mallId);
-      // ② 진짜 대시보드로 퉁!
-      navigate(`/${mallId}/dashboard`, { replace: true });
-    } else {
-      // state 가 없으면 무조건 로그인 화면으로
-      navigate('/', { replace: true });
+    // 백엔드에서 ?mallId=… 로 전달해준 값을 읽어옵니다.
+    const mallId = searchParams.get('mallId');
+    if (!mallId) {
+      message.error('몰 ID를 찾을 수 없습니다. 대시보드로 이동합니다.');
+      return navigate('/defaultMall/dashboard', { replace: true });
     }
-  }, [search, navigate]);
 
-  return null; // 이 페이지에 별도 UI는 없음
+    // 필요하다면 로컬 스토리지 등에 저장
+    localStorage.setItem('mallId', mallId);
+
+    // mallId 가 붙은 대시보드로 이동
+    navigate(`/${mallId}/dashboard`, { replace: true });
+  }, [navigate, searchParams]);
+
+  // 로딩 스피너만 표시
+  return (
+    <div style={{ textAlign: 'center', marginTop: 100 }}>
+      <Spin size="large" tip="리다이렉트 중입니다…" />
+    </div>
+  );
 }
