@@ -12,7 +12,7 @@ import {
   TeamOutlined,
   ShareAltOutlined,
 } from '@ant-design/icons';
-import './Sidebar.css';
+import '../src/components/Sidebar';
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { mallId } = useParams();
