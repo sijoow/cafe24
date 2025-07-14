@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import {
@@ -9,40 +8,40 @@ import {
   useParams
 } from 'react-router-dom';
 
-import Sidebar   from './components/Sidebar';
-import AppHeader from './components/AppHeader';
-import OverlayLayout      from './components/OverLayout';
+import Sidebar       from './components/Sidebar';
+import AppHeader     from './components/AppHeader';
+import OverlayLayout from './components/OverLayout';
 
-import Dashboard    from './pages/Dashboard';
-import EventList    from './pages/EventList';
-import EventCreate  from './pages/EventCreate';
-import EventDetail  from './pages/EventDetail';
-import EventEdit    from './pages/EventEdit';
-import RewardCoupon from './pages/RewardCoupon';
-import PageView     from './pages/PageView';
-import Participation      from './pages/Participation';
+import Dashboard        from './pages/Dashboard';
+import EventList        from './pages/EventList';
+import EventCreate      from './pages/EventCreate';
+import EventDetail      from './pages/EventDetail';
+import EventEdit        from './pages/EventEdit';
+import RewardCoupon     from './pages/RewardCoupon';
+import PageView         from './pages/PageView';
+import Participation    from './pages/Participation';
 import InflowEnvironment from './pages/InflowEnvironment';
-import Redirect           from './pages/Redirect';
-import Admin              from './pages/Admin';
+import Redirect         from './pages/Redirect';
+import Admin            from './pages/Admin';
 
 const { Sider, Content } = AntLayout;
 const { useBreakpoint }  = Grid;
 
-// ─── (A) 루트("/") 접근 시 mall_id 쿼리 읽고 해당 mallId/dashboard 로 리다이렉트
+// ─── (A) 루트("/") 접속 시 mall_id 쿼리 읽어서 해당 mallId/dashboard 로 리다이렉트
 function RedirectToMall() {
   const { search } = useLocation();
   const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
   return <Navigate to={`/${mallId}/dashboard`} replace />;
 }
 
-// ─── (B) "/:mallId/*" 하위 라우트를 모두 처리하는 레이아웃
+// ─── (B) "/:mallId/*" 이하를 처리하는 레이아웃
 function MainLayout() {
   const screens  = useBreakpoint();
   const isMobile = !screens.md;
   const { mallId } = useParams();
   const [collapsed, setCollapsed] = useState(false);
 
-  // (1) 모바일 레이아웃
+  // 모바일용 레이아웃
   if (isMobile) {
     return (
       <OverlayLayout>
@@ -64,7 +63,7 @@ function MainLayout() {
     );
   }
 
-  // (2) 데스크탑 레이아웃
+  // 데스크탑용 레이아웃
   const SIDER_WIDTH     = 240;
   const COLLAPSED_WIDTH = 80;
 
@@ -108,13 +107,18 @@ function MainLayout() {
   );
 }
 
-// ─── 최상위 App: "/" 는 RedirectToMall, "/:mallId/*" 는 MainLayout, 그 외는 다시 "/"
+// ─── 최상위 App ───────────────────────────────────────────────────
 export default function App() {
   return (
     <Routes>
-      <Route path="/"       element={<RedirectToMall />} />
+      {/* 루트 → mall_id 쿼리 읽어 리다이렉트 */}
+      <Route path="/" element={<RedirectToMall />} />
+
+      {/* mallId 하위 모든 경로 → MainLayout */}
       <Route path="/:mallId/*" element={<MainLayout />} />
-      <Route path="*"       element={<Navigate to="/" replace />} />
+
+      {/* 그 외는 다시 루트 */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
