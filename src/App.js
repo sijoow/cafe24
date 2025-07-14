@@ -1,32 +1,43 @@
+
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import { Routes, Route } from 'react-router-dom';
 
-import Sidebar      from './components/Sidebar';
-import AppHeader    from './components/AppHeader';
+
+import Sidebar   from './components/Sidebar';
+import AppHeader from './components/AppHeader';
+import EventDetail from './pages/EventDetail';
+import EventEdit    from './pages/EventEdit';   // ← 이 줄
+
+// 각 페이지 컴포넌트
+import Dashboard          from './pages/Dashboard';
+import EventCreate        from './pages/EventCreate';
+import EventList          from './pages/EventList';
+import RewardCoupon       from './pages/RewardCoupon';
+
+import PageView           from  './pages/PageView';
+import Participation      from  './pages/Participation'
+//유입환경
+import InflowEnvironment from './pages/InflowEnvironment'
+
+//모바일 메뉴 환경
 import OverlayLayout from './components/OverLayout';
 
-import Dashboard          from './pages/Dashboard';
-import EventList          from './pages/EventList';
-import EventCreate        from './pages/EventCreate';
-import EventDetail        from './pages/EventDetail';
-import EventEdit          from './pages/EventEdit';
-import RewardCoupon       from './pages/RewardCoupon';
-import PageView           from './pages/PageView';
-import Participation      from './pages/Participation';
-import InflowEnvironment from './pages/InflowEnvironment';
-import Redirect           from './pages/Redirect';
-import Admin              from './pages/Admin';
-
+//리다이렉트 페이지
+import Redirect from './pages/Redirect'
+import Admin    from './pages/Admin';
 const { Sider, Content } = AntLayout;
-const { useBreakpoint }  = Grid;
+const { useBreakpoint } = Grid;
 
 export default function App() {
-  const screens  = useBreakpoint();
+  // ① 훅과 isMobile 계산은 컴포넌트 최상단에서
+  const screens = useBreakpoint();
   const isMobile = !screens.md;
+
+  // ② 모바일용 OverlayLayout vs 데스크탑용 AntLayout+Sidebar
   const [collapsed, setCollapsed] = useState(false);
 
-  // ── 모바일용 ─────────────────────────────
+  // ── 모바일: OverlayLayout ─────────────────────────────
   if (isMobile) {
     return (
       <OverlayLayout>
@@ -38,20 +49,21 @@ export default function App() {
           <Route path="event/edit/:id" element={<EventEdit />} />
           <Route path="event/create" element={<EventCreate />} />
           <Route path="reward/coupon" element={<RewardCoupon />} />
-          <Route path="stats/pageview" element={<PageView />} />
+          <Route path="stats/pageview"     element={<PageView />} />
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
-          <Route path="redirect" element={<Redirect />} />
-          <Route path="admin" element={<Admin />} />
+          <Route path="redirect"  element={<Redirect />} />
+          <Route path="admin" element={<Admin    />} />
+          
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
     );
   }
 
-  // ── 데스크탑용 ─────────────────────────────
-  const SIDER_WIDTH     = 240;
-  const COLLAPSED_WIDTH = 80;
+  // ── 데스크탑: 고정형 Sider + AntLayout ───────────────────
+  const SIDER_WIDTH      = 240;
+  const COLLAPSED_WIDTH  = 80;
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
@@ -66,10 +78,16 @@ export default function App() {
         style={{
           position: 'fixed',
           height: '100vh',
-          left: 0, top: 0, bottom: 0, zIndex: 100,
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
         }}
       >
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(prev => !prev)}
+        />
       </Sider>
 
       <AntLayout
@@ -78,7 +96,10 @@ export default function App() {
           transition: 'margin-left 0.2s ease',
         }}
       >
-        <AppHeader isMobile={false} onMenuClick={() => setCollapsed(c => !c)} />
+        <AppHeader
+          isMobile={false}
+          onMenuClick={() => setCollapsed(prev => !prev)}
+        />
         <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
             <Route index element={<Dashboard />} />
@@ -88,11 +109,12 @@ export default function App() {
             <Route path="event/edit/:id" element={<EventEdit />} />
             <Route path="event/create" element={<EventCreate />} />
             <Route path="reward/coupon" element={<RewardCoupon />} />
-            <Route path="stats/pageview" element={<PageView />} />
+            <Route path="stats/pageview"     element={<PageView />} />
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
+            <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="redirect" element={<Redirect />} />
-            <Route path="admin" element={<Admin />} />
+            <Route path="admin" element={<Admin    />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
