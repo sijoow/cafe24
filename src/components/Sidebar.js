@@ -1,5 +1,6 @@
+// src/components/Sidebar.jsx
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu } from 'antd';
 import {
   MenuFoldOutlined,
@@ -14,41 +15,53 @@ import {
 import './Sidebar.css';
 
 export default function Sidebar({ collapsed, onToggle }) {
-  const { mallId } = useParams();
-  const base = mallId ? `/${mallId}` : '';
+  const { pathname } = useLocation();
+  // URL 예시: /onimon/event/list  → ['', 'onimon', 'event', 'list']
+  const segments = pathname.split('/');
+  const mallId = segments[1] || 'defaultMall';
+  const prefix = `/${mallId}`;
+
   return (
     <div className="sidebar-wrapper">
       <div className="sidebar-header">
         <img
           src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/icon_png.png"
-          alt="로고"
+          alt="몬몬 로고"
           className="sidebar-logo"
         />
         <span className="collapse-icon" onClick={onToggle}>
           {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
         </span>
       </div>
-      <Menu mode="inline" theme="dark" inlineCollapsed={collapsed} style={{ flex:1, borderRight:0 }}>
+      <Menu
+        mode="inline"
+        theme="dark"
+        inlineCollapsed={collapsed}
+        defaultSelectedKeys={['dashboard']}
+        style={{ flex: 1, borderRight: 0 }}
+      >
         <Menu.Item key="dashboard" icon={<DashboardOutlined />}>
-          <Link to={`${base}/dashboard`}>대시보드</Link>
+          <Link to={`${prefix}/dashboard`}>대시보드</Link>
         </Menu.Item>
+
         <Menu.ItemGroup key="event" title="이벤트">
-          <Menu.Item key="create" icon={<AppstoreOutlined />}>
-            <Link to={`${base}/event/create`}>이벤트 제작</Link>
+          <Menu.Item key="event:create" icon={<AppstoreOutlined />}>
+            <Link to={`${prefix}/event/create`}>이벤트 페이지 제작</Link>
           </Menu.Item>
-          <Menu.Item key="list" icon={<UnorderedListOutlined />}>
-            <Link to={`${base}/event/list`}>이벤트 목록</Link>
+          <Menu.Item key="event:list" icon={<UnorderedListOutlined />}>
+            <Link to={`${prefix}/event/list`}>나의 이벤트 목록</Link>
           </Menu.Item>
         </Menu.ItemGroup>
+
         <Menu.ItemGroup key="stats" title="통계">
-          <Menu.Item key="pageview" icon={<BarChartOutlined />}>
-            <Link to={`${base}/stats/pageview`}>페이지뷰 통계</Link>
+          <Menu.Item key="stats:pageview" icon={<BarChartOutlined />}>
+            <Link to={`${prefix}/stats/pageview`}>페이지뷰 통계</Link>
           </Menu.Item>
-          <Menu.Item key="participation" icon={<TeamOutlined />}>
-            <Link to={`${base}/stats/participation`}>참여자 통계</Link>
+          <Menu.Item key="stats:participation" icon={<TeamOutlined />}>
+            <Link to={`${prefix}/stats/participation`}>이벤트 참여자 현황</Link>
           </Menu.Item>
-          <Menu.Item key="environment" icon={<ShareAltOutlined />}>
-            <Link to={`${base}/stats/environment`}>유입 환경</Link>
+          <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
+            <Link to={`${prefix}/stats/environment`}>유입 환경</Link>
           </Menu.Item>
         </Menu.ItemGroup>
       </Menu>
