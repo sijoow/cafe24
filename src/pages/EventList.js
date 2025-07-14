@@ -32,7 +32,6 @@ export default function EventList() {
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      // mallId 포함된 API 경로
       const res = await axios.get(`/api/${mallId}/events`);
       const list = res.data.map(ev => ({
         ...ev,
@@ -56,7 +55,6 @@ export default function EventList() {
 
   const handleDelete = async id => {
     try {
-      // mallId 포함된 삭제 API
       await axios.delete(`/api/${mallId}/events/${id}`);
       message.success('이벤트가 삭제되었습니다.');
       await fetchEvents();
@@ -84,7 +82,7 @@ export default function EventList() {
             display: 'inline-block',
             maxWidth: isMobile ? 100 : 180,
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {id}
@@ -95,8 +93,9 @@ export default function EventList() {
       title: '썸네일',
       dataIndex: 'images',
       width: 120,
-      render: images => {
-        const src = Array.isArray(images) && images.length > 0 ? images[0].src : null;
+      render: (images, record) => {
+        const src =
+          Array.isArray(images) && images.length > 0 ? images[0].src : null;
         if (!src) return <span>—</span>;
         const url = src.startsWith('http') ? src : `${R2_PUBLIC_BASE}/${src}`;
         return (
@@ -107,10 +106,9 @@ export default function EventList() {
             style={{ objectFit: 'cover', cursor: 'pointer' }}
             preview={false}
             alt="썸네일"
-            onClick={() => {
-              const evId = images[0]._id || images[0].id;
-              navigate(`/${mallId}/event/detail/${evId}`);
-            }}
+            onClick={() =>
+              navigate(`/${mallId}/event/detail/${record.id}`)
+            }
           />
         );
       },
@@ -131,7 +129,7 @@ export default function EventList() {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {text}
@@ -149,7 +147,7 @@ export default function EventList() {
             fontSize: isMobile ? '12px' : '14px',
             whiteSpace: 'nowrap',
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {text}
@@ -169,7 +167,7 @@ export default function EventList() {
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'
+              color: '#000',
             }}
           >
             {label}
@@ -183,9 +181,11 @@ export default function EventList() {
       width: 100,
       render: (images, record) => {
         const count = Array.isArray(images)
-          ? images.reduce((sum, img) =>
-              sum + (Array.isArray(img.regions) ? img.regions.length : 0)
-            , 0)
+          ? images.reduce(
+              (sum, img) =>
+                sum + (Array.isArray(img.regions) ? img.regions.length : 0),
+              0
+            )
           : 0;
         return (
           <span
@@ -194,7 +194,7 @@ export default function EventList() {
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'
+              color: '#000',
             }}
           >
             {count}
