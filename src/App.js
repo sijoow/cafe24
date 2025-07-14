@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -25,34 +26,37 @@ export default function App() {
   const isMobile = !screens.md;
   const [collapsed, setCollapsed] = useState(false);
 
-  // ─── 모바일 레이아웃 ───────────────────────────
+  // ─── 모바일 레이아웃 ────────────────────────────────────
   if (isMobile) {
     return (
       <OverlayLayout>
         <Routes>
-          {/* mallId 없이 들어오면 테스트용 onimon 으로 보내기 */}
+          {/* mallId 없이 들어오면 onimon 테스트 계정으로 리다이렉트 */}
           <Route index element={<Navigate to="/onimon/dashboard" replace />} />
 
-          <Route path="/:mallId/auth/callback" element={<Redirect />} />
-          <Route path="/:mallId/dashboard"           element={<Dashboard />} />
-          <Route path="/:mallId/event/list"         element={<EventList />} />
-          <Route path="/:mallId/event/create"       element={<EventCreate />} />
-          <Route path="/:mallId/event/detail/:id"   element={<EventDetail />} />
-          <Route path="/:mallId/event/edit/:id"     element={<EventEdit />} />
-          <Route path="/:mallId/reward/coupon"      element={<RewardCoupon />} />
-          <Route path="/:mallId/stats/pageview"     element={<PageView />} />
-          <Route path="/:mallId/stats/participation"element={<Participation />} />
-          <Route path="/:mallId/stats/environment"  element={<InflowEnvironment />} />
-          <Route path="/:mallId/admin"              element={<Admin />} />
+          {/* OAuth 콜백 (쿼리스트링 ?mallId=xxx 로 진입) */}
+          <Route path="auth/callback" element={<Redirect />} />
 
-          {/* 나머지는 기본 대시보드로 */}
+          {/* mallId 기반 경로 */}
+          <Route path=":mallId/dashboard"            element={<Dashboard />} />
+          <Route path=":mallId/event/list"           element={<EventList />} />
+          <Route path=":mallId/event/create"         element={<EventCreate />} />
+          <Route path=":mallId/event/detail/:id"     element={<EventDetail />} />
+          <Route path=":mallId/event/edit/:id"       element={<EventEdit />} />
+          <Route path=":mallId/reward/coupon"        element={<RewardCoupon />} />
+          <Route path=":mallId/stats/pageview"       element={<PageView />} />
+          <Route path=":mallId/stats/participation"  element={<Participation />} />
+          <Route path=":mallId/stats/environment"    element={<InflowEnvironment />} />
+          <Route path=":mallId/admin"                element={<Admin />} />
+
+          {/* 나머지 → onimon/dashboard 로 포워드 */}
           <Route path="*" element={<Navigate to="/onimon/dashboard" replace />} />
         </Routes>
       </OverlayLayout>
     );
   }
 
-  // ─── 데스크탑 레이아웃 ─────────────────────────
+  // ─── 데스크탑 레이아웃 ───────────────────────────────────
   const SIDER_WIDTH     = 240;
   const COLLAPSED_WIDTH = 80;
 
@@ -63,10 +67,9 @@ export default function App() {
         collapsible
         collapsedWidth={COLLAPSED_WIDTH}
         collapsed={collapsed}
-        onBreakpoint={broken => setCollapsed(broken)}
         onCollapse={setCollapsed}
         width={SIDER_WIDTH}
-        style={{ position: 'fixed', height: '100vh', left:0, top:0, bottom:0 }}
+        style={{ position: 'fixed', height: '100vh', left: 0, top: 0, bottom: 0 }}
       >
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       </Sider>
@@ -74,24 +77,27 @@ export default function App() {
       <AntLayout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
-          transition: 'margin-left .2s'
+          transition: 'margin-left .2s',
         }}
       >
         <AppHeader />
-        <Content style={{ margin:16, padding:16 }}>
+        <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
             <Route index element={<Navigate to="/onimon/dashboard" replace />} />
-            <Route path="/:mallId/auth/callback" element={<Redirect />} />
-            <Route path="/:mallId/dashboard"           element={<Dashboard />} />
-            <Route path="/:mallId/event/list"         element={<EventList />} />
-            <Route path="/:mallId/event/create"       element={<EventCreate />} />
-            <Route path="/:mallId/event/detail/:id"   element={<EventDetail />} />
-            <Route path="/:mallId/event/edit/:id"     element={<EventEdit />} />
-            <Route path="/:mallId/reward/coupon"      element={<RewardCoupon />} />
-            <Route path="/:mallId/stats/pageview"     element={<PageView />} />
-            <Route path="/:mallId/stats/participation"element={<Participation />} />
-            <Route path="/:mallId/stats/environment"  element={<InflowEnvironment />} />
-            <Route path="/:mallId/admin"              element={<Admin />} />
+
+            <Route path="auth/callback" element={<Redirect />} />
+
+            <Route path=":mallId/dashboard"            element={<Dashboard />} />
+            <Route path=":mallId/event/list"           element={<EventList />} />
+            <Route path=":mallId/event/create"         element={<EventCreate />} />
+            <Route path=":mallId/event/detail/:id"     element={<EventDetail />} />
+            <Route path=":mallId/event/edit/:id"       element={<EventEdit />} />
+            <Route path=":mallId/reward/coupon"        element={<RewardCoupon />} />
+            <Route path=":mallId/stats/pageview"       element={<PageView />} />
+            <Route path=":mallId/stats/participation"  element={<Participation />} />
+            <Route path=":mallId/stats/environment"    element={<InflowEnvironment />} />
+            <Route path=":mallId/admin"                element={<Admin />} />
+
             <Route path="*" element={<Navigate to="/onimon/dashboard" replace />} />
           </Routes>
         </Content>
