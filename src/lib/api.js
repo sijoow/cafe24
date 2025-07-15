@@ -1,18 +1,27 @@
-// src/api.js
+// src/lib/api.js
+
 import axios from 'axios';
 
-const api = axios.create({
-  // 절대경로 대신 상대경로를 쓰면, CRA 환경에선 자동으로 origin을 따라갑니다.
-  // baseURL: '/api' 로 잡아도 좋고, 여기선 빈 문자열로 둡니다.
-  baseURL: '',
-});
+// localStorage에서 한 번만 꺼내서 사용
+function getMallId() {
+  return localStorage.getItem('mallId');
+}
 
-// 요청 시마다 로컬스토리지에서 mallId 꺼내서 헤더에 추가
+const api = axios.create();
+
+// 요청 인터셉터 등록
 api.interceptors.request.use(config => {
-  const mallId = localStorage.getItem('mallId');
-  if (mallId) {
-    config.headers['X-Mall-Id'] = mallId;
+  const mallId = getMallId();
+  if (!mallId) {
+    console.warn('💡 mallId가 설정되지 않았습니다.');
+    return config;
   }
+
+  // ① baseURL을 /api/{mallId} 로 바꿔치기
+  config.baseURL = `/api/${mallId}`;
+  // ② 서버 로그(Middleware)용 헤더에도 mallId 추가
+  config.headers['X-Mall-Id'] = mallId;
+
   return config;
 });
 
