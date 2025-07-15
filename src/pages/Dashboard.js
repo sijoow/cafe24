@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom'; 
+import { useLocation } from 'react-router-dom'; 
 import {
   Card,
   Row,
@@ -17,10 +17,13 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
+
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
-  const { mallId } = useParams();  // ← mallId 추가
+  // URL 쿼리에서 mall_id 읽어오기 (없으면 onimon)
+  const { search } = useLocation();
+  const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
 
   // 1) 이벤트 & URL
   const [events, setEvents]               = useState([]);
@@ -51,7 +54,7 @@ export default function Dashboard() {
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
     // 이벤트 목록
-    axios.get(`/api/${mallId}/events`)
+    axios.get(`/api/events`, { params: { mall_id: mallId } })
       .then(res => {
         const sorted = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -66,7 +69,7 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
-    axios.get(`/api/${mallId}/coupons`)
+    axios.get(`/api/coupons`, { params: { mall_id: mallId } })
       .then(res => setCouponCount(res.data.length))
       .catch(() => {});
   }, [mallId]);
@@ -92,7 +95,9 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회 & 기본 선택
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/analytics/${selectedEvent}/urls`, {
+      params: { mall_id: mallId }
+    })
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -123,14 +128,15 @@ export default function Dashboard() {
     if (!selectedEvent || !selectedUrl) return;
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
+      mall_id:    mallId,
       start_date: `${start}T00:00:00+09:00`,
       end_date:   `${end}T23:59:59.999+09:00`,
       url:        selectedUrl
     };
 
-    const visReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
-    const clickReq = axios.get(`/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,     { params });
-    const devReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
+    const visReq   = axios.get(`/api/analytics/${selectedEvent}/visitors-by-date`, { params });
+    const clickReq = axios.get(`/api/analytics/${selectedEvent}/clicks-by-date`,     { params });
+    const devReq   = axios.get(`/api/analytics/${selectedEvent}/devices-by-date`,    { params });
 
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
