@@ -1,8 +1,7 @@
 // src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom'; 
-import api from '../lib/api'
+import api from '../lib/api';
 import {
   Card,
   Row,
@@ -14,15 +13,13 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
+
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
-  const { mallId } = useParams();  // ← mallId 추가
-
   // 1) 이벤트 & URL
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -30,24 +27,24 @@ export default function Dashboard() {
   const [selectedUrl, setSelectedUrl]     = useState(null);
 
   // 2) 조회 기간 & 최소일
-  const [range, setRange]     = useState([ dayjs().subtract(6, 'day'), dayjs() ]);
+  const [range, setRange]     = useState([dayjs().subtract(6, 'day'), dayjs()]);
   const [minDate, setMinDate] = useState(null);
 
   // 3) 날짜 축
   const [dates, setDates] = useState([]);
 
   // 4) 시계열 데이터
-  const [newByDate,    setNewByDate]     = useState([]);
-  const [retByDate,    setRetByDate]     = useState([]);
-  const [urlByDate,    setUrlByDate]     = useState([]);
-  const [couponByDate, setCouponByDate]  = useState([]);
-  const [pcByDate,     setPcByDate]      = useState([]);
-  const [andByDate,    setAndByDate]     = useState([]);
-  const [iosByDate,    setIosByDate]     = useState([]);
+  const [newByDate,    setNewByDate]    = useState([]);
+  const [retByDate,    setRetByDate]    = useState([]);
+  const [urlByDate,    setUrlByDate]    = useState([]);
+  const [couponByDate, setCouponByDate] = useState([]);
+  const [pcByDate,     setPcByDate]     = useState([]);
+  const [andByDate,    setAndByDate]    = useState([]);
+  const [iosByDate,    setIosByDate]    = useState([]);
 
   // 5) KPI
-  const [eventCount,  setEventCount]   = useState(0);
-  const [couponCount, setCouponCount]  = useState(0);
+  const [eventCount,  setEventCount]  = useState(0);
+  const [couponCount, setCouponCount] = useState(0);
 
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
@@ -72,10 +69,8 @@ export default function Dashboard() {
         setCouponCount(res.data.length);
       })
       .catch(() => {});
-
-  // mallId를 URL에 넣지 않으므로, 빈 배열로 한 번만 실행
   }, []);
-  
+
   // ─── selectedEvent 변경 시: 최소일 설정 + URL 목록 로드 ───────────────────
   useEffect(() => {
     if (!selectedEvent) {
@@ -97,7 +92,7 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회 & 기본 선택
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    api.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -108,7 +103,7 @@ export default function Dashboard() {
         setUrls([]);
         setSelectedUrl(null);
       });
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
   // ─── 날짜 축 생성 ───────────────────────────────────────────────
   useEffect(() => {
@@ -126,6 +121,7 @@ export default function Dashboard() {
   // ─── 데이터 조회 ───────────────────────────────────────────────
   const fetchData = () => {
     if (!selectedEvent || !selectedUrl) return;
+
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${start}T00:00:00+09:00`,
@@ -133,9 +129,9 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-    const visReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
-    const clickReq = axios.get(`/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,     { params });
-    const devReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
+    const visReq   = api.get(`/api/analytics/${selectedEvent}/visitors-by-date`, { params });
+    const clickReq = api.get(`/api/analytics/${selectedEvent}/clicks-by-date`,     { params });
+    const devReq   = api.get(`/api/analytics/${selectedEvent}/devices-by-date`,    { params });
 
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
@@ -160,10 +156,9 @@ export default function Dashboard() {
         const andMap = new Map();
         const iosMap = new Map();
         dev.forEach(o => {
-          const devName = o.device; // "PC", "Android", "iOS"
-          if (devName === 'PC')        pcMap.set(o.date, o.count);
-          else if (devName === 'Android') andMap.set(o.date, o.count);
-          else if (devName === 'iOS')      iosMap.set(o.date, o.count);
+          if (o.device === 'PC')         pcMap.set(o.date, o.count);
+          else if (o.device === 'Android') andMap.set(o.date, o.count);
+          else if (o.device === 'iOS')     iosMap.set(o.date, o.count);
         });
         setPcByDate(  dates.map(d => pcMap.get(d)  || 0));
         setAndByDate( dates.map(d => andMap.get(d) || 0));
@@ -175,7 +170,7 @@ export default function Dashboard() {
   };
 
   // ─── fetchData 자동 호출 ───────────────────────────────────
-  useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
+  useEffect(fetchData, [selectedEvent, selectedUrl, range, dates]);
 
   // ─── 차트 옵션 ───────────────────────────────────────────────
   const visitorLineOpt = {
@@ -217,7 +212,7 @@ export default function Dashboard() {
 
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
-      {/* 컨트롤 */}
+      {/* 컨트롤 */} 
       <Card>
         <Space wrap>
           <Select
