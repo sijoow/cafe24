@@ -1,6 +1,8 @@
 // src/App.js
+
 import React, { useEffect, useState } from 'react';
 import {
+  BrowserRouter,
   Routes,
   Route,
   Navigate,
@@ -9,55 +11,57 @@ import {
 } from 'react-router-dom';
 import { Layout as AntLayout, Grid } from 'antd';
 
-import Sidebar       from './components/Sidebar';
-import AppHeader     from './components/AppHeader';
-import OverlayLayout from './components/OverLayout';
+import Sidebar            from './components/Sidebar';
+import AppHeader          from './components/AppHeader';
+import OverlayLayout      from './components/OverLayout';
 
-import Dashboard        from './pages/Dashboard';
-import EventList        from './pages/EventList';
-import EventCreate      from './pages/EventCreate';
-import EventDetail      from './pages/EventDetail';
-import EventEdit        from './pages/EventEdit';
-import RewardCoupon     from './pages/RewardCoupon';
-import PageView         from './pages/PageView';
-import Participation    from './pages/Participation';
-import InflowEnvironment from './pages/InflowEnvironment';
+import Dashboard          from './pages/Dashboard';
+import EventList          from './pages/EventList';
+import EventCreate        from './pages/EventCreate';
+import EventDetail        from './pages/EventDetail';
+import EventEdit          from './pages/EventEdit';
+import RewardCoupon       from './pages/RewardCoupon';
+import PageView           from './pages/PageView';
+import Participation      from './pages/Participation';
+import InflowEnvironment  from './pages/InflowEnvironment';
+import RedirectPage       from './pages/Redirect';
 
 const { Sider, Content } = AntLayout;
 const { useBreakpoint }  = Grid;
 
-// ─── (A) 최초 진입: 카페24가 붙여준 mall_id, user_id, user_name 읽어서 저장 → /dashboard 로 치환
-function RedirectToMall() {
-  const { search } = useLocation();
-  const navigate  = useNavigate();
+// ─── InitMall: URL 쿼리(mall_id, user_id, user_name) 있으면 저장 후 제거
+function InitMall({ children }) {
+  const { search, pathname } = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const params   = new URLSearchParams(search);
     const mallId   = params.get('mall_id')   || params.get('mallId');
-    const userName = params.get('user_name') || params.get('userName');
     const userId   = params.get('user_id')   || params.get('userId');
+    const userName = params.get('user_name') || params.get('userName');
 
-    if (mallId)   localStorage.setItem('mallId',   mallId);
-    if (userName) localStorage.setItem('userName', userName);
-    if (userId)   localStorage.setItem('userId',   userId);
+    if (mallId) {
+      localStorage.setItem('mallId', mallId);
+      if (userId)   localStorage.setItem('userId',   userId);
+      if (userName) localStorage.setItem('userName', userName);
+      // 쿼리 제거
+      navigate(pathname, { replace: true });
+    }
+  }, [search, pathname, navigate]);
 
-    navigate('/dashboard', { replace: true });
-  }, [search, navigate]);
-
-  return null;
+  return children;
 }
 
-// ─── (B) 메인 레이아웃: mallId는 localStorage에서, URL엔 노출되지 않음
+// ─── MainLayout: 모든 서브 라우트 처리
 function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const screens  = useBreakpoint();
   const isMobile = !screens.md;
 
-  // guard: 만약 localStorage에 mallId가 없으면 / 로 보내기
-  const mallId = localStorage.getItem('mallId');
-  if (!mallId) return <Navigate to="/" replace />;
+  // (선택) mallId 없으면 루트로
+  // const mallId = localStorage.getItem('mallId');
+  // if (!mallId) return <Navigate to="/" replace />;
 
-  // ── 모바일 레이아웃
   if (isMobile) {
     return (
       <OverlayLayout collapsed={collapsed} onToggle={() => setCollapsed(p => !p)}>
@@ -72,13 +76,13 @@ function MainLayout() {
           <Route path="stats/pageview"     element={<PageView />} />
           <Route path="stats/participation"element={<Participation />} />
           <Route path="stats/environment"  element={<InflowEnvironment />} />
+          <Route path="redirect"           element={<RedirectPage />} />
           <Route path="*"                  element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
     );
   }
 
-  // ── 데스크탑 레이아웃
   const SIDER_WIDTH     = 240;
   const COLLAPSED_WIDTH = 80;
 
@@ -89,15 +93,13 @@ function MainLayout() {
         collapsible
         collapsedWidth={COLLAPSED_WIDTH}
         collapsed={collapsed}
-        onBreakpoint={broken => setCollapsed(broken)}
+        onBreakpoint={b => setCollapsed(b)}
         onCollapse={setCollapsed}
         width={SIDER_WIDTH}
         style={{
           position: 'fixed',
           height: '100vh',
-          left: 0,
-          top: 0,
-          bottom: 0,
+          left: 0, top: 0, bottom: 0,
           zIndex: 100,
         }}
       >
@@ -110,7 +112,7 @@ function MainLayout() {
           transition: 'margin-left 0.2s ease',
         }}
       >
-        <AppHeader />
+        <AppHeader onMenuClick={() => setCollapsed(p => !p)} />
 
         <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
@@ -124,6 +126,7 @@ function MainLayout() {
             <Route path="stats/pageview"     element={<PageView />} />
             <Route path="stats/participation"element={<Participation />} />
             <Route path="stats/environment"  element={<InflowEnvironment />} />
+            <Route path="redirect"           element={<RedirectPage />} />
             <Route path="*"                  element={<Dashboard />} />
           </Routes>
         </Content>
@@ -132,13 +135,22 @@ function MainLayout() {
   );
 }
 
-// ─── (C) 최상위 App
+// ─── App: InitMall 으로 둘러싸고, 최상위 라우팅 설정
 export default function App() {
   return (
-    <Routes>
-      <Route path="/"   element={<RedirectToMall />} />
-      <Route path="/*"  element={<MainLayout />} />
-      <Route path="*"   element={<Navigate to="/" replace />} />
-    </Routes>
+    <BrowserRouter>
+      <InitMall>
+        <Routes>
+          {/* 첫 진입 콜백 처리 */}
+          <Route path="/" element={<RedirectPage />} />
+
+          {/* 나머지 모든 경로 */}
+          <Route path="/*" element={<MainLayout />} />
+
+          {/* 매칭 안 되면 / */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </InitMall>
+    </BrowserRouter>
   );
 }
