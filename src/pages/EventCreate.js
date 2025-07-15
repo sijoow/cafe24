@@ -48,11 +48,10 @@ export default function EventCreate() {
 
   // 새로고침시 sessionStorage 초기화
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/categories/all`)
-      .then(res => setAllCats(res.data))
-      .catch(() => msgApi.error('카테고리 불러오기 실패'));
-  }, [mallId]); 
+    Object.keys(sessionStorage)
+      .filter(key => key.startsWith('MorePrd_'))
+      .forEach(key => sessionStorage.removeItem(key));
+  }, []);
 
   // Wizard 단계
   const [current, setCurrent] = useState(0);
@@ -306,7 +305,7 @@ export default function EventCreate() {
         )
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
-  }, [mallId]);
+  }, []);
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
@@ -365,7 +364,7 @@ export default function EventCreate() {
       };
       await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
       msgApi.success('이벤트 생성 완료');
-      navigate(`/${mallId}/event/list`);
+      navigate('/event/list');
     } catch (e) {
       console.error(e);
       msgApi.error('이벤트 등록 실패');
