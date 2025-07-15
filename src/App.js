@@ -22,7 +22,6 @@ import PageView         from './pages/PageView';
 import Participation    from './pages/Participation';
 import InflowEnvironment from './pages/InflowEnvironment';
 import Redirect         from './pages/Redirect';
-import Admin            from './pages/Admin';
 
 const { Sider, Content } = AntLayout;
 const { useBreakpoint }  = Grid;
@@ -57,7 +56,6 @@ function MainLayout() {
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
-          <Route path="admin" element={<Admin    />} />
           
           <Route path="*" element={<Dashboard />} />
         </Routes>
@@ -118,7 +116,6 @@ function MainLayout() {
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="redirect" element={<Redirect />} />
-            <Route path="admin" element={<Admin    />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
