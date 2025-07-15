@@ -31,7 +31,7 @@ import RedirectPage      from './pages/Redirect';
 
 /* ──────────────────────── axios 기본값 ──────────────────────── */
 axios.defaults.withCredentials = true;          // 쿠키 전송
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE || ''; // 필요 시
+//axios.defaults.baseURL = import.meta.env.VITE_API_BASE || ''; // 필요 시
 
 /* ─────────────────────── Mall Context ─────────────────────── */
 const MallContext = createContext(null);
