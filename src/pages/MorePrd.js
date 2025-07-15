@@ -1,8 +1,9 @@
 // src/components/MorePrd.js
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Table, message, Input, Button } from 'antd';
 import { FileImageOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axios from 'axios';  // baseURL은 src/index.js에서 설정됨
 import {
   DragDropContext,
   Droppable,
@@ -120,29 +121,29 @@ export default function MorePrd({
   useEffect(() => {
     if (!visible) return;
 
-    // 1) 검색어·테이블 초기화
+    // (1) 검색어·테이블 초기화
     setSearchText('');
     fetchPage(1, pagination.pageSize);
 
-    // 2) sessionStorage에서 선택 상태 복원
-    const savedKeys = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]');
-    setSelectedRowKeys(savedKeys);
-
+    // (2) sessionStorage에서 선택 상태 복원
+    const savedKeys    = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]');
     const savedDetails = JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]');
+    setSelectedRowKeys(savedKeys);
     setSelectedDetails(savedDetails);
 
-    // 3) 부족한 상세는 API로 보충
+    // (3) 부족한 상세는 API로 보충
     const toLoad = savedKeys.filter(
       k => !savedDetails.some(d => String(d.product_no) === String(k))
     );
     if (toLoad.length > 0) {
       Promise.all(
-        toLoad.map(k =>
-          axios.get(`/api/${mallId}/products/${k}`).then(r => r.data)
-        )
+        toLoad.map(k => axios.get(`/api/${mallId}/products/${k}`))
       )
       .then(arr => {
-        setSelectedDetails(prev => [...prev, ...arr]);
+        setSelectedDetails(prev => [
+          ...prev,
+          ...arr.map(r => r.data)
+        ]);
       })
       .catch(() => message.error('선택 상품 상세 로드 실패'));
     }
@@ -156,16 +157,21 @@ export default function MorePrd({
     if (!missing.length) return;
     Promise.all(
       missing.map(k => {
-        const loc =
+        // 이미 로드된 배열에서 찾거나 API 요청
+        const local =
           products.find(p => p.product_no === k) ||
           searchResults.find(p => p.product_no === k) ||
           selectedDetails.find(d => d.product_no === k);
-        if (loc) return Promise.resolve({ data: loc });
-        return axios.get(`/api/${mallId}/products/${k}`);
+        return local
+          ? Promise.resolve({ data: local })
+          : axios.get(`/api/${mallId}/products/${k}`);
       })
     )
       .then(resps => {
-        setSelectedDetails(prev => [...prev, ...resps.map(r => r.data)]);
+        setSelectedDetails(prev => [
+          ...prev,
+          ...resps.map(r => r.data)
+        ]);
       })
       .catch(() => message.error('선택 상품 상세 추가 로드 실패'));
   }, [selectedRowKeys, products, searchResults, selectedDetails, mallId]);
@@ -200,9 +206,9 @@ export default function MorePrd({
     [selectedRowKeys]
   );
 
-  // 11) 컬럼
+  // 11) 컬럼 정의
   const columns = [
-    { title: '번호', dataIndex: 'product_no', width: 80 },
+    { title: '번호',   dataIndex: 'product_no', width: 80 },
     { title: '상품명', dataIndex: 'product_name', width: 200 },
     {
       title: '판매가',
@@ -286,7 +292,7 @@ export default function MorePrd({
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              padding: '8px',
+                              padding: 8,
                               marginBottom: 4,
                               background: '#fff',
                               border: '1px solid #eee',

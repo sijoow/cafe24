@@ -3,37 +3,33 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Select, Space, message, Typography } from 'antd';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';  // ← 추가
-const { Title } = Typography;
-const { Option } = Select;
+import { useParams } from 'react-router-dom';
+import './NormalSection.css';
 
-const API_BASE =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+const { Title } = Typography;
 
 export default function RewardCoupon() {
-  const { mallId } = useParams();              // ← mallId 추출
+  const { mallId } = useParams();
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('all');     // 'all' | 'active' | 'upcoming'
+  const [view, setView] = useState('all'); // 'all' | 'active' | 'upcoming'
 
   const columns = [
-    { title: '쿠폰번호',    dataIndex: 'coupon_no',        key: 'coupon_no',      width: 180 },
-    { title: '쿠폰명',      dataIndex: 'coupon_name',      key: 'coupon_name',    ellipsis: true },
-    { title: '혜택',        dataIndex: 'benefit_text',     key: 'benefit_text',   ellipsis: true },
-    { title: '할인율(%)',   dataIndex: 'benefit_percentage',key: 'benefit_percentage', width: 100 },
-    { title: '발급수량',    dataIndex: 'issued_count',     key: 'issued_count',   width: 100 },
-    { title: '시작일',      dataIndex: 'available_begin',   key: 'available_begin', width: 180 },
-    { title: '종료일',      dataIndex: 'available_end',     key: 'available_end',   width: 180 },
+    { title: '쿠폰번호',            dataIndex: 'coupon_no',        key: 'coupon_no',        width: 180 },
+    { title: '쿠폰명',              dataIndex: 'coupon_name',      key: 'coupon_name',      ellipsis: true },
+    { title: '혜택',                dataIndex: 'benefit_text',     key: 'benefit_text',     ellipsis: true },
+    { title: '할인율(%)',           dataIndex: 'benefit_percentage',key: 'benefit_percentage', width: 100 },
+    { title: '발급수량',            dataIndex: 'issued_count',     key: 'issued_count',     width: 100 },
+    { title: '시작일',              dataIndex: 'available_begin',   key: 'available_begin',   width: 180 },
+    { title: '종료일',              dataIndex: 'available_end',     key: 'available_end',     width: 180 },
   ];
 
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${API_BASE}/api/${mallId}/coupons`,    // ← mallId 경로에 포함
-        { params: { view } }
-      );
+      const res = await axios.get(`/api/${mallId}/coupons`, {
+        params: { view }
+      });
       setCoupons(res.data);
     } catch (err) {
       console.error(err);
@@ -44,7 +40,9 @@ export default function RewardCoupon() {
   };
 
   useEffect(() => {
-    if (mallId) fetchCoupons();
+    if (mallId) {
+      fetchCoupons();
+    }
   }, [mallId, view]);
 
   return (
@@ -53,9 +51,9 @@ export default function RewardCoupon() {
       <Space>
         <span>보기:</span>
         <Select value={view} onChange={setView} style={{ width: 160 }}>
-          <Option value="all">전체 쿠폰</Option>
-          <Option value="active">현재 노출 중</Option>
-          <Option value="upcoming">다가오는 쿠폰</Option>
+          <Select.Option value="all">전체 쿠폰</Select.Option>
+          <Select.Option value="active">현재 노출 중</Select.Option>
+          <Select.Option value="upcoming">다가오는 쿠폰</Select.Option>
         </Select>
       </Space>
       <Table

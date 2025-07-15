@@ -51,9 +51,9 @@ export default function EventDetail() {
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
-        navigate('/event/list');
+         navigate(`/${mallId}/event/list`);
       });
-  }, [id, navigate]);
+  }, [mallId, id, navigate]);  
 
   if (!event) return null;
 
@@ -208,7 +208,8 @@ export default function EventDetail() {
           <Space>
             <Button
               icon={<UnorderedListOutlined />}
-              onClick={() => navigate('/event/list')}
+              // 목록으로 돌아갈 때도 mallId를 붙여주세요
+              onClick={() => navigate(`/${mallId}/event/list`)}
             >
               목록
             </Button>

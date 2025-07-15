@@ -1,40 +1,44 @@
-
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
-import { Routes, Route } from 'react-router-dom';
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useParams
+} from 'react-router-dom';
 
-
-import Sidebar   from './components/Sidebar';
-import AppHeader from './components/AppHeader';
-import EventDetail from './pages/EventDetail';
-import EventEdit    from './pages/EventEdit';   // ← 이 줄
-
-// 각 페이지 컴포넌트
-import Dashboard          from './pages/Dashboard';
-import EventCreate        from './pages/EventCreate';
-import EventList          from './pages/EventList';
-import RewardCoupon       from './pages/RewardCoupon';
-
-import PageView           from  './pages/PageView';
-import Participation      from  './pages/Participation'
-//유입환경
-import InflowEnvironment from './pages/InflowEnvironment'
-
-//모바일 메뉴 환경
+import Sidebar       from './components/Sidebar';
+import AppHeader     from './components/AppHeader';
 import OverlayLayout from './components/OverLayout';
 
-//리다이렉트 페이지
-import Redirect from './pages/Redirect'
-import Admin    from './pages/Admin';
+import Dashboard        from './pages/Dashboard';
+import EventList        from './pages/EventList';
+import EventCreate      from './pages/EventCreate';
+import EventDetail      from './pages/EventDetail';
+import EventEdit        from './pages/EventEdit';
+import RewardCoupon     from './pages/RewardCoupon';
+import PageView         from './pages/PageView';
+import Participation    from './pages/Participation';
+import InflowEnvironment from './pages/InflowEnvironment';
+import Redirect         from './pages/Redirect';
+
+
 const { Sider, Content } = AntLayout;
-const { useBreakpoint } = Grid;
+const { useBreakpoint }  = Grid;
 
-export default function App() {
-  // ① 훅과 isMobile 계산은 컴포넌트 최상단에서
-  const screens = useBreakpoint();
+// ─── (A) 루트("/") 접속 시 mall_id 쿼리 읽어서 해당 mallId/dashboard 로 리다이렉트
+function RedirectToMall() {
+  const { search } = useLocation();
+  const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
+  return <Navigate to={`/${mallId}/dashboard`} replace />;
+}
+
+// ─── (B) "/:mallId/*" 이하를 처리하는 레이아웃
+function MainLayout() {
+  const screens  = useBreakpoint();
   const isMobile = !screens.md;
-
-  // ② 모바일용 OverlayLayout vs 데스크탑용 AntLayout+Sidebar
+  const { mallId } = useParams();
   const [collapsed, setCollapsed] = useState(false);
 
   // ── 모바일: OverlayLayout ─────────────────────────────
@@ -53,7 +57,6 @@ export default function App() {
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
-          <Route path="admin" element={<Admin    />} />
           
           <Route path="*" element={<Dashboard />} />
         </Routes>
@@ -114,11 +117,26 @@ export default function App() {
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="redirect" element={<Redirect />} />
-            <Route path="admin" element={<Admin    />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
       </AntLayout>
     </AntLayout>
+  );
+}
+
+// ─── 최상위 App ───────────────────────────────────────────────────
+export default function App() {
+  return (
+    <Routes>
+      {/* 루트 → mall_id 쿼리 읽어 리다이렉트 */}
+      <Route path="/" element={<RedirectToMall />} />
+
+      {/* mallId 하위 모든 경로 → MainLayout */}
+      <Route path="/:mallId/*" element={<MainLayout />} />
+
+      {/* 그 외는 다시 루트 */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

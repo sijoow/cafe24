@@ -26,15 +26,16 @@ import {
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
-import api from '../lib/api'
+
 const { Step } = Steps;
 const { useBreakpoint } = Grid;
 
 export default function EventCreate() {
-  const { mallId } = useParams();
   const navigate = useNavigate();
+  const { mallId } = useParams();
   const [msgApi, msgCtx] = message.useMessage();
 
   const API_BASE =
@@ -47,10 +48,11 @@ export default function EventCreate() {
 
   // 새로고침시 sessionStorage 초기화
   useEffect(() => {
-    Object.keys(sessionStorage)
-      .filter(key => key.startsWith('MorePrd_'))
-      .forEach(key => sessionStorage.removeItem(key));
-  }, []);
+    axios
+      .get(`${API_BASE}/api/${mallId}/categories/all`)
+      .then(res => setAllCats(res.data))
+      .catch(() => msgApi.error('카테고리 불러오기 실패'));
+  }, [mallId]); 
 
   // Wizard 단계
   const [current, setCurrent] = useState(0);
@@ -229,7 +231,8 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    api.get(`/api/${mallId}/categories/all`)
+    axios
+      .get(`${API_BASE}/api/${mallId}/categories/all`)   // ← mallId 삽입
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, []);
@@ -292,7 +295,8 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    api.get(`/api/${mallId}/coupons`)
+    axios
+      .get(`${API_BASE}/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -302,7 +306,7 @@ export default function EventCreate() {
         )
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
-  }, []);
+  }, [mallId]);
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
@@ -318,8 +322,8 @@ export default function EventCreate() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await api.post(
-              '/uploads/image',
+            const { data } = await axios.post(
+              `${API_BASE}/api/${mallId}/uploads/image`,   // ← mallId 삽입
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -359,9 +363,9 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await api.post('/events', payload);
+      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
       msgApi.success('이벤트 생성 완료');
-      navigate('/event/list');
+      navigate(`/${mallId}/event/list`);
     } catch (e) {
       console.error(e);
       msgApi.error('이벤트 등록 실패');
