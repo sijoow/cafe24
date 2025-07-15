@@ -1,3 +1,4 @@
+// src/components/AppHeader.jsx
 import React from 'react';
 import './AppHeader.css';
 
@@ -6,10 +7,24 @@ export default function AppHeader({
   onToggle,
   user = {},
 }) {
-  const membership = user.membership || {
-    level: 'free',
-    label: 'GUEST',
-    avatarUrl: 'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png',
+  // 1) 먼저 localStorage에서 userName 또는 userId를 꺼내 본다
+  const storedName =
+    localStorage.getItem('userName') ||
+    localStorage.getItem('userId');
+
+  // 2) membership 정보를 결정
+  const membership = {
+    // level은 기존 user.membership이 있으면 그대로, 아니면 'free'
+    level: user.membership?.level || 'free',
+    // label은 storedName이 있으면 그걸, 없으면 기존 membership.label, 그래도 없으면 'GUEST'
+    label:
+      storedName ||
+      user.membership?.label ||
+      'GUEST',
+    // avatarUrl은 기존에 세팅된 게 있으면 그걸, 아니면 기본 아이콘
+    avatarUrl:
+      user.membership?.avatarUrl ||
+      'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png',
   };
 
   return (
