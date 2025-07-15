@@ -13,7 +13,7 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';  // 앞에서 만든 axios 인스턴스
+import api from '../lib/api'
 
 const { useBreakpoint } = Grid;
 
