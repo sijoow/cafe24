@@ -229,8 +229,7 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    api
-      .get(`${API_BASE}/api/categories/all`)
+    api.get(`/api/${mallId}/categories/all`)
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, []);
@@ -293,8 +292,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    api
-      .get(`${API_BASE}/api/coupons`)
+    api.get(`/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
