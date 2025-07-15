@@ -12,13 +12,12 @@ import {
   Grid,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import api from '../api';  // 앞에서 만든 axios 인스턴스
 
 const { useBreakpoint } = Grid;
 
 export default function EventList() {
-  const { mallId } = useParams();
   const navigate   = useNavigate();
   const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,11 +28,11 @@ export default function EventList() {
   const R2_PUBLIC_BASE =
     'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev';
 
+  // ─── 이벤트 불러오기
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      // mallId 포함된 API 경로
-      const res = await axios.get(`/api/${mallId}/events`);
+      const res = await api.get('/api/events');
       const list = res.data.map(ev => ({
         ...ev,
         id: ev._id,
@@ -52,12 +51,12 @@ export default function EventList() {
 
   useEffect(() => {
     fetchEvents();
-  }, [mallId]);
+  }, []);
 
+  // ─── 이벤트 삭제
   const handleDelete = async id => {
     try {
-      // mallId 포함된 삭제 API
-      await axios.delete(`/api/${mallId}/events/${id}`);
+      await api.delete(`/api/events/${id}`);
       message.success('이벤트가 삭제되었습니다.');
       await fetchEvents();
     } catch (err) {
@@ -66,6 +65,7 @@ export default function EventList() {
     }
   };
 
+  // ─── 테이블 컬럼 정의
   const columns = [
     {
       title: 'ID',
@@ -73,7 +73,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
+          onClick={() => navigate(`/event/detail/${id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             lineHeight: 1.2,
@@ -96,7 +96,9 @@ export default function EventList() {
       dataIndex: 'images',
       width: 120,
       render: images => {
-        const src = Array.isArray(images) && images.length > 0 ? images[0].src : null;
+        const src = Array.isArray(images) && images.length > 0
+          ? images[0].src
+          : null;
         if (!src) return <span>—</span>;
         const url = src.startsWith('http') ? src : `${R2_PUBLIC_BASE}/${src}`;
         return (
@@ -109,7 +111,7 @@ export default function EventList() {
             alt="썸네일"
             onClick={() => {
               const evId = images[0]._id || images[0].id;
-              navigate(`/${mallId}/event/detail/${evId}`);
+              navigate(`/event/detail/${evId}`);
             }}
           />
         );
@@ -121,7 +123,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '13px' : '16px',
             lineHeight: 1.3,
@@ -142,9 +144,9 @@ export default function EventList() {
       title: '생성 일자',
       dataIndex: 'createdAt',
       width: 120,
-      render: (text, record) => (
+      render: text => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/event/detail/${text}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             whiteSpace: 'nowrap',
@@ -161,10 +163,14 @@ export default function EventList() {
       dataIndex: 'layoutType',
       width: 100,
       render: (lt, record) => {
-        const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
+        const label = lt === 'single'
+          ? '단품'
+          : lt === 'tabs'
+            ? '탭'
+            : '없음';
         return (
           <span
-            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            onClick={() => navigate(`/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
@@ -181,7 +187,7 @@ export default function EventList() {
       title: '영역 수',
       dataIndex: 'images',
       width: 100,
-      render: (images, record) => {
+      render: images => {
         const count = Array.isArray(images)
           ? images.reduce((sum, img) =>
               sum + (Array.isArray(img.regions) ? img.regions.length : 0)
@@ -189,7 +195,7 @@ export default function EventList() {
           : 0;
         return (
           <span
-            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            onClick={() => navigate(`/event/detail/${images[0]?._id || images[0]?.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
@@ -212,7 +218,7 @@ export default function EventList() {
             size="small"
             onClick={e => {
               e.stopPropagation();
-              navigate(`/${mallId}/event/edit/${record.id}`);
+              navigate(`/event/edit/${record.id}`);
             }}
           >
             수정
@@ -243,7 +249,7 @@ export default function EventList() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate(`/${mallId}/event/create`)}
+          onClick={() => navigate('/event/create')}
         >
           새 이벤트 생성
         </Button>
