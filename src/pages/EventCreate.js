@@ -29,7 +29,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './EventCreate.css';
-
+import api from '../lib/api'
 const { Step } = Steps;
 const { useBreakpoint } = Grid;
 
@@ -229,7 +229,7 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    axios
+    api
       .get(`${API_BASE}/api/categories/all`)
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
@@ -293,7 +293,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    axios
+    api
       .get(`${API_BASE}/api/coupons`)
       .then(res =>
         setCouponOptions(
@@ -361,7 +361,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await axios.post(`${API_BASE}/api/events`, payload);
+      await api.post('/events', payload);
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list');
     } catch (e) {
