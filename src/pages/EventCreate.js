@@ -29,7 +29,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
-import api from '../lib/api'
+
 const { Step } = Steps;
 const { useBreakpoint } = Grid;
 
@@ -229,12 +229,12 @@ export default function EventCreate() {
 
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
-    useEffect(() => {
-      api
-        .get('/api/categories/all')
-        .then(res => setAllCats(res.data))
-        .catch(() => msgApi.error('카테고리 불러오기 실패'));
-    }, []);
+  useEffect(() => {
+    axios
+      .get(`${API_BASE}/api/${mallId}/categories/all`)   // ← mallId 삽입
+      .then(res => setAllCats(res.data))
+      .catch(() => msgApi.error('카테고리 불러오기 실패'));
+  }, []);
 
   const [singleRoot, setSingleRoot] = useState(null);
   const [singleSub, setSingleSub] = useState(null);
@@ -294,8 +294,8 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    api
-      .get('/api/coupons')
+    axios
+      .get(`${API_BASE}/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -321,8 +321,8 @@ export default function EventCreate() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await api.post(
-              '/api/uploads/image',
+            const { data } = await axios.post(
+              `${API_BASE}/api/${mallId}/uploads/image`,   // ← mallId 삽입
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -362,7 +362,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await api.post('/api/events', payload); // ← mallId 삽입
+      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list');
     } catch (e) {
