@@ -26,14 +26,14 @@ import {
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
 import api from '../lib/api'
 const { Step } = Steps;
 const { useBreakpoint } = Grid;
 
 export default function EventCreate() {
+  const { mallId } = useParams();
   const navigate = useNavigate();
   const [msgApi, msgCtx] = message.useMessage();
 
@@ -320,8 +320,8 @@ export default function EventCreate() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await axios.post(
-              `${API_BASE}/api/uploads/image`,
+            const { data } = await api.post(
+              '/uploads/image',
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
