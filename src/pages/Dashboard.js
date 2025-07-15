@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom'; 
+import api from '../lib/api'
 import {
   Card,
   Row,
@@ -51,7 +52,7 @@ export default function Dashboard() {
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
     // 이벤트 목록
-    axios.get(`/api/${mallId}/events`)
+    api.get('/api/events')
       .then(res => {
         const sorted = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -66,11 +67,15 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
-    axios.get(`/api/${mallId}/coupons`)
-      .then(res => setCouponCount(res.data.length))
+    api.get('/api/coupons')
+      .then(res => {
+        setCouponCount(res.data.length);
+      })
       .catch(() => {});
-  }, [mallId]);
 
+  // mallId를 URL에 넣지 않으므로, 빈 배열로 한 번만 실행
+  }, []);
+  
   // ─── selectedEvent 변경 시: 최소일 설정 + URL 목록 로드 ───────────────────
   useEffect(() => {
     if (!selectedEvent) {
