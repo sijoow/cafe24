@@ -1,14 +1,19 @@
 // src/axios.js
 import axios from 'axios';
 
-// 모든 요청 전에 mallId 를 꺼내서 URL 에 주입
-axios.interceptors.request.use(config => {
-  const mallId = localStorage.getItem('mallId');
-  if (mallId && config.url?.startsWith('/api/')) {
-    // '/api/...' → `/api/${mallId}/...`
-    config.url = `/api/${mallId}${config.url.replace(/^\/api/, '')}`;
+const instance = axios.create({
+  // you can also set a default baseURL here if you like
+  // baseURL: '/',  
+});
+
+instance.interceptors.request.use(config => {
+  // path looks like "/{mallId}/..."
+  const [, mallId] = window.location.pathname.split('/');
+  if (config.url.startsWith('/api/')) {
+    // rewrite "/api/foo" → "/api/{mallId}/foo"
+    config.url = `/api/${mallId}${config.url}`;
   }
   return config;
-}, error => Promise.reject(error));
+});
 
-export default axios;
+export default instance;
