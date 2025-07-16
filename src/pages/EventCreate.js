@@ -24,7 +24,9 @@ import {
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import '../axios'
+import api from '../axios';
+
+
 import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
 
@@ -191,8 +193,7 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/categories/all`)
+    api.get('/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, [mallId]);   // ← dependency에 mallId 추가
@@ -255,8 +256,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/coupons`)
+   api.get('/coupons')
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -266,7 +266,7 @@ export default function EventCreate() {
         )
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
-  }, [mallId]);
+  },[mallId]);
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
@@ -282,8 +282,8 @@ export default function EventCreate() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await axios.post(
-              `${API_BASE}/api/${mallId}/uploads/image`,
+            const { data } = await api.post(
+             '/uploads/image',
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -323,7 +323,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);
+      await api.post('/events', payload);
       msgApi.success('이벤트 생성 완료');
       navigate(`/${mallId}/event/list`);
     } catch (e) {
