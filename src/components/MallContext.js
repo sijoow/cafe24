@@ -1,19 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const MallContext = createContext();
+export function useMall() { return useContext(MallContext); }
 
-/* 앱 어디서든 mallId 값을 읽어올 수 있게 export */
-export function useMall() {
-  return useContext(MallContext);
+function detectMallFromHost() {
+  // ex) yogibo.cafe24.com  →  yogibo
+  const host = window.location.hostname;
+  const m = host.match(/^([^.]+)\.cafe24\.com$/);
+  return m ? m[1] : '';
 }
 
-/* localStorage → Context 로딩 */
 export function MallProvider({ children }) {
   const [mallId, setMallId] = useState(() => {
-    return localStorage.getItem('mallId') || '';   // 초기값
+    return (
+      localStorage.getItem('mallId') ||   // 1) 저장돼 있던 값
+      detectMallFromHost()               // 2) 서브도메인에서 추출
+    );
   });
 
-  /* mallId 가 바뀌면 localStorage 에도 동기화 */
+  /* mallId 가 정해지면 localStorage 동기화 */
   useEffect(() => {
     if (mallId) localStorage.setItem('mallId', mallId);
   }, [mallId]);
