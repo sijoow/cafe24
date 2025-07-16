@@ -51,7 +51,7 @@ export default function Dashboard() {
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
     // 이벤트 목록
-    axios.get(`/api/${mallId}/events`)
+    axios.get(`/api/${mallId}/users/${userId}/events`)
       .then(res => {
         const sorted = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -66,7 +66,11 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
+<<<<<<< HEAD
     axios.get(`/api/${mallId}/coupons`)
+=======
+    axios.get(`/api/${mallId}/users/${userId}/coupons`)
+>>>>>>> origin/main
     .then(res => setCouponCount(res.data.length))
       .catch(() => {});
   }, []);
@@ -92,7 +96,7 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회 & 기본 선택
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/${mallId}/users/${userId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -128,7 +132,11 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
+<<<<<<< HEAD
        const base = `/api/${mallId}/analytics/${selectedEvent}`;
+=======
+       const base = `/api/${mallId}/users/${userId}/analytics/${selectedEvent}`;
+>>>>>>> origin/main
        const visReq   = axios.get(`${base}/visitors-by-date`, { params });
        const clickReq = axios.get(`${base}/clicks-by-date`,     { params });
        const devReq   = axios.get(`${base}/devices-by-date`,    { params });
