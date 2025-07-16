@@ -2,13 +2,12 @@
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
 
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/AppHeader';
 import OverlayLayout from './components/OverlayLayout';
 
-import AuthCallback from './pages/AuthCallback';
+import Redirect from './pages/Redirect';
 import Dashboard from './pages/Dashboard';
 import EventList from './pages/EventList';
 import EventCreate from './pages/EventCreate';
@@ -28,14 +27,13 @@ function MainLayout() {
   const isMobile = !screens.md;
   const [collapsed, setCollapsed] = useState(false);
 
-  // 쿠키에서 mallId 꺼내기
-  const mallId = Cookies.get('mallId');
+  // localStorage에서 mallId 꺼내기
+  const mallId = localStorage.getItem('mallId');
   if (!mallId) {
-    // 만약 mallId가 없으면 OAuth 콜백 페이지로
-    return <Navigate to="/auth/callback" replace />;
+    return <Navigate to="/redirect" replace />;
   }
 
-  // Mobile Layout
+  // 모바일 전용 레이아웃
   if (isMobile) {
     return (
       <OverlayLayout>
@@ -56,7 +54,7 @@ function MainLayout() {
     );
   }
 
-  // Desktop Layout
+  // 데스크탑 레이아웃
   const SIDER_WIDTH = 240;
   const COLLAPSED_WIDTH = 80;
 
@@ -81,6 +79,7 @@ function MainLayout() {
       >
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(prev => !prev)} />
       </Sider>
+
       <AntLayout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
@@ -111,9 +110,9 @@ function MainLayout() {
 export default function App() {
   return (
     <Routes>
-      {/* OAuth 콜백 처리: mallId 쿠키 저장 후 /dashboard로 리다이렉트 */}
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      {/* 나머지는 모두 MainLayout으로 */}
+      {/* OAuth 콜백 후 mallId 저장 및 대시보드 이동 */}
+      <Route path="/redirect" element={<Redirect />} />
+      {/* 나머지 모든 경로 */}
       <Route path="/*" element={<MainLayout />} />
     </Routes>
   );
