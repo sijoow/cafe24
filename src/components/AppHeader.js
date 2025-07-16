@@ -1,18 +1,24 @@
+// src/components/AppHeader.jsx
 import React from 'react';
 import { useMall } from './MallContext';
 import './AppHeader.css';
 
 export default function AppHeader({ user = {} }) {
-  // Context에서 mallId를 꺼냅니다
-  const { mallId } = useMall();
+  // Context에서 mallId, userId, userName을 꺼냅니다
+  const { mallId, userId, userName } = useMall();
 
-  // mallId가 없으면 GUEST로 표시
-  const displayLabel = mallId || 'GUEST';
+  // 표시할 레이블: userName이 있으면 우선, 없으면 userId, 그 다음 mallId, 없다면 GUEST
+  const displayLabel =
+    userName ||
+    (userId ? `ID: ${userId}` : mallId || 'GUEST');
 
-  // avatar는 user.membership에 우선, 없으면 기본 URL
+  // avatar는 props.user.membership.avatarUrl에 우선, 
+  // 없으면 Context의 userId 기반 기본 URL 또는 종전 디폴트
   const avatarUrl =
     user.membership?.avatarUrl ||
-    'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png';
+    (userId
+      ? `https://example.com/avatars/${userId}.png`
+      : 'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png');
 
   return (
     <header className="app-header">
