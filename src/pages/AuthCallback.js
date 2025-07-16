@@ -1,20 +1,18 @@
-// src/pages/AuthCallback.jsx 예시
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useMall } from '../components/MallContext';
 
 export default function AuthCallback() {
-  const [qs] = useSearchParams();
-  const nav = useNavigate();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { setMallId } = useMall();
 
   useEffect(() => {
-    const mallId = qs.get('mallId');
-    if (mallId) {
-      localStorage.setItem('mallId', mallId);
-      nav(`/${mallId}/dashboard`, { replace: true });
-    } else {
-      nav('/', { replace: true });
-    }
-  }, []);
+    const mall = params.get('mallId');       // ?mallId=xxx
+    if (!mall) return;                       // 예외처리
+    setMallId(mall);                         // ➜ Context + localStorage
+    navigate('/dashboard', { replace: true });
+  }, [params, setMallId, navigate]);
 
   return null;
 }
