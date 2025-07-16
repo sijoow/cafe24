@@ -22,6 +22,7 @@ const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
   // 1) 이벤트 & URL
+  const { mallId, userId } = useMall();
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [urls, setUrls]                   = useState([]);
