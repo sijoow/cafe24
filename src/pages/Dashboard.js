@@ -12,7 +12,7 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from '../axios';                // interceptor 적용된 인스턴스
+import axios from '../axios';                // baseURL = your API host
 import { useMall } from '../components/MallContext';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
@@ -21,8 +21,7 @@ import './NormalSection.css';
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
-  const { mallId } = useMall();
-
+  const { mallId } = useMall();             // only mallId
   // 1) 이벤트 & URL
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -37,23 +36,23 @@ export default function Dashboard() {
   const [dates, setDates] = useState([]);
 
   // 4) 시계열 데이터
-  const [newByDate,    setNewByDate]     = useState([]);
-  const [retByDate,    setRetByDate]     = useState([]);
-  const [urlByDate,    setUrlByDate]     = useState([]);
-  const [couponByDate, setCouponByDate]  = useState([]);
-  const [pcByDate,     setPcByDate]      = useState([]);
-  const [andByDate,    setAndByDate]     = useState([]);
-  const [iosByDate,    setIosByDate]     = useState([]);
+  const [newByDate,    setNewByDate]    = useState([]);
+  const [retByDate,    setRetByDate]    = useState([]);
+  const [urlByDate,    setUrlByDate]    = useState([]);
+  const [couponByDate, setCouponByDate] = useState([]);
+  const [pcByDate,     setPcByDate]     = useState([]);
+  const [andByDate,    setAndByDate]    = useState([]);
+  const [iosByDate,    setIosByDate]    = useState([]);
 
   // 5) KPI
-  const [eventCount,  setEventCount]   = useState(0);
-  const [couponCount, setCouponCount]  = useState(0);
+  const [eventCount,  setEventCount]  = useState(0);
+  const [couponCount, setCouponCount] = useState(0);
 
   // ─── mallId 바뀔 때마다: 이벤트 목록 + 쿠폰 수 불러오기 ─────────────────
   useEffect(() => {
     if (!mallId) return;
 
-    // ▶ 이벤트 목록
+    // 이벤트 목록
     axios.get(`/api/${mallId}/events`)
       .then(res => {
         const sorted = (res.data || []).sort(
@@ -67,7 +66,7 @@ export default function Dashboard() {
         message.error('이벤트 목록을 불러오지 못했습니다.');
       });
 
-    // ▶ 쿠폰 수
+    // 쿠폰 수
     axios.get(`/api/${mallId}/coupons`)
       .then(res => setCouponCount(res.data.length))
       .catch(() => {
@@ -109,7 +108,7 @@ export default function Dashboard() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // ─── 조회 기간 변경 시: 날짜 축 생성 ───────────────────────────────
+  // ─── 조회 기간 바뀔 때마다: 날짜 축 생성 ───────────────────────────────
   useEffect(() => {
     const [start, end] = range;
     const arr = [];
@@ -139,7 +138,34 @@ export default function Dashboard() {
 
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
-        /* …데이터 파싱 로직 동일… */
+        const vis = Array.isArray(visRes.data)   ? visRes.data   : [];
+        const clk = Array.isArray(clickRes.data) ? clickRes.data : [];
+        const dev = Array.isArray(devRes.data)   ? devRes.data   : [];
+
+        // 신규 vs 재방문
+        const newMap = new Map(vis.map(o => [o.date, o.newVisitors || 0]));
+        const retMap = new Map(vis.map(o => [o.date, o.returningVisitors || 0]));
+        setNewByDate(dates.map(d => newMap.get(d) || 0));
+        setRetByDate(dates.map(d => retMap.get(d) || 0));
+
+        // URL 클릭 vs 쿠폰 클릭
+        const urlMap    = new Map(clk.map(o => [o.date, o.product || 0]));
+        const couponMap = new Map(clk.map(o => [o.date, o.coupon  || 0]));
+        setUrlByDate(    dates.map(d => urlMap.get(d)    || 0));
+        setCouponByDate( dates.map(d => couponMap.get(d) || 0));
+
+        // 디바이스별 유입
+        const pcMap  = new Map();
+        const andMap = new Map();
+        const iosMap = new Map();
+        dev.forEach(o => {
+          if (o.device === 'PC')        pcMap.set(o.date, o.count);
+          else if (o.device === 'Android') andMap.set(o.date, o.count);
+          else if (o.device === 'iOS')      iosMap.set(o.date, o.count);
+        });
+        setPcByDate(  dates.map(d => pcMap.get(d)  || 0));
+        setAndByDate( dates.map(d => andMap.get(d) || 0));
+        setIosByDate( dates.map(d => iosMap.get(d) || 0));
       })
       .catch(() => {
         message.error('데이터를 불러오지 못했습니다.');
@@ -150,7 +176,42 @@ export default function Dashboard() {
   useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
 
   // ─── 차트 옵션 설정 ─────────────────────────────────────────────
-  /* …옵션 설정 동일… */
+  const visitorLineOpt = {
+    title:   { text: '신규 vs 재방문', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend:  { data: ['신규', '재방문'], top: 30 },
+    xAxis:   { type: 'category', data: dates },
+    yAxis:   { type: 'value' },
+    series: [
+      { name: '신규',   type: 'line', data: newByDate },
+      { name: '재방문', type: 'line', data: retByDate }
+    ]
+  };
+
+  const clickLineOpt = {
+    title:   { text: '클릭 추이', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend:  { data: ['URL 클릭', '쿠폰 클릭'], top: 30 },
+    xAxis:   { type: 'category', data: dates },
+    yAxis:   { type: 'value' },
+    series: [
+      { name: 'URL 클릭', type: 'line', data: urlByDate },
+      { name: '쿠폰 클릭', type: 'line', data: couponByDate }
+    ]
+  };
+
+  const deviceLineOpt = {
+    title:   { text: '디바이스별 유입', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend:  { data: ['PC','Android','iOS'], top: 30 },
+    xAxis:   { type: 'category', data: dates },
+    yAxis:   { type: 'value' },
+    series: [
+      { name: 'PC',      type: 'line', data: pcByDate },
+      { name: 'Android', type: 'line', data: andByDate },
+      { name: 'iOS',     type: 'line', data: iosByDate }
+    ]
+  };
 
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
@@ -185,7 +246,24 @@ export default function Dashboard() {
 
       {/* 차트 및 KPI */}
       <Row gutter={16}>
-        {/* …차트 & KPI 카드 렌더링 동일… */}
+        <Col xs={24} md={12}>
+          <Card><ReactECharts option={visitorLineOpt} style={{ height: 300 }} /></Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card><ReactECharts option={clickLineOpt} style={{ height: 300 }} /></Card>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Card><ReactECharts option={deviceLineOpt} style={{ height: 300 }} /></Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Row gutter={16}>
+            <Col xs={12}><Card><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" /></Card></Col>
+            <Col xs={12}><Card><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" /></Card></Col>
+          </Row>
+        </Col>
       </Row>
     </Space>
   );
