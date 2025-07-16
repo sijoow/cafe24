@@ -1,32 +1,29 @@
+// src/axios.js
 import axios from 'axios';
 
-axios.defaults.baseURL =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
 
-// 기존 userId → URL prefix 로직 위에 삽입
 axios.interceptors.request.use(config => {
-  // localStorage에서 mallId/userId 가져오기
   const mallId = localStorage.getItem('mallId');
   const userId = localStorage.getItem('userId');
-  if (mallId) {
-    config.headers['X-Mall-Id'] = mallId;
-  }
-  if (userId) {
-    config.headers['X-User-Id'] = userId;
+
+  // ① /api/mall 은 그대로 두고
+  if (config.url === '/api/mall') {
+    // 헤더만 붙이고 리턴
+    if (mallId) config.headers['X-Mall-Id'] = mallId;
+    if (userId) config.headers['X-User-Id'] = userId;
+    return config;
   }
 
-  // (기존 URL prefix 로직)
-  if (userId) {
-    if (!config.url.startsWith(`/api/${userId}`)) {
-      const rest = config.url.startsWith('/api')
-        ? config.url.slice(4)
-        : config.url;
-      config.url = `/api/${userId}${rest}`;
-    }
+  // ② 그 외 /api/** 호출만 userId prefix
+  if (userId && config.url.startsWith('/api')) {
+    const rest = config.url.slice(4);
+    config.url = `/api/${userId}${rest}`;
   }
 
+  // 공통 헤더
+  if (mallId) config.headers['X-Mall-Id'] = mallId;
+  if (userId) config.headers['X-User-Id'] = userId;
   return config;
-}, err => Promise.reject(err));
-
+});
 export default axios;
