@@ -1,30 +1,29 @@
-// src/components/MallContext.jsx
+// src/axios.js
+import axios from 'axios';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from '../axios';
+axios.defaults.baseURL =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
-const MallContext = createContext();
-export function useMall() { return useContext(MallContext); }
+axios.interceptors.request.use(config => {
+  // ① /api/mall 은 mallContext 호출용이니 그대로 통과시킵니다
+  if (config.url.startsWith('/api/mall')) {
+    return config;
+  }
 
-export function MallProvider({ children }) {
-  const [mallId, setMallId] = useState(null);
-  const [userId, setUserId] = useState(null);
+  const userId = localStorage.getItem('userId');
+  if (userId) {
+    const prefix = `/api/${userId}`;
+    // 이미 붙어 있지 않다면
+    if (!config.url.startsWith(prefix)) {
+      // '/api/...' 이면 그 뒤만 잘라서 붙이고, 아니라면 그대로
+      const rest = config.url.startsWith('/api')
+        ? config.url.slice(4)
+        : config.url;
+      config.url = `${prefix}${rest}`;
+    }
+  }
+  return config;
+}, err => Promise.reject(err));
 
-  useEffect(() => {
-    // 앱 로드될 때마다 현재 mall/user 정보를 한 번만 가져옵니다
-    axios.get('/api/mall')
-      .then(res => {
-        setMallId(res.data.mallId);
-        setUserId(res.data.userId);
-      })
-      .catch(err => {
-        console.error('Cannot fetch mall info:', err);
-      });
-  }, []);
-
-  return (
-    <MallContext.Provider value={{ mallId, userId }}>
-      {children}
-    </MallContext.Provider>
-  );
-}
+export default axios;

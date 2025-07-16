@@ -53,7 +53,7 @@ export default function Dashboard() {
     if (!mallId) return;
 
     // 이벤트 목록
-    axios.get(`/api/${mallId}/events`)
+    axios.get('/api/events')
       .then(res => {
         const sorted = (res.data || []).sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
@@ -67,7 +67,7 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
-    axios.get(`/api/${mallId}/coupons`)
+    axios.get('/api/coupons')
       .then(res => setCouponCount(res.data.length))
       .catch(() => {
         message.error('쿠폰 목록을 불러오지 못했습니다.');
@@ -76,7 +76,7 @@ export default function Dashboard() {
 
   // ─── selectedEvent 바뀔 때마다: 최소일 설정 + URL 목록 불러오기 ───────────────
   useEffect(() => {
-    if (!mallId || !selectedEvent) {
+    if (!selectedEvent) {
       setUrls([]);
       setSelectedUrl(null);
       setMinDate(null);
@@ -95,7 +95,7 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -106,7 +106,7 @@ export default function Dashboard() {
         setUrls([]);
         setSelectedUrl(null);
       });
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
   // ─── 조회 기간 바뀔 때마다: 날짜 축 생성 ───────────────────────────────
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function Dashboard() {
 
   // ─── 데이터 조회 함수 ─────────────────────────────────────────────
   const fetchData = () => {
-    if (!mallId || !selectedEvent || !selectedUrl) return;
+   if (!selectedEvent || !selectedUrl) return;
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${start}T00:00:00+09:00`,
@@ -131,7 +131,7 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-    const base = `/api/${mallId}/analytics/${selectedEvent}`;
+    const base = `/api/analytics/${selectedEvent}`;
     const visReq   = axios.get(`${base}/visitors-by-date`, { params });
     const clickReq = axios.get(`${base}/clicks-by-date`,     { params });
     const devReq   = axios.get(`${base}/devices-by-date`,    { params });
@@ -173,7 +173,7 @@ export default function Dashboard() {
   };
 
   // ─── fetchData 자동 호출 ─────────────────────────────────────────
-  useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
+ useEffect(fetchData, [selectedEvent, selectedUrl, range, dates]);
 
   // ─── 차트 옵션 설정 ─────────────────────────────────────────────
   const visitorLineOpt = {
