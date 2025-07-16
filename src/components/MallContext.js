@@ -1,29 +1,32 @@
-// src/axios.js
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from '../axios';
 
-axios.defaults.baseURL =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+const MallContext = createContext(null);
 
-axios.interceptors.request.use(config => {
-  // ① /api/mall 은 mallContext 호출용이니 그대로 통과시킵니다
-  if (config.url.startsWith('/api/mall')) {
-    return config;
-  }
+// ① Provider 는 default export 가 아닌, **named** export 로
+export function MallProvider({ children }) {
+  const [mallId,   setMallId]   = useState(null);
+  const [userId,   setUserId]   = useState(null);
+  const [userName, setUserName] = useState(null);
 
-  const userId = localStorage.getItem('userId');
-  if (userId) {
-    const prefix = `/api/${userId}`;
-    // 이미 붙어 있지 않다면
-    if (!config.url.startsWith(prefix)) {
-      // '/api/...' 이면 그 뒤만 잘라서 붙이고, 아니라면 그대로
-      const rest = config.url.startsWith('/api')
-        ? config.url.slice(4)
-        : config.url;
-      config.url = `${prefix}${rest}`;
-    }
-  }
-  return config;
-}, err => Promise.reject(err));
+  useEffect(() => {
+    axios.get('/api/mall')
+      .then(res => {
+        setMallId(res.data.mallId);
+        setUserId(res.data.userId);
+        setUserName(res.data.userName);
+      })
+      .catch(console.error);
+  }, []);
 
-export default axios;
+  return (
+    <MallContext.Provider value={{ mallId, userId, userName }}>
+      {children}
+    </MallContext.Provider>
+  );
+}
+
+// ② useMall 훅도 named export
+export function useMall() {
+  return useContext(MallContext);
+}

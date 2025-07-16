@@ -1,28 +1,23 @@
-// src/components/MallContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from '../axios';
+import React from 'react';
+import { useMall } from './MallContext';
+import './AppHeader.css';
 
-const MallContext = createContext();
-export function useMall()   { return useContext(MallContext); }
+export default function AppHeader() {
+  const { mallId, userId, userName } = useMall();
 
-export function MallProvider({ children }) {
-  const [mallId,   setMallId]   = useState(null);
-  const [userId,   setUserId]   = useState(null);
-  const [userName, setUserName] = useState(null);
-
-  useEffect(() => {
-    axios.get('/api/mall')
-      .then(res => {
-        setMallId(res.data.mallId);
-        setUserId(res.data.userId);
-        setUserName(res.data.userName);    // 추가!
-      })
-      .catch(err => console.error(err));
-  }, []);
+  const displayLabel = userName || userId || mallId || 'GUEST';
+  const avatarUrl    = 'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png';
 
   return (
-    <MallContext.Provider value={{ mallId, userId, userName }}>
-      {children}
-    </MallContext.Provider>
+    <header className="app-header">
+      <div className="header-right">
+        <span className="membership-label">{displayLabel}</span>
+        <img
+          src={avatarUrl}
+          alt="회원 아바타"
+          className="membership-avatar"
+        />
+      </div>
+    </header>
   );
 }

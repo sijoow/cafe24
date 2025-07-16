@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 import { Layout, Grid } from 'antd';
 
 import Sidebar           from './components/Sidebar';
-import AppHeader         from './components/AppHeader';
+import AppHeader       from './components/AppHeader';
 import OverlayLayout     from './components/OverLayout';
 import { MallProvider }  from './components/MallContext';
 

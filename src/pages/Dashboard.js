@@ -12,7 +12,7 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from '../axios';                // baseURL = your API host
+import axios from '../axios';                
 import { useMall } from '../components/MallContext';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
