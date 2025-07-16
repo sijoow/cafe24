@@ -1,31 +1,16 @@
 // src/components/AppHeader.jsx
-
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useContext } from 'react';
+import MallContext from '../components/MallContext';
 import './AppHeader.css';
 
-export default function AppHeader({
-  user = {},
-}) {
-  // URL 파라미터에서 mallId를 꺼냅니다.
-  const { mallId } = useParams();
-
-  // 항상 mallId를 표시하도록 강제
-  const displayLabel = mallId || 'GUEST';
-
-  // avatar는 기존 로직 유지
-  const avatarUrl =
-    user.membership?.avatarUrl ||
-    'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png';
-
+export default function AppHeader() {
+  const mallId = useContext(MallContext) || 'GUEST';
   return (
     <header className="app-header">
       <div className="header-right">
-        <span className="membership-label">
-          {displayLabel}
-        </span>
+        <span className="membership-label">{mallId}</span>
         <img
-          src={avatarUrl}
+          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png"
           alt="회원 아바타"
           className="membership-avatar"
         />

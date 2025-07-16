@@ -282,7 +282,7 @@ export default function EventCreate() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await api.post(
+            const { data } = await axios.post(
              '/uploads/image',
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
@@ -323,7 +323,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await api.post('/events', payload);
+      await axios.post('/events', payload);
       msgApi.success('이벤트 생성 완료');
       navigate(`/${mallId}/event/list`);
     } catch (e) {
