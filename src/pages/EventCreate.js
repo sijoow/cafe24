@@ -34,6 +34,7 @@ const { useBreakpoint } = Grid;
 export default function EventCreate() {
   const navigate = useNavigate();
   const { mallId } = useParams();
+  console.log('현재 mallId=', mallId);
   const [msgApi, msgCtx] = message.useMessage();
 
   const API_BASE =

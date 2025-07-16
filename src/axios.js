@@ -1,19 +1,23 @@
 // src/axios.js
 import axios from 'axios';
 
-const instance = axios.create({
-  // you can also set a default baseURL here if you like
-  // baseURL: '/',  
+// (1) 로컬스토리지나, Context에서 mallId를 꺼내오는 함수
+function getMallId() {
+  return localStorage.getItem('mallId') || '';
+}
+
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL || ''
 });
 
-instance.interceptors.request.use(config => {
-  // path looks like "/{mallId}/..."
-  const [, mallId] = window.location.pathname.split('/');
-  if (config.url.startsWith('/api/')) {
-    // rewrite "/api/foo" → "/api/{mallId}/foo"
+// (2) 모든 요청 전에 mallId를 URL에 붙여준다
+api.interceptors.request.use(config => {
+  const mallId = getMallId();
+  if (mallId) {
+    // 예: /categories/all  →  /api/onimon/categories/all
     config.url = `/api/${mallId}${config.url}`;
   }
   return config;
 });
 
-export default instance;
+export default api;
