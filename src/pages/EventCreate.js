@@ -24,7 +24,7 @@ import {
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import api from '../axios';
+import axios from '../axios';
 
 
 import { useNavigate, useParams } from 'react-router-dom';
@@ -193,7 +193,7 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    api.get('/categories/all')
+    axios.get('/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, [mallId]);   // ← dependency에 mallId 추가
@@ -256,7 +256,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-   api.get('/coupons')
+   axios.get('/coupons')
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
