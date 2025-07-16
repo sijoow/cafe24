@@ -1,24 +1,20 @@
-// src/pages/AuthCallback.jsx
-import React, { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { message } from 'antd';
+// src/pages/AuthCallback.jsx 예시
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export default function AuthCallback() {
-  const { search } = useLocation();
-  const navigate = useNavigate();
+  const [qs] = useSearchParams();
+  const nav = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const mallId = params.get('mallId');
+    const mallId = qs.get('mallId');
     if (mallId) {
       localStorage.setItem('mallId', mallId);
-      message.success('매장 연결이 완료되었습니다.');
-      navigate('/dashboard', { replace: true });
+      nav(`/${mallId}/dashboard`, { replace: true });
     } else {
-      message.error('매장 정보가 없습니다.');
-      navigate('/', { replace: true });
+      nav('/', { replace: true });
     }
-  }, [search, navigate]);
+  }, []);
 
   return null;
 }
