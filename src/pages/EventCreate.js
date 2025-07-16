@@ -24,7 +24,7 @@ import {
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import axios from 'axios';
+import '../axios'
 import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
 
