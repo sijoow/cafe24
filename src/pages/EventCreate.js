@@ -1,4 +1,3 @@
-// src/pages/EventCreate.js
 
 import React, { useState, useEffect, useRef } from 'react';
 import MorePrd from './MorePrd';
@@ -20,13 +19,14 @@ import {
 import {
   InboxOutlined,
   DeleteOutlined,
-  PlusOutlined,
   LinkOutlined,
   TagOutlined,
   BlockOutlined
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import axios from 'axios';
+import axios from '../axios';
+
+
 import { useNavigate, useParams } from 'react-router-dom';
 import './EventCreate.css';
 
@@ -36,6 +36,7 @@ const { useBreakpoint } = Grid;
 export default function EventCreate() {
   const navigate = useNavigate();
   const { mallId } = useParams();
+  console.log('현재 mallId=', mallId);
   const [msgApi, msgCtx] = message.useMessage();
 
   const API_BASE =
@@ -45,45 +46,6 @@ export default function EventCreate() {
   // 반응형
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
-
-  // 새로고침시 sessionStorage 초기화
-  useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/categories/all`)
-      .then(res => setAllCats(res.data))
-      .catch(() => msgApi.error('카테고리 불러오기 실패'));
-  }, [mallId]); 
-
-  // Wizard 단계
-  const [current, setCurrent] = useState(0);
-  const titleRef = useRef(null);
-  useEffect(() => {
-    if (current === 0) {
-      setTimeout(() => titleRef.current?.focus(), 0);
-    }
-  }, [current]);
-  const next = () => {
-    if (current === 0) {
-      if (!title.trim()) setTitle('제목없음');
-      setCurrent(1);
-    } else if (current === 1 && images.length === 0) {
-      msgApi.warning('이미지를 업로드하세요.');
-    } else if (current === 2) {
-      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
-      else if (registerMode === 'category') {
-        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
-        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.');
-        else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.');
-        else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.');
-        else setCurrent(3);
-      } else {
-        setCurrent(3);
-      }
-    } else {
-      setCurrent(c => c + 1);
-    }
-  };
-  const prev = () => setCurrent(c => c - 1);
 
   // 1) 제목
   const [title, setTitle] = useState('');
@@ -217,7 +179,7 @@ export default function EventCreate() {
   };
 
   const editRegion = region => {
-    setSelectedId(selectedId); // ensure image still selected
+    setSelectedId(selectedId);
     setPendingRegion(region);
     setAddType(region.coupon ? 'coupon' : 'link');
     mapForm.setFieldsValue(
@@ -231,11 +193,10 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/categories/all`)   // ← mallId 삽입
+    axios.get('/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
-  }, []);
+  }, [mallId]);   // ← dependency에 mallId 추가
 
   const [singleRoot, setSingleRoot] = useState(null);
   const [singleSub, setSingleSub] = useState(null);
@@ -248,8 +209,8 @@ export default function EventCreate() {
     { title: '', root: null, sub: null },
     { title: '', root: null, sub: null },
   ]);
-  //탭상품 레이아웃 지정색상
   const [activeColor, setActiveColor] = useState('#fe6326');
+
   const addTab = () => {
     if (tabs.length >= 4) return;
     const newIndex = tabs.length;
@@ -271,9 +232,9 @@ export default function EventCreate() {
   );
 
   // 3-1) 상품 등록 방식
-  const [registerMode, setRegisterMode]           = useState('category'); 
-  const [directProducts, setDirectProducts]       = useState([]);         
-  const [tabDirectProducts, setTabDirectProducts] = useState({});         
+  const [registerMode, setRegisterMode]           = useState('category');
+  const [directProducts, setDirectProducts]       = useState([]);
+  const [tabDirectProducts, setTabDirectProducts] = useState({});
   const [initialSelected, setInitialSelected]     = useState([]);
 
   // 3-2) MorePrd 모달
@@ -286,7 +247,7 @@ export default function EventCreate() {
     if (target === 'direct') {
       setInitialSelected(directProducts.map(p => p.product_no));
     } else {
-      setInitialSelected((tabDirectProducts[tabIndex]||[]).map(p => p.product_no));
+      setInitialSelected((tabDirectProducts[tabIndex] || []).map(p => p.product_no));
     }
     setMorePrdTabIndex(tabIndex);
     setMorePrdVisible(true);
@@ -295,8 +256,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/coupons`)
+   axios.get('/coupons')
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -306,7 +266,7 @@ export default function EventCreate() {
         )
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
-  }, [mallId]);
+  },[mallId]);
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
@@ -323,7 +283,7 @@ export default function EventCreate() {
             const form = new FormData();
             form.append('file', img.file);
             const { data } = await axios.post(
-              `${API_BASE}/api/${mallId}/uploads/image`,   // ← mallId 삽입
+             '/uploads/image',
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -363,7 +323,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
+      await axios.post('/events', payload);
       msgApi.success('이벤트 생성 완료');
       navigate(`/${mallId}/event/list`);
     } catch (e) {
@@ -371,6 +331,37 @@ export default function EventCreate() {
       msgApi.error('이벤트 등록 실패');
     }
   };
+
+  // Wizard Steps
+  const [current, setCurrent] = useState(0);
+  const titleRef = useRef(null);
+  useEffect(() => {
+    if (current === 0) setTimeout(() => titleRef.current?.focus(), 0);
+  }, [current]);
+  const next = () => {
+    if (current === 0) {
+      if (!title.trim()) setTitle('제목없음');
+      setCurrent(1);
+    } else if (current === 1 && images.length === 0) {
+      msgApi.warning('이미지를 업로드하세요.');
+    } else if (current === 2) {
+      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
+      else if (registerMode === 'category') {
+        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
+        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.');
+        else if (layoutType === 'single' && !singleRoot)
+          msgApi.warning('상품 분류(대분류)를 선택하세요.');
+        else if (layoutType === 'tabs' && tabs.length < 2)
+          msgApi.warning('탭을 두 개 이상 설정하세요.');
+        else setCurrent(3);
+      } else {
+        setCurrent(3);
+      }
+    } else {
+      setCurrent(c => c + 1);
+    }
+  };
+  const prev = () => setCurrent(c => c - 1);
 
   return (
     <>
@@ -421,7 +412,6 @@ export default function EventCreate() {
               <p>이미지를 드래그 또는 클릭하여 업로드</p>
             </Upload.Dragger>
 
-            {/* URL/쿠폰 추가 버튼 */}
             <Space style={{ margin: '12px 0' }}>
               <Button
                 icon={<LinkOutlined />}
@@ -586,6 +576,7 @@ export default function EventCreate() {
             )}
           </>
         )}
+
 
         {/* Step 3: 레이아웃 구성 & 상품 등록 방식 */}
         {current === 2 && (
@@ -1001,9 +992,10 @@ export default function EventCreate() {
           visible={morePrdVisible}
           target={morePrdTarget}
           tabIndex={morePrdTabIndex}
-          initialSelected={morePrdTarget === 'direct'
-            ? directProducts.map(p => p.product_no)
-            : (tabDirectProducts[morePrdTabIndex] || []).map(p => p.product_no)
+          initialSelected={
+            morePrdTarget === 'direct'
+              ? directProducts.map(p => p.product_no)
+              : (tabDirectProducts[morePrdTabIndex] || []).map(p => p.product_no)
           }
           onOk={selected => {
             if (morePrdTarget === 'direct') {
@@ -1035,23 +1027,22 @@ function renderGrid(cols) {
         margin: '24px auto',
       }}
     >
-    {Array.from({ length: cols * cols }).map((_, i) => (
-      <div
-        key={i}
-        style={{
-          height: 120,
-          background: '#f0f0f0',
-          borderRadius: 4,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#999',
-        }}
-      >
-        {/* 텍스트 대신 아이콘 */}
-        <BlockOutlined  style={{ fontSize: 30}} />
-      </div>
-    ))}
+      {Array.from({ length: cols * cols }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            height: 120,
+            background: '#f0f0f0',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#999',
+          }}
+        >
+          <BlockOutlined style={{ fontSize: 30 }} />
+        </div>
+      ))}
     </div>
   );
 }

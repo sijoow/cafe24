@@ -1,142 +1,125 @@
-import React, { useState } from 'react';
-import { Layout as AntLayout, Grid } from 'antd';
-import {
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useParams
-} from 'react-router-dom';
+// src/App.js
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom';
+import { Layout, Grid } from 'antd';
 
-import Sidebar       from './components/Sidebar';
-import AppHeader     from './components/AppHeader';
-import OverlayLayout from './components/OverLayout';
+import Sidebar           from './components/Sidebar';
+import AppHeader         from './components/AppHeader';
+import OverlayLayout     from './components/OverLayout';
+import { MallProvider }  from './components/MallContext';
 
-import Dashboard        from './pages/Dashboard';
-import EventList        from './pages/EventList';
-import EventCreate      from './pages/EventCreate';
-import EventDetail      from './pages/EventDetail';
-import EventEdit        from './pages/EventEdit';
-import RewardCoupon     from './pages/RewardCoupon';
-import PageView         from './pages/PageView';
-import Participation    from './pages/Participation';
+import AuthCallback      from './pages/AuthCallback';
+import Dashboard         from './pages/Dashboard';
+import EventList         from './pages/EventList';
+import EventCreate       from './pages/EventCreate';
+import EventDetail       from './pages/EventDetail';
+import EventEdit         from './pages/EventEdit';
+import RewardCoupon      from './pages/RewardCoupon';
+import PageView          from './pages/PageView';
+import Participation     from './pages/Participation';
 import InflowEnvironment from './pages/InflowEnvironment';
-import Redirect         from './pages/Redirect';
 
-
-const { Sider, Content } = AntLayout;
+const { Sider, Content } = Layout;
 const { useBreakpoint }  = Grid;
 
-// ─── (A) 루트("/") 접속 시 mall_id 쿼리 읽어서 해당 mallId/dashboard 로 리다이렉트
-function RedirectToMall() {
-  const { search } = useLocation();
-  const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
+// “/” 접속 시 localStorage에 남아있는 mallId로 대시보드로 리다이렉트
+function HomeRedirect() {
+  const mallId = localStorage.getItem('mallId') || 'onimon';
   return <Navigate to={`/${mallId}/dashboard`} replace />;
 }
 
-// ─── (B) "/:mallId/*" 이하를 처리하는 레이아웃
+// MainLayout 안에서 useParams로 mallId 꺼내서 Context에 반영
+function MainLayoutWrapper() {
+  const { mallId } = useParams();
+  const navigate  = useNavigate();
+
+  // URL 매개변수로 mallId가 바뀌면 Context도 동기화
+  useEffect(() => {
+    if (mallId) {
+      localStorage.setItem('mallId', mallId);
+    } else {
+      // mallId 없으면 루트로
+      navigate('/', { replace: true });
+    }
+  }, [mallId, navigate]);
+
+  return <MainLayout />;
+}
+
 function MainLayout() {
   const screens  = useBreakpoint();
   const isMobile = !screens.md;
-  const { mallId } = useParams();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
 
-  // ── 모바일: OverlayLayout ─────────────────────────────
+  const SIDER_WIDTH     = 240;
+  const COLLAPSED_WIDTH = 80;
+
+  const commonRoutes = (
+    <>
+      <Route index               element={<Dashboard />} />
+      <Route path="dashboard"    element={<Dashboard />} />
+      <Route path="event/list"   element={<EventList />} />
+      <Route path="event/detail/:id" element={<EventDetail />} />
+      <Route path="event/edit/:id"   element={<EventEdit />} />
+      <Route path="event/create"      element={<EventCreate />} />
+      <Route path="reward/coupon"     element={<RewardCoupon />} />
+      <Route path="stats/pageview"    element={<PageView />} />
+      <Route path="stats/participation" element={<Participation />} />
+      <Route path="stats/environment" element={<InflowEnvironment />} />
+      <Route path="*"                 element={<Dashboard />} />
+    </>
+  );
+
   if (isMobile) {
     return (
       <OverlayLayout>
-        <Routes>
-          <Route index element={<Dashboard />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="event/list" element={<EventList />} />
-          <Route path="event/detail/:id" element={<EventDetail />} />
-          <Route path="event/edit/:id" element={<EventEdit />} />
-          <Route path="event/create" element={<EventCreate />} />
-          <Route path="reward/coupon" element={<RewardCoupon />} />
-          <Route path="stats/pageview"     element={<PageView />} />
-          <Route path="stats/participation" element={<Participation />} />
-          <Route path="stats/environment" element={<InflowEnvironment />} />
-          <Route path="redirect"  element={<Redirect />} />
-          
-          <Route path="*" element={<Dashboard />} />
-        </Routes>
+        <Routes>{commonRoutes}</Routes>
       </OverlayLayout>
     );
   }
 
-  // ── 데스크탑: 고정형 Sider + AntLayout ───────────────────
-  const SIDER_WIDTH      = 240;
-  const COLLAPSED_WIDTH  = 80;
-
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh' }}>
       <Sider
         breakpoint="md"
         collapsible
         collapsedWidth={COLLAPSED_WIDTH}
         collapsed={collapsed}
-        onBreakpoint={broken => setCollapsed(broken)}
         onCollapse={setCollapsed}
         width={SIDER_WIDTH}
-        style={{
-          position: 'fixed',
-          height: '100vh',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
-        }}
+        style={{ position:'fixed', height:'100vh', left:0, top:0, bottom:0 }}
       >
-        <Sidebar
-          collapsed={collapsed}
-          onToggle={() => setCollapsed(prev => !prev)}
-        />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
       </Sider>
 
-      <AntLayout
+      <Layout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
-          transition: 'margin-left 0.2s ease',
+          transition: 'margin-left 0.2s'
         }}
       >
-        <AppHeader
-          isMobile={false}
-          onMenuClick={() => setCollapsed(prev => !prev)}
-        />
-        <Content style={{ margin: 16, padding: 16 }}>
-          <Routes>
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="event/list" element={<EventList />} />
-            <Route path="event/detail/:id" element={<EventDetail />} />
-            <Route path="event/edit/:id" element={<EventEdit />} />
-            <Route path="event/create" element={<EventCreate />} />
-            <Route path="reward/coupon" element={<RewardCoupon />} />
-            <Route path="stats/pageview"     element={<PageView />} />
-            <Route path="stats/participation" element={<Participation />} />
-            <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="redirect" element={<Redirect />} />
-            <Route path="*" element={<Dashboard />} />
-          </Routes>
+        <AppHeader />
+        <Content style={{ margin:16, padding:16 }}>
+          <Routes>{commonRoutes}</Routes>
         </Content>
-      </AntLayout>
-    </AntLayout>
+      </Layout>
+    </Layout>
   );
 }
 
-// ─── 최상위 App ───────────────────────────────────────────────────
 export default function App() {
   return (
-    <Routes>
-      {/* 루트 → mall_id 쿼리 읽어 리다이렉트 */}
-      <Route path="/" element={<RedirectToMall />} />
+    <MallProvider>
+      <Routes>
+        {/* OAuth 콜백 핸들러 */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-      {/* mallId 하위 모든 경로 → MainLayout */}
-      <Route path="/:mallId/*" element={<MainLayout />} />
+        {/* 루트 접근 */}
+        <Route path="/" element={<HomeRedirect />} />
 
-      {/* 그 외는 다시 루트 */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* mallId를 URL 파라미터로 받아서 동기화 */}
+        <Route path="/:mallId/*" element={<MainLayoutWrapper />} />
+      </Routes>
+    </MallProvider>
   );
 }

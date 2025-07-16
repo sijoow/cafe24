@@ -1,7 +1,6 @@
 // src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom'; 
 import {
   Card,
   Row,
@@ -13,16 +12,17 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from 'axios';
+import axios from '../axios';   // axios interceptor 적용된 인스턴스
+import { useMall } from '../components/MallContext';  // ← 추가
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
+
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
-  const { mallId } = useParams();  // ← mallId 추가
-
   // 1) 이벤트 & URL
+  const { mallId, userId } = useMall();
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [urls, setUrls]                   = useState([]);
@@ -67,9 +67,9 @@ export default function Dashboard() {
 
     // 쿠폰 수
     axios.get(`/api/${mallId}/coupons`)
-      .then(res => setCouponCount(res.data.length))
+    .then(res => setCouponCount(res.data.length))
       .catch(() => {});
-  }, [mallId]);
+  }, []);
 
   // ─── selectedEvent 변경 시: 최소일 설정 + URL 목록 로드 ───────────────────
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function Dashboard() {
         setUrls([]);
         setSelectedUrl(null);
       });
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
   // ─── 날짜 축 생성 ───────────────────────────────────────────────
   useEffect(() => {
@@ -128,10 +128,10 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-    const visReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
-    const clickReq = axios.get(`/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,     { params });
-    const devReq   = axios.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
-
+       const base = `/api/${mallId}/analytics/${selectedEvent}`;
+       const visReq   = axios.get(`${base}/visitors-by-date`, { params });
+       const clickReq = axios.get(`${base}/clicks-by-date`,     { params });
+       const devReq   = axios.get(`${base}/devices-by-date`,    { params });
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
         const vis = Array.isArray(visRes.data) ? visRes.data : [];
@@ -155,10 +155,9 @@ export default function Dashboard() {
         const andMap = new Map();
         const iosMap = new Map();
         dev.forEach(o => {
-          const devName = o.device; // "PC", "Android", "iOS"
-          if (devName === 'PC')        pcMap.set(o.date, o.count);
-          else if (devName === 'Android') andMap.set(o.date, o.count);
-          else if (devName === 'iOS')      iosMap.set(o.date, o.count);
+          if (o.device === 'PC')        pcMap.set(o.date, o.count);
+          else if (o.device === 'Android') andMap.set(o.date, o.count);
+          else if (o.device === 'iOS')      iosMap.set(o.date, o.count);
         });
         setPcByDate(  dates.map(d => pcMap.get(d)  || 0));
         setAndByDate( dates.map(d => andMap.get(d) || 0));
@@ -170,7 +169,7 @@ export default function Dashboard() {
   };
 
   // ─── fetchData 자동 호출 ───────────────────────────────────
-  useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
+  useEffect(fetchData, [selectedEvent, selectedUrl, range, dates]);
 
   // ─── 차트 옵션 ───────────────────────────────────────────────
   const visitorLineOpt = {
@@ -212,7 +211,7 @@ export default function Dashboard() {
 
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
-      {/* 컨트롤 */}
+      {/* 컨트롤 */}  
       <Card>
         <Space wrap>
           <Select
@@ -241,7 +240,7 @@ export default function Dashboard() {
         </Space>
       </Card>
 
-      {/* 차트 및 KPI */}
+      {/* 차트 및 KPI */}  
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card>
@@ -254,6 +253,7 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card>
