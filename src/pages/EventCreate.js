@@ -256,7 +256,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-    axios.get(`/api/${mallId}/coupons`)
+   axios.get('/coupons')
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
