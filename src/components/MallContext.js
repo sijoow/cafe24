@@ -1,54 +1,29 @@
 // src/components/MallContext.jsx
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from '../axios';
 
 const MallContext = createContext();
-export function useMall() {
-  return useContext(MallContext);
-}
-
-function detectMallFromHost() {
-  // 서브도메인에서 mallId 추출 (예: yogibo.cafe24.com → yogibo)
-  const host = window.location.hostname;
-  const m = host.match(/^([^.]+)\.cafe24\.com$/);
-  return m ? m[1] : '';
-}
+export function useMall() { return useContext(MallContext); }
 
 export function MallProvider({ children }) {
-  // 1) mallId, userId, userName 초기값 설정
-  const [mallId,   setMallId]   = useState(() =>
-    localStorage.getItem('mallId') || detectMallFromHost()
-  );
-  const [userId,   setUserId]   = useState(() =>
-    localStorage.getItem('userId') || ''
-  );
-  const [userName, setUserName] = useState(() =>
-    localStorage.getItem('userName') || ''
-  );
-
-  // 2) 상태가 변경되면 로컬스토리지에 동기화
-  useEffect(() => {
-    if (mallId)   localStorage.setItem('mallId',   mallId);
-  }, [mallId]);
+  const [mallId, setMallId] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    if (userId)   localStorage.setItem('userId',   userId);
-  }, [userId]);
-
-  useEffect(() => {
-    if (userName) localStorage.setItem('userName', userName);
-  }, [userName]);
+    // 앱 로드될 때마다 현재 mall/user 정보를 한 번만 가져옵니다
+    axios.get('/api/mall')
+      .then(res => {
+        setMallId(res.data.mallId);
+        setUserId(res.data.userId);
+      })
+      .catch(err => {
+        console.error('Cannot fetch mall info:', err);
+      });
+  }, []);
 
   return (
-    <MallContext.Provider
-      value={{
-        mallId,
-        setMallId,
-        userId,
-        setUserId,
-        userName,
-        setUserName
-      }}
-    >
+    <MallContext.Provider value={{ mallId, userId }}>
       {children}
     </MallContext.Provider>
   );
