@@ -17,7 +17,7 @@ export default function AppHeader({ user = {} }) {
   const avatarUrl =
     user.membership?.avatarUrl ||
     (userId
-      ? `https://example.com/avatars/${userId}.png`
+      ? `https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png`
       : 'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png');
 
   return (
