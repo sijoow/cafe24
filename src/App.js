@@ -1,44 +1,42 @@
-// src/App.js
-
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Grid } from 'antd';
-import './axios';                     // 전역 axios 설정
-import Sidebar       from './components/Sidebar';
-import AppHeader     from './components/AppHeader';
-import OverlayLayout from './components/OverLayout';
-import { MallProvider } from './components/MallContext';  // ← named import
 
-// 페이지들
-import AuthCallback      from './pages/AuthCallback';
-import Dashboard         from './pages/Dashboard';
-import EventList         from './pages/EventList';
-import EventCreate       from './pages/EventCreate';
-import EventDetail       from './pages/EventDetail';
-import EventEdit         from './pages/EventEdit';
-import RewardCoupon      from './pages/RewardCoupon';
-import PageView          from './pages/PageView';
-import Participation     from './pages/Participation';
+import Sidebar from './components/Sidebar';
+import AppHeader from './components/AppHeader';
+import OverlayLayout from './components/OverLayout';
+import { MallProvider } from './components/MallContext';
+
+import AuthCallback from './pages/AuthCallback';
+import Dashboard from './pages/Dashboard';
+import EventList from './pages/EventList';
+import EventCreate from './pages/EventCreate';
+import EventDetail from './pages/EventDetail';
+import EventEdit from './pages/EventEdit';
+import RewardCoupon from './pages/RewardCoupon';
+import PageView from './pages/PageView';
+import Participation from './pages/Participation';
 import InflowEnvironment from './pages/InflowEnvironment';
-import RedirectPage      from './pages/Redirect';
+import RedirectPage from './pages/Redirect';
 
 const { Sider, Content } = Layout;
-const { useBreakpoint }  = Grid;
+const { useBreakpoint } = Grid;
 
+// 루트("/") 접속 시 대시보드로 리다이렉트
 function HomeRedirect() {
   return <Navigate to="/dashboard" replace />;
 }
 
 function MainLayout() {
-  const screens  = useBreakpoint();
+  const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [collapsed, setCollapsed] = useState(false);
 
+  // 모바일일 때 OverlayLayout 사용
   if (isMobile) {
     return (
       <OverlayLayout>
         <Routes>
-          {/* 모바일용 라우팅 */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="event/list" element={<EventList />} />
@@ -56,7 +54,8 @@ function MainLayout() {
     );
   }
 
-  const SIDER_WIDTH     = 240;
+  // 데스크탑 레이아웃
+  const SIDER_WIDTH = 240;
   const COLLAPSED_WIDTH = 80;
 
   return (
@@ -73,7 +72,7 @@ function MainLayout() {
           position: 'fixed',
           height: '100vh',
           left: 0, top: 0, bottom: 0,
-          zIndex: 100
+          zIndex: 100,
         }}
       >
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
@@ -82,13 +81,12 @@ function MainLayout() {
       <Layout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
-          transition: 'margin-left 0.2s'
+          transition: 'margin-left 0.2s',
         }}
       >
         <AppHeader />
         <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
-            {/* 데스크탑용 라우팅 */}
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="event/list" element={<EventList />} />
@@ -110,14 +108,17 @@ function MainLayout() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <MallProvider>     {/* ← Context Provider 감싸기 */}
-        <Routes>
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/"              element={<HomeRedirect />} />
-          <Route path="/*"            element={<MainLayout />} />
-        </Routes>
-      </MallProvider>
-    </BrowserRouter>
+    <MallProvider>
+      <Routes>
+        {/* OAuth 콜백에서 mallId 받아오기 */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
+
+        {/* 기본 경로 리다이렉트 */}
+        <Route path="/" element={<HomeRedirect />} />
+
+        {/* 나머지는 메인 레이아웃 */}
+        <Route path="/*" element={<MainLayout />} />
+      </Routes>
+    </MallProvider>
   );
 }

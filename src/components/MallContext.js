@@ -1,31 +1,31 @@
 // src/components/MallContext.js
 
-import React, { createContext, useContext, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import axios, { setMallId } from '../axios';
+import React, { createContext, useContext, useState } from 'react';
 
-// 1) Context 생성
-const MallContext = createContext(null);
+const MallContext = createContext({
+  mallId: null,
+  setMallId: () => {}
+});
 
-// 2) Provider: URL 파라미터 mallId 를 Context 에 넣고 axios 에도 설정
+// MallContext.Provider 로 전체를 감싸고, mallId 상태를 관리합니다.
 export function MallProvider({ children }) {
-  const { mallId } = useParams();
-  useEffect(() => {
-    if (mallId) {
-      setMallId(mallId);
-    }
-  }, [mallId]);
+  const [mallId, setMallId] = useState(null);
+
   return (
-    <MallContext.Provider value={mallId}>
+    <MallContext.Provider value={{ mallId, setMallId }}>
       {children}
     </MallContext.Provider>
   );
 }
 
-// 3) Hook
-export function useMallId() {
-  return useContext(MallContext);
+// Context 에서 mallId (및 setMallId) 를 꺼내 쓰는 커스텀 훅
+export function useMall() {
+  const context = useContext(MallContext);
+  if (!context) {
+    throw new Error('useMall must be used within a MallProvider');
+  }
+  return context;
 }
 
-// 4) default export 추가!
+// default export 도 해두면 import MallContext from '...' 가능
 export default MallContext;
