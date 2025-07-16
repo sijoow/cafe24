@@ -1,21 +1,35 @@
 // src/axios.js
 import axios from 'axios';
 
-// ① 기본 base URL 설정
+// ① 실제 API 호스트만 baseURL 으로 설정합니다.
+//    (절대로 "/api" 를 여기 붙이지 마세요!)
 const instance = axios.create({
   baseURL:
     process.env.REACT_APP_API_BASE_URL ||
     'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app'
 });
 
-// ② 요청 인터셉터: localStorage 또는 URL 에서 꺼낸 mallId 적용
 instance.interceptors.request.use(config => {
-  // localStorage 에 저장해 둔 mallId (AuthCallback 에서 set해 두었다고 가정)
-  const mallId = localStorage.getItem('mallId') || 'onimon';
-  // 원래 요청 URL 이 "/coupons" 였다면 → "/api/{mallId}/coupons" 로 변환
-  const original = config.url || '';
-  // 중복 슬래시 방지
-  config.url = `/api/${mallId}${original.startsWith('/') ? '' : '/'}${original}`;
+  // ② localStorage 에 저장된 mallId 를 꺼냅니다.
+  const mallId = localStorage.getItem('mallId');
+  if (!mallId) {
+    console.warn('⚠️ mallId 가 없습니다. AuthCallback 이후에 localStorage 에 set 해 주세요.');
+    return config;
+  }
+
+  // ③ 기존 URL 에 이미 "/api/{mallId}" 가 붙어 있지 않다면 한 번만 붙입니다.
+  //    - config.url 이 "/coupons" 이라면 → "/api/{mallId}/coupons"
+  //    - config.url 이 "events/123" 이라면 → "/api/{mallId}/events/123"
+  const orig = config.url || '';
+  const prefix = `/api/${mallId}/`;
+
+  // startsWith 은 절대 대소문자 구분하니 주의
+  if (!orig.startsWith(prefix)) {
+    // 중복 슬래시 방지
+    const path = orig.startsWith('/') ? orig.slice(1) : orig;
+    config.url = prefix + path;
+  }
+
   return config;
 });
 
