@@ -12,8 +12,8 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from '../axios';   // axios interceptor 적용된 인스턴스
-import { useMall } from '../components/MallContext';  // ← 추가
+import axios from '../axios';
+import { useMall } from '../components/MallContext';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
@@ -21,8 +21,9 @@ import './NormalSection.css';
 const { RangePicker } = DatePicker;
 
 export default function Dashboard() {
+  const { mallId } = useMall();
+
   // 1) 이벤트 & URL
-  const { mallId, userId } = useMall();
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [urls, setUrls]                   = useState([]);
@@ -48,18 +49,19 @@ export default function Dashboard() {
   const [eventCount,  setEventCount]   = useState(0);
   const [couponCount, setCouponCount]  = useState(0);
 
-  // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
+  // ─── mallId 바뀔 때마다: 이벤트 목록 + 쿠폰 수 불러오기 ─────────────────
   useEffect(() => {
+    if (!mallId) return;
+
     // 이벤트 목록
     axios.get(`/api/${mallId}/events`)
       .then(res => {
-        const sorted = (res.data || [])
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const sorted = (res.data || []).sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
         setEvents(sorted);
         setEventCount(sorted.length);
-        if (sorted.length) {
-          setSelectedEvent(sorted[0]._id);
-        }
+        if (sorted.length) setSelectedEvent(sorted[0]._id);
       })
       .catch(() => {
         message.error('이벤트 목록을 불러오지 못했습니다.');
@@ -67,20 +69,22 @@ export default function Dashboard() {
 
     // 쿠폰 수
     axios.get(`/api/${mallId}/coupons`)
-    .then(res => setCouponCount(res.data.length))
-      .catch(() => {});
-  }, []);
+      .then(res => setCouponCount(res.data.length))
+      .catch(() => {
+        message.error('쿠폰 목록을 불러오지 못했습니다.');
+      });
+  }, [mallId]);
 
-  // ─── selectedEvent 변경 시: 최소일 설정 + URL 목록 로드 ───────────────────
+  // ─── selectedEvent 바뀔 때마다: 날짜 제한 + URL 목록 불러오기 ───────────────
   useEffect(() => {
-    if (!selectedEvent) {
+    if (!mallId || !selectedEvent) {
       setUrls([]);
       setSelectedUrl(null);
       setMinDate(null);
       return;
     }
 
-    // (1) 해당 이벤트 생성일을 최소일로 설정
+    // (1) 이벤트 생성일을 최소일로 설정
     const ev = events.find(e => e._id === selectedEvent);
     if (ev?.createdAt) {
       const created = dayjs(ev.createdAt);
@@ -91,7 +95,7 @@ export default function Dashboard() {
       ]);
     }
 
-    // (2) URL 목록 조회 & 기본 선택
+    // (2) URL 목록 조회
     axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
@@ -103,9 +107,9 @@ export default function Dashboard() {
         setUrls([]);
         setSelectedUrl(null);
       });
-  }, [selectedEvent, events]);
+  }, [mallId, selectedEvent, events]);
 
-  // ─── 날짜 축 생성 ───────────────────────────────────────────────
+  // ─── 조회 기간 바뀔 때마다: 날짜 축 생성 ───────────────────────────────
   useEffect(() => {
     const [start, end] = range;
     const arr = [];
@@ -118,9 +122,9 @@ export default function Dashboard() {
     setDates(arr);
   }, [range]);
 
-  // ─── 데이터 조회 ───────────────────────────────────────────────
+  // ─── 데이터 조회 함수 ─────────────────────────────────────────────
   const fetchData = () => {
-    if (!selectedEvent || !selectedUrl) return;
+    if (!mallId || !selectedEvent || !selectedUrl) return;
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${start}T00:00:00+09:00`,
@@ -128,17 +132,18 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-       const base = `/api/${mallId}/analytics/${selectedEvent}`;
-       const visReq   = axios.get(`${base}/visitors-by-date`, { params });
-       const clickReq = axios.get(`${base}/clicks-by-date`,     { params });
-       const devReq   = axios.get(`${base}/devices-by-date`,    { params });
+    const base = `/api/${mallId}/analytics/${selectedEvent}`;
+    const visReq   = axios.get(`${base}/visitors-by-date`, { params });
+    const clickReq = axios.get(`${base}/clicks-by-date`,     { params });
+    const devReq   = axios.get(`${base}/devices-by-date`,    { params });
+
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
-        const vis = Array.isArray(visRes.data) ? visRes.data : [];
+        const vis = Array.isArray(visRes.data)   ? visRes.data   : [];
         const clk = Array.isArray(clickRes.data) ? clickRes.data : [];
-        const dev = Array.isArray(devRes.data) ? devRes.data : [];
+        const dev = Array.isArray(devRes.data)   ? devRes.data   : [];
 
-        // 신규 / 재방문
+        // 신규 vs 재방문
         const newMap = new Map(vis.map(o => [o.date, o.newVisitors || 0]));
         const retMap = new Map(vis.map(o => [o.date, o.returningVisitors || 0]));
         setNewByDate(dates.map(d => newMap.get(d) || 0));
@@ -150,7 +155,7 @@ export default function Dashboard() {
         setUrlByDate(    dates.map(d => urlMap.get(d)    || 0));
         setCouponByDate( dates.map(d => couponMap.get(d) || 0));
 
-        // 디바이스별 (PC / Android / iOS)
+        // 디바이스별 유입
         const pcMap  = new Map();
         const andMap = new Map();
         const iosMap = new Map();
@@ -168,10 +173,10 @@ export default function Dashboard() {
       });
   };
 
-  // ─── fetchData 자동 호출 ───────────────────────────────────
-  useEffect(fetchData, [selectedEvent, selectedUrl, range, dates]);
+  // ─── fetchData 자동 호출 ─────────────────────────────────────────
+  useEffect(fetchData, [mallId, selectedEvent, selectedUrl, range, dates]);
 
-  // ─── 차트 옵션 ───────────────────────────────────────────────
+  // ─── 차트 옵션 설정 ─────────────────────────────────────────────
   const visitorLineOpt = {
     title:   { text: '신규 vs 재방문', left: 'center' },
     tooltip: { trigger: 'axis' },
@@ -211,7 +216,7 @@ export default function Dashboard() {
 
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
-      {/* 컨트롤 */}  
+      {/* 컨트롤 */}
       <Card>
         <Space wrap>
           <Select
@@ -240,38 +245,24 @@ export default function Dashboard() {
         </Space>
       </Card>
 
-      {/* 차트 및 KPI */}  
+      {/* 차트 및 KPI */}
       <Row gutter={16}>
         <Col xs={24} md={12}>
-          <Card>
-            <ReactECharts option={visitorLineOpt} style={{ height: 300 }} />
-          </Card>
+          <Card><ReactECharts option={visitorLineOpt} style={{ height: 300 }} /></Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card>
-            <ReactECharts option={clickLineOpt} style={{ height: 300 }} />
-          </Card>
+          <Card><ReactECharts option={clickLineOpt} style={{ height: 300 }} /></Card>
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col xs={24} md={12}>
-          <Card>
-            <ReactECharts option={deviceLineOpt} style={{ height: 300 }} />
-          </Card>
+          <Card><ReactECharts option={deviceLineOpt} style={{ height: 300 }} /></Card>
         </Col>
         <Col xs={24} md={12}>
           <Row gutter={16}>
-            <Col xs={12}>
-              <Card>
-                <Statistic title="전체 이벤트 수" value={eventCount} suffix="개" />
-              </Card>
-            </Col>
-            <Col xs={12}>
-              <Card>
-                <Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" />
-              </Card>
-            </Col>
+            <Col xs={12}><Card><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" /></Card></Col>
+            <Col xs={12}><Card><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" /></Card></Col>
           </Row>
         </Col>
       </Row>
