@@ -12,7 +12,7 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from 'axios';              // ← your axios.js with interceptor
+import axios from '../axios';   // 경로는 프로젝트 구조에 맞게 조정
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
