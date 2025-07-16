@@ -12,7 +12,7 @@ import {
   Space,
   Button
 } from 'antd';
-import axios from '../axios';   // 경로는 프로젝트 구조에 맞게 조정
+import axios from '../axios';   // axios interceptor 적용된 인스턴스
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import './NormalSection.css';
@@ -49,7 +49,7 @@ export default function Dashboard() {
   // ─── 마운트 시: 이벤트 목록 + KPI 로드 ─────────────────────────────
   useEffect(() => {
     // 이벤트 목록
-    axios.get('/api/events')
+    axios.get('/events')
       .then(res => {
         const sorted = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -64,7 +64,7 @@ export default function Dashboard() {
       });
 
     // 쿠폰 수
-    axios.get('/api/coupons')
+    axios.get('/coupons')
       .then(res => setCouponCount(res.data.length))
       .catch(() => {});
   }, []);
@@ -90,7 +90,7 @@ export default function Dashboard() {
     }
 
     // (2) URL 목록 조회 & 기본 선택
-    axios.get(`/api/analytics/${selectedEvent}/urls`)
+    axios.get(`/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -126,9 +126,9 @@ export default function Dashboard() {
       url:        selectedUrl
     };
 
-    const visReq   = axios.get(`/api/analytics/${selectedEvent}/visitors-by-date`, { params });
-    const clickReq = axios.get(`/api/analytics/${selectedEvent}/clicks-by-date`,     { params });
-    const devReq   = axios.get(`/api/analytics/${selectedEvent}/devices-by-date`,    { params });
+    const visReq   = axios.get(`/analytics/${selectedEvent}/visitors-by-date`, { params });
+    const clickReq = axios.get(`/analytics/${selectedEvent}/clicks-by-date`,     { params });
+    const devReq   = axios.get(`/analytics/${selectedEvent}/devices-by-date`,    { params });
 
     Promise.all([visReq, clickReq, devReq])
       .then(([visRes, clickRes, devRes]) => {
@@ -153,10 +153,9 @@ export default function Dashboard() {
         const andMap = new Map();
         const iosMap = new Map();
         dev.forEach(o => {
-          const devName = o.device; // "PC", "Android", "iOS"
-          if (devName === 'PC')        pcMap.set(o.date, o.count);
-          else if (devName === 'Android') andMap.set(o.date, o.count);
-          else if (devName === 'iOS')      iosMap.set(o.date, o.count);
+          if (o.device === 'PC')        pcMap.set(o.date, o.count);
+          else if (o.device === 'Android') andMap.set(o.date, o.count);
+          else if (o.device === 'iOS')      iosMap.set(o.date, o.count);
         });
         setPcByDate(  dates.map(d => pcMap.get(d)  || 0));
         setAndByDate( dates.map(d => andMap.get(d) || 0));
@@ -210,7 +209,7 @@ export default function Dashboard() {
 
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
-      {/* 컨트롤 */}
+      {/* 컨트롤 */}  
       <Card>
         <Space wrap>
           <Select
@@ -239,7 +238,7 @@ export default function Dashboard() {
         </Space>
       </Card>
 
-      {/* 차트 및 KPI */}
+      {/* 차트 및 KPI */}  
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card>
@@ -252,6 +251,7 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card>
