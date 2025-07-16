@@ -6,18 +6,31 @@ axios.defaults.baseURL =
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 axios.interceptors.request.use(config => {
+  // 1) 항상 localStorage 에서 mallId 가져와서 헤더에 실어 보냅니다
+  const mallId = localStorage.getItem('mallId');
+  if (mallId) {
+    config.headers['X-Mall-Id'] = mallId;
+  }
+
+  // 2) /api/mall 은 userId prefix 없이, 바로 서버의 /api/mall 로 가야 하므로
+  if (config.url.startsWith('/api/mall')) {
+    return config;
+  }
+
+  // 3) 그 외 모든 /api 요청에는 userId prefix를 붙입니다
   const userId = localStorage.getItem('userId');
   if (userId) {
-    // 이미 /api/{userId} 로 시작하지 않는 호출만 가로채서
-    if (!config.url.startsWith(`/api/${userId}`)) {
-      // '/api/...' 이면 '...' 부분만 남기고 아니면 전체 그대로
+    const prefix = `/api/${userId}`;
+    if (!config.url.startsWith(prefix)) {
       const rest = config.url.startsWith('/api')
         ? config.url.slice(4)
         : config.url;
-      // 최종: /api/{userId}{rest}
-      config.url = `/api/${userId}${rest}`;
+      config.url = `${prefix}${rest}`;
     }
+    // 그리고 userId 도 헤더로 전달하고 싶으면:
+    config.headers['X-User-Id'] = userId;
   }
+
   return config;
 }, err => Promise.reject(err));
 
