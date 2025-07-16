@@ -1,47 +1,46 @@
+// src/App.js
 import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import {
   Routes,
   Route,
   Navigate,
-  useLocation,
-  useParams
+  useLocation
 } from 'react-router-dom';
+
+// 전역 axios 설정
+import './axios';
+
 
 import Sidebar       from './components/Sidebar';
 import AppHeader     from './components/AppHeader';
 import OverlayLayout from './components/OverLayout';
 
-import Dashboard        from './pages/Dashboard';
-import EventList        from './pages/EventList';
-import EventCreate      from './pages/EventCreate';
-import EventDetail      from './pages/EventDetail';
-import EventEdit        from './pages/EventEdit';
-import RewardCoupon     from './pages/RewardCoupon';
-import PageView         from './pages/PageView';
-import Participation    from './pages/Participation';
+import AuthCallback      from './pages/AuthCallback';
+import Dashboard         from './pages/Dashboard';
+import EventList         from './pages/EventList';
+import EventCreate       from './pages/EventCreate';
+import EventDetail       from './pages/EventDetail';
+import EventEdit         from './pages/EventEdit';
+import RewardCoupon      from './pages/RewardCoupon';
+import PageView          from './pages/PageView';
+import Participation     from './pages/Participation';
 import InflowEnvironment from './pages/InflowEnvironment';
-import Redirect         from './pages/Redirect';
-
+import RedirectPage      from './pages/Redirect';
 
 const { Sider, Content } = AntLayout;
 const { useBreakpoint }  = Grid;
 
-// ─── (A) 루트("/") 접속 시 mall_id 쿼리 읽어서 해당 mallId/dashboard 로 리다이렉트
-function RedirectToMall() {
-  const { search } = useLocation();
-  const mallId = new URLSearchParams(search).get('mall_id') || 'onimon';
-  return <Navigate to={`/${mallId}/dashboard`} replace />;
+// 루트("/") → /dashboard 로 리다이렉트
+function HomeRedirect() {
+  return <Navigate to="/dashboard" replace />;
 }
 
-// ─── (B) "/:mallId/*" 이하를 처리하는 레이아웃
 function MainLayout() {
   const screens  = useBreakpoint();
   const isMobile = !screens.md;
-  const { mallId } = useParams();
   const [collapsed, setCollapsed] = useState(false);
 
-  // ── 모바일: OverlayLayout ─────────────────────────────
   if (isMobile) {
     return (
       <OverlayLayout>
@@ -53,20 +52,18 @@ function MainLayout() {
           <Route path="event/edit/:id" element={<EventEdit />} />
           <Route path="event/create" element={<EventCreate />} />
           <Route path="reward/coupon" element={<RewardCoupon />} />
-          <Route path="stats/pageview"     element={<PageView />} />
+          <Route path="stats/pageview" element={<PageView />} />
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
-          <Route path="redirect"  element={<Redirect />} />
-          
+          <Route path="redirect" element={<RedirectPage />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
     );
   }
 
-  // ── 데스크탑: 고정형 Sider + AntLayout ───────────────────
-  const SIDER_WIDTH      = 240;
-  const COLLAPSED_WIDTH  = 80;
+  const SIDER_WIDTH     = 240;
+  const COLLAPSED_WIDTH = 80;
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
@@ -81,28 +78,20 @@ function MainLayout() {
         style={{
           position: 'fixed',
           height: '100vh',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
+          left: 0, top: 0, bottom: 0,
+          zIndex: 100
         }}
       >
-        <Sidebar
-          collapsed={collapsed}
-          onToggle={() => setCollapsed(prev => !prev)}
-        />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
       </Sider>
 
       <AntLayout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
-          transition: 'margin-left 0.2s ease',
+          transition: 'margin-left 0.2s'
         }}
       >
-        <AppHeader
-          isMobile={false}
-          onMenuClick={() => setCollapsed(prev => !prev)}
-        />
+        <AppHeader isMobile={false} onMenuClick={() => setCollapsed(v => !v)} />
         <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
             <Route index element={<Dashboard />} />
@@ -112,11 +101,10 @@ function MainLayout() {
             <Route path="event/edit/:id" element={<EventEdit />} />
             <Route path="event/create" element={<EventCreate />} />
             <Route path="reward/coupon" element={<RewardCoupon />} />
-            <Route path="stats/pageview"     element={<PageView />} />
+            <Route path="stats/pageview" element={<PageView />} />
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="redirect" element={<Redirect />} />
+            <Route path="redirect" element={<RedirectPage />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
@@ -125,18 +113,17 @@ function MainLayout() {
   );
 }
 
-// ─── 최상위 App ───────────────────────────────────────────────────
 export default function App() {
   return (
     <Routes>
-      {/* 루트 → mall_id 쿼리 읽어 리다이렉트 */}
-      <Route path="/" element={<RedirectToMall />} />
+      {/* OAuth 콜백에서 mallId 를 받아 저장 */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
-      {/* mallId 하위 모든 경로 → MainLayout */}
-      <Route path="/:mallId/*" element={<MainLayout />} />
+      {/* 루트로 들어오면 대시보드로 */}
+      <Route path="/" element={<HomeRedirect />} />
 
-      {/* 그 외는 다시 루트 */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* 메인 레이아웃 (mallId 없이!) */}
+      <Route path="/*" element={<MainLayout />} />
     </Routes>
   );
 }
