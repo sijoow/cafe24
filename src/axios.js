@@ -1,27 +1,24 @@
+// src/axios.js
 import axios from 'axios';
 
-/* localStorage 에 저장된 mallId 직접 사용 */
-function getMallId() {
-  return localStorage.getItem('mallId') || '';
-}
+axios.defaults.baseURL =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
-const api = axios.create({
-  baseURL:
-    process.env.REACT_APP_API_BASE_URL ||
-    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app',
-});
-
-/* 요청 인터셉터 */
-api.interceptors.request.use(config => {
-  const mallId = getMallId();
-  if (!mallId) return config;          // 로그인前·설치前 등
-
-  // 이미 /api/{mallId}/ 로 시작하면 그대로 둠
-  if (/\/api\/[^/]+/.test(config.url)) return config;
-
-  // 그렇지 않으면 자동으로 mallId 삽입
-  config.url = `/api/${mallId}${config.url.startsWith('/') ? '' : '/'}${config.url}`;
+// 요청 전 interceptor: localStorage 에 저장된 mallId 를 URL 앞에 자동 삽입
+axios.interceptors.request.use(config => {
+  const mallId = localStorage.getItem('mallId');
+  if (mallId) {
+    // 아직 붙지 않았다면
+    if (!config.url.startsWith(`/api/${mallId}`)) {
+      // '/api/...' 이면 그 뒤를 path 로 보고
+      const rest = config.url.startsWith('/api')
+        ? config.url.slice(4)
+        : config.url;
+      config.url = `/api/${mallId}${rest}`;
+    }
+  }
   return config;
 });
 
-export default api;
+export default axios;
