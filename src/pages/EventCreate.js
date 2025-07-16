@@ -193,7 +193,7 @@ export default function EventCreate() {
   // 3) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
-    axios.get('/categories/all')
+    axios.get(`/api/${mallId}/categories/all`)
       .then(res => setAllCats(res.data))
       .catch(() => msgApi.error('카테고리 불러오기 실패'));
   }, [mallId]);   // ← dependency에 mallId 추가
@@ -256,7 +256,7 @@ export default function EventCreate() {
   // 4) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
-   axios.get('/coupons')
+    axios.get(`/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
@@ -283,7 +283,7 @@ export default function EventCreate() {
             const form = new FormData();
             form.append('file', img.file);
             const { data } = await axios.post(
-             '/uploads/image',
+             `/api/${mallId}/uploads/image`,
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -323,7 +323,7 @@ export default function EventCreate() {
             : {}),
         }
       };
-      await axios.post('/events', payload);
+      await axios.post(`/api/${mallId}/events`, payload);
       msgApi.success('이벤트 생성 완료');
       navigate(`/${mallId}/event/list`);
     } catch (e) {
