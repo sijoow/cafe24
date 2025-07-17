@@ -1,66 +1,42 @@
-// src/components/Dashboard.jsx
-import React, { useEffect, useState } from 'react'
+// src/lib/api.js
 import axios from 'axios'
 
-export default function Dashboard() {
-  const [mallInfo, setMallInfo] = useState(null)
-  const [error, setError]     = useState(null)
+// 1) 기본 인스턴스 생성
+const api = axios.create({
+  baseURL:
+    process.env.REACT_APP_API_BASE_URL ||
+    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+})
 
-  useEffect(() => {
-    // 1) URLSearchParams 로 mall_id 파라미터 추출
-    const params = new URLSearchParams(window.location.search)
-    const mallId = params.get('mall_id')
-    console.log('🟢 mall_id 파라미터:', mallId)
-
-    if (!mallId) {
-      setError('❌ mall_id 파라미터가 없습니다.')
-      return
+// 2) 요청 인터셉터 (토큰 자동 포함 등)
+api.interceptors.request.use(
+  config => {
+    // 예: 로컬스토리지에서 토큰을 꺼내서 헤더에 붙이기
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
+    return config
+  },
+  error => Promise.reject(error),
+)
 
-    // 2) API_BASE 설정
-    const API_BASE =
-      process.env.REACT_APP_API_BASE_URL ||
-      'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app'
+// 3) 응답 인터셉터 (에러 공통 처리 등)
+api.interceptors.response.use(
+  response => response,
+  error => {
+    // 예: 401 Unauthorized 처리
+    if (error.response?.status === 401) {
+      // 자동 로그아웃 로직 등
+      console.warn('🚨 Unauthorized - 로그아웃 처리 필요')
+    }
+    return Promise.reject(error)
+  },
+)
 
-    const url = `${API_BASE}/api/${mallId}/mall`
-    console.log('🟢 호출 URL:', url)
-
-    // 3) axios GET 요청
-    axios
-      .get(url)
-      .then(response => {
-        console.log('✅ 응답 데이터:', response.data)
-        setMallInfo(response.data)
-      })
-      .catch(err => {
-        console.error('❌ 요청 에러:', err.response?.status, err.response?.data || err.message)
-        setError(
-          err.response?.data?.error ||
-            `알 수 없는 에러: ${err.message}`
-        )
-      })
-  }, [])
-
-  if (error) {
-    return <div style={{ color: 'red' }}>{error}</div>
-  }
-  if (!mallInfo) {
-    return <div>Loading...</div>
-  }
-
-  return (
-    <div>
-      <h2>앱 설치 정보</h2>
-      <p>
-        <strong>mallId:</strong> {mallInfo.mallId}
-      </p>
-      <p>
-        <strong>userId:</strong> {mallInfo.userId || '–'}
-      </p>
-      <p>
-        <strong>userName:</strong> {mallInfo.userName || '–'}
-      </p>
-      {/* 여기에 추가 UI를 넣으세요 */}
-    </div>
-  )
-}
+export default api
