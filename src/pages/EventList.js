@@ -41,7 +41,7 @@ export default function EventList() {
     }
     setLoading(true)
     try {
-      const res = await api.get(`/api/${mallId}/events`)
+      const res = await api.get(`/api/events`)
       const list = (res.data || []).map(ev => ({
         ...ev,
         id: ev._id,
@@ -66,7 +66,7 @@ export default function EventList() {
   const handleDelete = async id => {
     if (!mallId) return
     try {
-      await api.delete(`/api/${mallId}/events/${id}`)
+      await api.delete(`/api/events/${id}`)
       message.success('이벤트가 삭제되었습니다.')
       fetchEvents()
     } catch (err) {
@@ -82,7 +82,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
+          onClick={() => navigate(`/event/detail/${id}`)}
           style={{
             fontSize:  isMobile ? '12px' : '14px',
             lineHeight: 1.2,
@@ -118,7 +118,7 @@ export default function EventList() {
             style={{ objectFit: 'cover', cursor: 'pointer' }}
             preview={false}
             alt="썸네일"
-            onClick={() => navigate(`/${mallId}/event/detail/${first.id || first._id}`)}
+            onClick={() => navigate(`/event/detail/${first.id || first._id}`)}
           />
         )
       },
@@ -129,7 +129,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() =>  navigate(`/event/detail/${record.id}`)}
           style={{
             fontSize:    isMobile ? '13px' : '16px',
             lineHeight:  1.3,
@@ -214,7 +214,7 @@ export default function EventList() {
             size="small"
             onClick={e => {
               e.stopPropagation()
-              navigate(`/${mallId}/event/edit/${record.id}`)
+              navigate(`/event/edit/${record.id}`)
             }}
           >
             수정
@@ -245,7 +245,7 @@ export default function EventList() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate(`/${mallId}/event/create`)}
+          onClick={() => navigate(`/event/create`)}
         >
           새 이벤트 생성
         </Button>
