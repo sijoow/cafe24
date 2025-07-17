@@ -1,24 +1,15 @@
 // src/axios.js
 import axios from 'axios';
 
-axios.defaults.baseURL =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
 
+// 모든 /api 요청에 mallId/userId 헤더만 붙이고 URL 재작성 제거
 axios.interceptors.request.use(config => {
-  const userId = localStorage.getItem('userId') || '';
+  const mallId = localStorage.getItem('mallId');
+  const userId = localStorage.getItem('userId');
 
-  if (userId) {
-    // 이미 /api/{userId} 붙여진 게 아니면 붙이기
-    const prefix = `/api/${userId}`;
-    if (!config.url.startsWith(prefix)) {
-      // '/api/...' → rest='/...'  
-      const rest = config.url.startsWith('/api')
-        ? config.url.slice(4)
-        : config.url;
-      config.url = `${prefix}${rest}`;
-    }
-  }
+  if (mallId) config.headers['X-Mall-Id'] = mallId;
+  if (userId) config.headers['X-User-Id'] = userId;
 
   return config;
 }, err => Promise.reject(err));
