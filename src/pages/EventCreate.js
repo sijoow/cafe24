@@ -29,7 +29,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../axios'
 import dayjs from 'dayjs'
 import './EventCreate.css'
-import axios from 'axios'
 
 const { Step }         = Steps
 const { useBreakpoint } = Grid
@@ -378,7 +377,7 @@ export default function EventCreate() {
       }
 
       // 이벤트 생성 API 호출
-      await axios.post(`${API_BASE}/api/events`, payload);
+      await api.post(`/api/${mallId}/events`, payload);
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list')
     } catch (e) {
