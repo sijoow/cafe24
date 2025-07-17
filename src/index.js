@@ -1,4 +1,5 @@
 // src/index.js
+console.log('🔥 React index.js is running');
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
