@@ -1,6 +1,6 @@
 // src/pages/EventList.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import {
   Card,
   Table,
@@ -10,61 +10,66 @@ import {
   message,
   Popconfirm,
   Grid,
-} from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+} from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import { useNavigate, useParams } from 'react-router-dom'
+import api from '../axios'        // <-- 수정: axios → api 인스턴스
+import dayjs from 'dayjs'
 
-const { useBreakpoint } = Grid;
+const { useBreakpoint } = Grid
 
 export default function EventList() {
-  const { mallId } = useParams();
-  const navigate   = useNavigate();
-  const [data, setData]       = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { mallId } = useParams()
+  const navigate   = useNavigate()
+  const [data, setData]       = useState([])
+  const [loading, setLoading] = useState(false)
 
-  const screens  = useBreakpoint();
-  const isMobile = screens.sm === false;
+  const screens  = useBreakpoint()
+  const isMobile = screens.sm === false
 
+  // R2 (혹은 S3) 에 업로드된 파일의 퍼블릭 베이스 URL
   const R2_PUBLIC_BASE =
-    'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev';
+    'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev'
 
+  // 이벤트 목록 불러오기
   const fetchEvents = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      // mallId 포함된 API 경로
-      const res = await axios.get(`/api/${mallId}/events`);
+      const res = await api.get(`/api/${mallId}/events`)
       const list = res.data.map(ev => ({
+        // 원본 필드 그대로 살리면서
         ...ev,
+        // 테이블 rowKey 용
         id: ev._id,
+        // 날짜 포맷
         createdAt: ev.createdAt
-          ? new Date(ev.createdAt).toISOString().slice(0, 10)
+          ? dayjs(ev.createdAt).format('YYYY-MM-DD')
           : '',
-      }));
-      setData(list);
+      }))
+      setData(list)
     } catch (err) {
-      console.error(err);
-      message.error('이벤트 목록을 불러오는 중 오류가 발생했습니다.');
+      console.error(err)
+      message.error('이벤트 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchEvents();
-  }, [mallId]);
+    fetchEvents()
+  }, [mallId])
 
+  // 삭제
   const handleDelete = async id => {
     try {
-      // mallId 포함된 삭제 API
-      await axios.delete(`/api/${mallId}/events/${id}`);
-      message.success('이벤트가 삭제되었습니다.');
-      await fetchEvents();
+      await api.delete(`/api/${mallId}/events/${id}`)
+      message.success('이벤트가 삭제되었습니다.')
+      fetchEvents()
     } catch (err) {
-      console.error(err);
-      message.error('이벤트 삭제에 실패했습니다.');
+      console.error(err)
+      message.error('이벤트 삭제에 실패했습니다.')
     }
-  };
+  }
 
   const columns = [
     {
@@ -75,7 +80,7 @@ export default function EventList() {
         <span
           onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
           style={{
-            fontSize: isMobile ? '12px' : '14px',
+            fontSize: isMobile ? 12 : 14,
             lineHeight: 1.2,
             wordBreak: 'break-all',
             whiteSpace: 'nowrap',
@@ -84,7 +89,7 @@ export default function EventList() {
             display: 'inline-block',
             maxWidth: isMobile ? 100 : 180,
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {id}
@@ -96,9 +101,15 @@ export default function EventList() {
       dataIndex: 'images',
       width: 120,
       render: images => {
-        const src = Array.isArray(images) && images.length > 0 ? images[0].src : null;
-        if (!src) return <span>—</span>;
-        const url = src.startsWith('http') ? src : `${R2_PUBLIC_BASE}/${src}`;
+        // 첫 번째 업로드된 이미지 src 를 썸네일로
+        const src =
+          Array.isArray(images) && images.length > 0
+            ? images[0].src
+            : null
+        if (!src) return <span>—</span>
+        const url = src.startsWith('http')
+          ? src
+          : `${R2_PUBLIC_BASE}/${src}`
         return (
           <Image
             src={url}
@@ -108,11 +119,11 @@ export default function EventList() {
             preview={false}
             alt="썸네일"
             onClick={() => {
-              const evId = images[0]._id || images[0].id;
-              navigate(`/${mallId}/event/detail/${evId}`);
+              const evId = images[0]._id || images[0].id
+              navigate(`/${mallId}/event/detail/${evId}`)
             }}
           />
-        );
+        )
       },
     },
     {
@@ -123,7 +134,7 @@ export default function EventList() {
         <span
           onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
-            fontSize: isMobile ? '13px' : '16px',
+            fontSize: isMobile ? 13 : 16,
             lineHeight: 1.3,
             display: 'inline-block',
             maxWidth: isMobile ? 120 : 200,
@@ -131,7 +142,7 @@ export default function EventList() {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {text}
@@ -146,10 +157,10 @@ export default function EventList() {
         <span
           onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
-            fontSize: isMobile ? '12px' : '14px',
+            fontSize: isMobile ? 12 : 14,
             whiteSpace: 'nowrap',
             cursor: 'pointer',
-            color: '#000'
+            color: '#000',
           }}
         >
           {text}
@@ -161,20 +172,24 @@ export default function EventList() {
       dataIndex: 'layoutType',
       width: 100,
       render: (lt, record) => {
-        const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
+        const label = lt === 'single'
+          ? '단품'
+          : lt === 'tabs'
+          ? '탭'
+          : '없음'
         return (
           <span
             onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
-              fontSize: isMobile ? '12px' : '14px',
+              fontSize: isMobile ? 12 : 14,
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'
+              color: '#000',
             }}
           >
             {label}
           </span>
-        );
+        )
       },
     },
     {
@@ -183,23 +198,25 @@ export default function EventList() {
       width: 100,
       render: (images, record) => {
         const count = Array.isArray(images)
-          ? images.reduce((sum, img) =>
-              sum + (Array.isArray(img.regions) ? img.regions.length : 0)
-            , 0)
-          : 0;
+          ? images.reduce(
+              (sum, img) =>
+                sum + (Array.isArray(img.regions) ? img.regions.length : 0),
+              0
+            )
+          : 0
         return (
           <span
             onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
-              fontSize: isMobile ? '12px' : '14px',
+              fontSize: isMobile ? 12 : 14,
               whiteSpace: 'nowrap',
               cursor: 'pointer',
-              color: '#000'
+              color: '#000',
             }}
           >
             {count}
           </span>
-        );
+        )
       },
     },
     {
@@ -207,12 +224,12 @@ export default function EventList() {
       key: 'action',
       width: isMobile ? 140 : 180,
       render: (_, record) => (
-        <Space size="small" className="action-buttons">
+        <Space size="small">
           <Button
             size="small"
             onClick={e => {
-              e.stopPropagation();
-              navigate(`/${mallId}/event/edit/${record.id}`);
+              e.stopPropagation()
+              navigate(`/${mallId}/event/edit/${record.id}`)
             }}
           >
             수정
@@ -234,7 +251,7 @@ export default function EventList() {
         </Space>
       ),
     },
-  ];
+  ]
 
   return (
     <Card
@@ -270,5 +287,5 @@ export default function EventList() {
         style={{ tableLayout: 'fixed' }}
       />
     </Card>
-  );
+  )
 }
