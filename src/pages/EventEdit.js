@@ -39,7 +39,7 @@ const { Step } = Steps;
 const { Option } = Select;
 
 export default function EventEdit() {
-  const { id } = useParams();
+  const { mallId, id } = useParams();
   const navigate = useNavigate();
   const imgRef = useRef(null);
 
@@ -106,17 +106,17 @@ export default function EventEdit() {
   // ── 초기 데이터 로드 ───────────────────────────────────────────
   useEffect(() => {
     // 카테고리 & 쿠폰
-    api.get('/api/categories/all')
+    api.get(`/api/${mallId}/categories/all`)
       .then(res => setAllCats(res.data))
       .catch(() => message.error('카테고리 로드 실패'));
-      api.get('/api/coupons')
+      api.get(`/api/${mallId}/coupons`)
       .then(res => setCouponOptions(
         res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)` }))
       ))
       .catch(() => message.error('쿠폰 로드 실패'));
 
     // 이벤트 불러오기
-    api.get(`/api/events/${id}`)
+    api.get(`/api/${mallId}/events/${id}`)
       .then(res => {
         const ev = res.data;
         setDocId(ev._id);
@@ -278,7 +278,7 @@ export default function EventEdit() {
       return message.success('이미지 삭제 완료');
     }
     try {
-      await api.delete(`/api/events/${id}/images/${imageId}`);
+      await api.delete(`/api/${mallId}/events/${id}/images/${imageId}`);
       setImages(imgs => imgs.filter((_, i) => i !== idx));
       setSelectedIdx(0);
       message.success('이미지 삭제 완료');
@@ -296,7 +296,7 @@ export default function EventEdit() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await api.post('/api/uploads/image', form);
+            const { data } = await api.post(`/api/${mallId}/uploads/image`, form);
             return { ...img, src: data.url, file: undefined };
           }
           return img;
@@ -345,7 +345,7 @@ export default function EventEdit() {
         })),
       };
 
-      api.put(`/api/events/${id}`, payload);
+      api.put(`/api/${mallId}/events/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
     } catch (err) {
