@@ -347,40 +347,45 @@ export default function EventCreate() {
 
           
       // payload 생성부
-      const payload = {
-        title,
-        // content 필수! 빈 문자열이 아닌 실제 값을 넣어줍니다.
-        content: JSON.stringify({
-          images: uploaded.map(img => img.src),
-          gridSize,
-          layoutType,
-          classification: { registerMode, /* … */ }
-        }),
-        images: uploaded.map(img => ({
-          _id: img.id,
-          src: img.src,
-          regions: img.regions.map(r => ({
-            _id:    r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon
-          }))
-        })),
-        gridSize,
-        layoutType,
-        classification: {
-          ...(layoutType === 'single'
-            ? { root: singleRoot, sub: singleSub }
-            : { tabs, activeColor }),
-          registerMode,
-          ...(registerMode === 'direct'
-            ? { directProducts, tabDirectProducts }
-            : {})
-        }
-      };
+
+          // payload 생성부 (content는 객체 그대로)
+          const payload = {
+            title,
+            content: {
+              images: uploaded.map(img => img.src),
+              gridSize,
+              layoutType,
+              classification: {
+                registerMode,
+                /* 필요하다면 더 넣으세요 */
+              }
+            },
+            images: uploaded.map(img => ({
+              _id: img.id,
+              src: img.src,
+              regions: img.regions.map(r => ({
+                _id:    r.id,
+                xRatio: r.xRatio,
+                yRatio: r.yRatio,
+                wRatio: r.wRatio,
+                hRatio: r.hRatio,
+                href:   r.href,
+                coupon: r.coupon
+              }))
+            })),
+            gridSize,
+            layoutType,
+            classification: {
+              ...(layoutType === 'single'
+                ? { root: singleRoot, sub: singleSub }
+                : { tabs, activeColor }),
+              registerMode,
+              ...(registerMode === 'direct'
+                ? { directProducts, tabDirectProducts }
+                : {})
+            }
+          };
+      
       // 이벤트 생성 API 호출
       await api.post(`/api/${mallId}/events`, payload)
       msgApi.success('이벤트 생성 완료');
