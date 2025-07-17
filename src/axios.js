@@ -1,43 +1,39 @@
-// src/axios.js
-import axios from 'axios'
+import React, { useEffect, useState } from 'react'
+import api from '../axios'
+import { Card, List, message } from 'antd'
 
-// 1) Axios 인스턴스 생성
-const api = axios.create({
-  baseURL:
-    process.env.REACT_APP_API_BASE_URL ||
-    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app',
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-})
+export default function Coupons() {
+  const [list, setList] = useState([])
+  const [loading, setLoading] = useState(true)
 
-// 2) 요청 인터셉터: localStorage에 저장된 mallId/userId를 헤더에 자동 추가
-api.interceptors.request.use(
-  config => {
+  useEffect(() => {
+    // 1) 어디선가 저장된 mallId 읽기
     const mallId = localStorage.getItem('mallId')
-    const userId = localStorage.getItem('userId')
+    console.log('[Coupons] mallId=', mallId)
 
-    if (mallId) config.headers['X-Mall-Id'] = mallId
-    if (userId) config.headers['X-User-Id'] = userId
-
-    return config
-  },
-  error => Promise.reject(error)
-)
-
-// 3) 응답 인터셉터: 공통 에러 처리 (예: 401 Unauthorized → 로그인 페이지로 이동)
-api.interceptors.response.use(
-  response => response,
-  error => {
-    const status = error.response?.status
-    if (status === 401) {
-      // 예시: 세션 만료 시 로그인 페이지로 리다이렉트
-      window.location.href = '/login'
+    if (!mallId) {
+      message.error('매장 아이디가 없습니다.')
+      setLoading(false)
+      return
     }
-    return Promise.reject(error)
-  }
-)
 
-export default api
+    // 2) mallId를 경로에 포함시켜 호출
+    api.get(`/api/${mallId}/coupons`)
+      .then(res => setList(res.data))
+      .catch(err => {
+        console.error('쿠폰 조회 에러:', err.response?.data || err.message)
+        message.error('쿠폰을 불러오지 못했습니다.')
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  return (
+    <Card title="쿠폰 목록" loading={loading}>
+      <List
+        dataSource={list}
+        renderItem={c => <List.Item>{c.coupon_name}</List.Item>}
+        locale={{ emptyText: '쿠폰이 없습니다.' }}
+      />
+    </Card>
+  )
+}
