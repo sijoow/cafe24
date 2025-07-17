@@ -46,7 +46,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="event/list" element={<EventList />} />
           <Route path="event/detail/:id" element={<EventDetail />} />
-          <Route path="/:mallId/event/edit/:id" element={<EventEdit />} />
+          <Route path="/:mallId/edit/:id" element={<EventEdit />} />
           <Route path="event/create" element={<EventCreate />} />
           <Route path="reward/coupon" element={<RewardCoupon />} />
           <Route path="stats/pageview"     element={<PageView />} />
@@ -107,7 +107,7 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="event/list" element={<EventList />} />
             <Route path="event/detail/:id" element={<EventDetail />} />
-            <Route path="/:mallId/event/edit/:id" element={<EventEdit />} />
+            <Route path="/:mallId/edit/:id" element={<EventEdit />} />
             <Route path="event/create" element={<EventCreate />} />
             <Route path="reward/coupon" element={<RewardCoupon />} />
             <Route path="stats/pageview"     element={<PageView />} />
