@@ -34,7 +34,6 @@ import './EventEdit.css';
 const API_BASE =
   process.env.REACT_APP_API_BASE_URL ||
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
-axios.defaults.baseURL = API_BASE;
 
 const { Step } = Steps;
 const { Option } = Select;
