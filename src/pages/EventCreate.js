@@ -331,22 +331,20 @@ export default function EventCreate() {
   const handleSubmit = async () => {
     try {
       // 이미지 업로드
-      const uploaded = await Promise.all(
-        images.map(async img => {
-          if (img.file) {
-            const form = new FormData()
-            form.append('file', img.file)
-            const { data } = await api.post(
-              `/api/${mallId}/uploads/image`,
-              form,
-              { headers: { 'Content-Type': 'multipart/form-data' } }
-            )
-            return { ...img, src: data.url, file: undefined }
-          }
-          return img
-        })
-      )
-
+      const uploaded = await Promise.all(images.map(async img => {
+        if (img.file) {
+          const form = new FormData();
+          form.append('file', img.file);
+          const { data } = await api.post(
+            `/api/${mallId}/uploads/image`,
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+          );
+          return { ...img, src: data.url, file: undefined };
+        }
+        return img;
+      }));
+      
       // payload 생성
       const payload = {
         title,
@@ -377,7 +375,7 @@ export default function EventCreate() {
       }
 
       // 이벤트 생성 API 호출
-      await api.post(`/api/${mallId}/events`, payload);
+      await api.post(`/api/${mallId}/events`, payload)
       msgApi.success('이벤트 생성 완료');
       navigate('/event/list')
     } catch (e) {
