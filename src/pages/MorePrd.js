@@ -1,20 +1,16 @@
 // src/components/MorePrd.js
-import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, Table, message, Input, Button } from 'antd';
-import { FileImageOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from 'react-beautiful-dnd';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react'
+import { Modal, Table, message, Input, Button } from 'antd'
+import { FileImageOutlined } from '@ant-design/icons'
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
+import { useParams } from 'react-router-dom'
+import api from '../axios'  // axios 인스턴스 사용
 
 /** 썸네일 컴포넌트 */
 function Thumbnail({ src }) {
-  const [errored, setErrored] = useState(false);
+  const [errored, setErrored] = useState(false)
   if (errored || !src) {
-    return <FileImageOutlined style={{ fontSize: 50, color: '#ccc' }} />;
+    return <FileImageOutlined style={{ fontSize: 50, color: '#ccc' }} />
   }
   return (
     <img
@@ -29,7 +25,7 @@ function Thumbnail({ src }) {
         background: '#f0f0f0',
       }}
     />
-  );
+  )
 }
 
 /** MorePrd 모달 */
@@ -40,170 +36,184 @@ export default function MorePrd({
   onOk,
   onCancel,
 }) {
-  const { mallId } = useParams();
-
+  // 1) mallId: URL 파라미터 우선, 없으면 localStorage
+  const { mallId: paramMallId } = useParams()
+  const mallId = paramMallId || localStorage.getItem('mallId')
+  
   // 탭별 storage 키
-  const keyPrefix        = `MorePrd_${target}_${tabIndex}`;
-  const storageKeyKeys   = `${keyPrefix}_selectedKeys`;
-  const storageKeyDetail = `${keyPrefix}_selectedDetails`;
+  const keyPrefix        = `MorePrd_${target}_${tabIndex}`
+  const storageKeyKeys   = `${keyPrefix}_selectedKeys`
+  const storageKeyDetail = `${keyPrefix}_selectedDetails`
 
-  // 1) sessionStorage 복원
+  // 2) sessionStorage 복원
   const [selectedRowKeys, setSelectedRowKeys] = useState(() => {
-    return JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]');
-  });
+    return JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]')
+  })
   const [selectedDetails, setSelectedDetails] = useState(() => {
-    return JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]');
-  });
+    return JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]')
+  })
 
-  // 2) 로컬 테이블/검색 상태
-  const [loading, setLoading]       = useState(false);
-  const [products, setProducts]     = useState([]);
-  const [searchText, setSearchText] = useState('');
+  // 3) 로컬 테이블/검색 상태
+  const [loading, setLoading]       = useState(false)
+  const [products, setProducts]     = useState([])
+  const [searchText, setSearchText] = useState('')
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
-  });
-  const [searchResults, setSearchResults] = useState([]);
+  })
+  const [searchResults, setSearchResults] = useState([])
 
-  // 3) sessionStorage 동기화
+  // 4) sessionStorage 동기화
   useEffect(() => {
-    sessionStorage.setItem(storageKeyKeys, JSON.stringify(selectedRowKeys));
-  }, [selectedRowKeys]);
+    sessionStorage.setItem(storageKeyKeys, JSON.stringify(selectedRowKeys))
+  }, [selectedRowKeys])
   useEffect(() => {
-    sessionStorage.setItem(storageKeyDetail, JSON.stringify(selectedDetails));
-  }, [selectedDetails]);
+    sessionStorage.setItem(storageKeyDetail, JSON.stringify(selectedDetails))
+  }, [selectedDetails])
 
-  // 4) 기본 페이징 조회
+  // 5) 페이지 조회 함수
   const fetchPage = async (page, pageSize) => {
-    setLoading(true);
-    try {
-      const { data } = await axios.get(`/api/${mallId}/products`, {
-        params: { offset: (page - 1) * pageSize, limit: pageSize },
-      });
-      setProducts(data.products);
-      setPagination({ current: page, pageSize, total: data.total });
-    } catch {
-      message.error('상품 로드에 실패했습니다');
-    } finally {
-      setLoading(false);
+    if (!mallId) {
+      message.error('mallId가 없습니다.')
+      return
     }
-  };
-
-  // 5) 전체 조회 + 필터(검색)
-  const fetchAllAndFilter = async q => {
-    setLoading(true);
+    setLoading(true)
     try {
-      let all = [], offset = 0, chunk = 100;
+      const { data } = await api.get(`/api/${mallId}/products`, {
+        params: { offset: (page - 1) * pageSize, limit: pageSize },
+      })
+      setProducts(data.products)
+      setPagination({ current: page, pageSize, total: data.total })
+    } catch (err) {
+      console.error('[MorePrd] 상품 로드 실패', err)
+      message.error('상품 로드에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 6) 전체 조회 + 필터(검색)
+  const fetchAllAndFilter = async q => {
+    if (!mallId) {
+      message.error('mallId가 없습니다.')
+      return
+    }
+    setLoading(true)
+    try {
+      let all = [], offset = 0, chunk = 100
       while (true) {
-        const res = await axios.get(`/api/${mallId}/products`, {
+        const res = await api.get(`/api/${mallId}/products`, {
           params: { offset, limit: chunk },
-        });
-        all = all.concat(res.data.products);
-        if (res.data.products.length < chunk) break;
-        offset += chunk;
+        })
+        all = all.concat(res.data.products)
+        if (res.data.products.length < chunk) break
+        offset += chunk
       }
       const filtered = all.filter(p =>
         p.product_name.toLowerCase().includes(q.toLowerCase())
-      );
-      setSearchResults(filtered);
-      setProducts(filtered.slice(0, pagination.pageSize));
-      setPagination({ current: 1, pageSize: pagination.pageSize, total: filtered.length });
-    } catch {
-      message.error('검색에 실패했습니다');
+      )
+      setSearchResults(filtered)
+      setProducts(filtered.slice(0, pagination.pageSize))
+      setPagination({ current: 1, pageSize: pagination.pageSize, total: filtered.length })
+    } catch (err) {
+      console.error('[MorePrd] 검색 실패', err)
+      message.error('검색에 실패했습니다.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  // 6) 모달 열릴 때 & 탭/모드 변경 시 초기 로드
+  // 7) 모달 열릴 때 & 탭/모드 변경 시 초기 로드
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) return
 
-    // 1) 검색어·테이블 초기화
-    setSearchText('');
-    fetchPage(1, pagination.pageSize);
+    setSearchText('')
+    fetchPage(1, pagination.pageSize)
 
-    // 2) sessionStorage에서 선택 상태 복원
-    const savedKeys = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]');
-    setSelectedRowKeys(savedKeys);
+    // sessionStorage 선택 복원
+    const savedKeys = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]')
+    setSelectedRowKeys(savedKeys)
 
-    const savedDetails = JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]');
-    setSelectedDetails(savedDetails);
+    const savedDetails = JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]')
+    setSelectedDetails(savedDetails)
 
-    // 3) 부족한 상세는 API로 보충
+    // 부족한 상세 로드
     const toLoad = savedKeys.filter(
       k => !savedDetails.some(d => String(d.product_no) === String(k))
-    );
+    )
     if (toLoad.length > 0) {
       Promise.all(
-        toLoad.map(k =>
-          axios.get(`/api/${mallId}/products/${k}`).then(r => r.data)
-        )
+        toLoad.map(k => api.get(`/api/${mallId}/products/${k}`).then(r => r.data))
       )
-      .then(arr => {
-        setSelectedDetails(prev => [...prev, ...arr]);
+      .then(arr => setSelectedDetails(prev => [...prev, ...arr]))
+      .catch(err => {
+        console.error('[MorePrd] 선택 상품 상세 로드 실패', err)
+        message.error('선택 상품 상세 로드 실패')
       })
-      .catch(() => message.error('선택 상품 상세 로드 실패'));
     }
-  }, [visible, target, tabIndex, mallId]);
+  }, [visible, target, tabIndex, mallId])
 
-  // 7) 체크박스 변경 시 상세 보충
+  // 8) 체크박스 변경 시 상세 보충
   useEffect(() => {
     const missing = selectedRowKeys.filter(
       k => !selectedDetails.find(d => d.product_no === k)
-    );
-    if (!missing.length) return;
+    )
+    if (!missing.length) return
+
     Promise.all(
       missing.map(k => {
+        // 이미 로드된 리스트에서 찾고, 없으면 API 호출
         const loc =
           products.find(p => p.product_no === k) ||
           searchResults.find(p => p.product_no === k) ||
-          selectedDetails.find(d => d.product_no === k);
-        if (loc) return Promise.resolve({ data: loc });
-        return axios.get(`/api/${mallId}/products/${k}`);
+          selectedDetails.find(d => d.product_no === k)
+        return loc
+          ? Promise.resolve({ data: loc })
+          : api.get(`/api/${mallId}/products/${k}`)
       })
     )
-      .then(resps => {
-        setSelectedDetails(prev => [...prev, ...resps.map(r => r.data)]);
-      })
-      .catch(() => message.error('선택 상품 상세 추가 로드 실패'));
-  }, [selectedRowKeys, products, searchResults, selectedDetails, mallId]);
+    .then(resps => setSelectedDetails(prev => [...prev, ...resps.map(r => r.data)]))
+    .catch(err => {
+      console.error('[MorePrd] 상세 추가 로드 실패', err)
+      message.error('선택 상품 상세 추가 로드 실패')
+    })
+  }, [selectedRowKeys, products, searchResults, selectedDetails, mallId])
 
-  // 8) 페이지 변경
+  // 9) 페이지 변경
   const onTableChange = (page, pageSize) => {
     if (searchText) {
-      const start = (page - 1) * pageSize;
-      setProducts(searchResults.slice(start, start + pageSize));
-      setPagination({ current: page, pageSize, total: searchResults.length });
+      const start = (page - 1) * pageSize
+      setProducts(searchResults.slice(start, start + pageSize))
+      setPagination({ current: page, pageSize, total: searchResults.length })
     } else {
-      fetchPage(page, pageSize);
+      fetchPage(page, pageSize)
     }
-  };
+  }
 
-  // 9) rowSelection
+  // 10) rowSelection
   const rowSelection = {
     selectedRowKeys,
     preserveSelectedRowKeys: true,
     onChange: keys => setSelectedRowKeys(keys),
-  };
+  }
 
-  // 10) 드래그 순서 변경
+  // 11) 드래그 순서 변경
   const onDragEnd = useCallback(
     result => {
-      if (!result.destination) return;
-      const arr = Array.from(selectedRowKeys);
-      const [m] = arr.splice(result.source.index, 1);
-      arr.splice(result.destination.index, 0, m);
-      setSelectedRowKeys(arr);
+      if (!result.destination) return
+      const arr = Array.from(selectedRowKeys)
+      const [m] = arr.splice(result.source.index, 1)
+      arr.splice(result.destination.index, 0, m)
+      setSelectedRowKeys(arr)
     },
     [selectedRowKeys]
-  );
+  )
 
-  // 11) 컬럼
+  // 12) 테이블 컬럼
   const columns = [
-    { title: '번호', dataIndex: 'product_no', width: 80 },
-    { title: '상품명', dataIndex: 'product_name', width: 200 },
+    { title: '번호',     dataIndex: 'product_no', width: 80 },
+    { title: '상품명',   dataIndex: 'product_name', width: 200 },
     {
       title: '판매가',
       dataIndex: 'price',
@@ -216,7 +226,7 @@ export default function MorePrd({
       width: 80,
       render: src => <Thumbnail src={src} />,
     },
-  ];
+  ]
 
   return (
     <Modal
@@ -233,8 +243,8 @@ export default function MorePrd({
         allowClear
         enterButton
         onSearch={q => {
-          setSearchText(q);
-          q.trim() ? fetchAllAndFilter(q) : fetchPage(1, pagination.pageSize);
+          setSearchText(q)
+          q.trim() ? fetchAllAndFilter(q) : fetchPage(1, pagination.pageSize)
         }}
         style={{ marginBottom: 16 }}
       />
@@ -249,7 +259,7 @@ export default function MorePrd({
           pageSize: pagination.pageSize,
           total: pagination.total,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50', '100'],
+          pageSizeOptions: ['10','20','50','100'],
           onChange: onTableChange,
         }}
         rowSelection={rowSelection}
@@ -275,7 +285,7 @@ export default function MorePrd({
                   }}
                 >
                   {selectedRowKeys.map((key, idx) => {
-                    const prod = selectedDetails.find(d => d.product_no === key) || {};
+                    const prod = selectedDetails.find(d => d.product_no === key) || {}
                     return (
                       <Draggable key={key} draggableId={String(key)} index={idx}>
                         {dProv => (
@@ -312,7 +322,7 @@ export default function MorePrd({
                           </div>
                         )}
                       </Draggable>
-                    );
+                    )
                   })}
                   {prov.placeholder}
                 </div>
@@ -322,5 +332,5 @@ export default function MorePrd({
         </>
       )}
     </Modal>
-  );
+  )
 }
