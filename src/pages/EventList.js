@@ -123,7 +123,7 @@ export default function EventList() {
             alt="썸네일"
             onClick={() => {
               const evId = images[0]._id || images[0].id
-              navigate(`/${mallId}/event/detail/${evId}`)
+              navigate(`/event/detail/${evId}`)
             }}
           />
         )
@@ -135,7 +135,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '13px' : '16px',
             lineHeight: 1.3,
