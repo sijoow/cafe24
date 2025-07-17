@@ -30,21 +30,28 @@ import api from '../axios'
 import dayjs from 'dayjs'
 import './EventCreate.css'
 
-const { Step } = Steps
+const { Step }         = Steps
 const { useBreakpoint } = Grid
 
 export default function EventCreate() {
-  const navigate = useNavigate()
-  const { mallId } = useParams()
+  const navigate       = useNavigate()
+  const { mallId }     = useParams()
   const [msgApi, msgCtx] = message.useMessage()
 
   // 반응형
-  const screens = useBreakpoint()
+  const screens  = useBreakpoint()
   const isMobile = !screens.sm
 
-  // Wizard 단계
+  // 세션 초기화 (새로고침 시)
+  useEffect(() => {
+    Object.keys(sessionStorage)
+      .filter(key => key.startsWith('MorePrd_'))
+      .forEach(key => sessionStorage.removeItem(key))
+  }, [])
+
+  // 1) Wizard 단계
   const [current, setCurrent] = useState(0)
-  const titleRef = useRef(null)
+  const titleRef             = useRef(null)
   useEffect(() => {
     if (current === 0) {
       setTimeout(() => titleRef.current?.focus(), 0)
@@ -73,20 +80,14 @@ export default function EventCreate() {
   }
   const prev = () => setCurrent(c => c - 1)
 
-  // 1) 제목
+  // 2) 제목
   const [title, setTitle] = useState('')
 
-  // 2) 이미지 & 매핑
-  const [images, setImages]           = useState([])
-  const [selectedId, setSelectedId]   = useState(null)
-  const imgRef                       = useRef(null)
-  const onDragEnd                    = result => {
-    if (!result.destination) return
-    const a = Array.from(images)
-    const [m] = a.splice(result.source.index, 1)
-    a.splice(result.destination.index, 0, m)
-    setImages(a)
-  }
+  // 3) 이미지 업로드 & 매핑
+  const [images, setImages]         = useState([]) // { id, src, file?, regions: [] }
+  const [selectedId, setSelectedId] = useState(null)
+  const imgRef                     = useRef(null)
+
   const uploadProps = {
     name: 'file',
     accept: 'image/*',
@@ -108,9 +109,17 @@ export default function EventCreate() {
     }
   }
 
-  // 영역 매핑 상태
+  const onDragEnd = result => {
+    if (!result.destination) return
+    const a = Array.from(images)
+    const [m] = a.splice(result.source.index, 1)
+    a.splice(result.destination.index, 0, m)
+    setImages(a)
+  }
+
+  // 영역 매핑
   const [addingMode, setAddingMode]       = useState(false)
-  const [addType, setAddType]             = useState(null)
+  const [addType, setAddType]             = useState(null) // 'link' | 'coupon'
   const [pendingRegion, setPendingRegion] = useState(null)
   const [dragStartPos, setDragStart]      = useState(null)
   const [dragCurrent, setDragCurrent]     = useState(null)
@@ -210,7 +219,7 @@ export default function EventCreate() {
     setModalVisible(true)
   }
 
-  // 3) 카테고리 & 레이아웃
+  // 4) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([])
   useEffect(() => {
     if (!mallId) return
@@ -219,23 +228,48 @@ export default function EventCreate() {
       .catch(() => msgApi.error('카테고리 불러오기 실패'))
   }, [mallId, msgApi])
 
-  const [singleRoot, setSingleRoot]   = useState(null)
-  const [singleSub, setSingleSub]     = useState(null)
-  const [gridSize, setGridSize]       = useState(2)
-  const [layoutType, setLayoutType]   = useState(null)
+  const [singleRoot, setSingleRoot] = useState(null)
+  const [singleSub, setSingleSub]   = useState(null)
+  const [gridSize, setGridSize]     = useState(2)
+  const [layoutType, setLayoutType] = useState(null)
 
   const roots = allCats.filter(c => c.category_depth === 1)
   const subs  = allCats.filter(
     c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot
   )
 
-  // 3-1) 상품 등록 방식
+  // 5) 상품 등록 방식
   const [registerMode, setRegisterMode]           = useState('category')
   const [directProducts, setDirectProducts]       = useState([])
   const [tabDirectProducts, setTabDirectProducts] = useState({})
   const [initialSelected, setInitialSelected]     = useState([])
 
-  // 3-2) MorePrd 모달
+  // 탭 상태 & 색상
+  const [tabs, setTabs]             = useState([
+    { title: '', root: null, sub: null },
+    { title: '', root: null, sub: null },
+  ])
+  const [activeColor, setActiveColor] = useState('#fe6326')
+
+  // 탭 추가 함수
+  const addTab = () => {
+    if (tabs.length >= 4) return
+    const newIndex = tabs.length
+    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedKeys`)
+    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedDetails`)
+    setTabs(ts => [...ts, { title: '', root: null, sub: null }])
+  }
+
+  // 탭 업데이트 함수
+  const updateTab = (i, key, val) => {
+    setTabs(ts => {
+      const a = [...ts]
+      a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) }
+      return a
+    })
+  }
+
+  // 6) MorePrd 모달
   const [morePrdVisible, setMorePrdVisible]   = useState(false)
   const [morePrdTarget, setMorePrdTarget]     = useState('direct')
   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0)
@@ -251,18 +285,16 @@ export default function EventCreate() {
     setMorePrdVisible(true)
   }
 
-  // 4) 쿠폰 목록
+  // 7) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([])
   useEffect(() => {
     if (!mallId) return
     api.get(`/api/${mallId}/coupons`)
       .then(res =>
-        setCouponOptions(
-          res.data.map(c => ({
-            value: c.coupon_no,
-            label: `${c.coupon_name} (${c.benefit_percentage}%)`
-          }))
-        )
+        setCouponOptions(res.data.map(c => ({
+          value: c.coupon_no,
+          label: `${c.coupon_name} (${c.benefit_percentage}%)`
+        })))
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'))
   }, [mallId, msgApi])
@@ -273,10 +305,10 @@ export default function EventCreate() {
     </Tag>
   )
 
-  // 5) 최종 제출
+  // 8) 이벤트 등록
   const handleSubmit = async () => {
     try {
-      // (1) 이미지 업로드
+      // 이미지 업로드
       const uploaded = await Promise.all(
         images.map(async img => {
           if (img.file) {
@@ -293,20 +325,20 @@ export default function EventCreate() {
         })
       )
 
-      // (2) payload 생성
+      // payload 생성
       const payload = {
         title,
         images: uploaded.map(img => ({
-          _id:     img.id,
-          src:     img.src,
+          _id: img.id,
+          src: img.src,
           regions: img.regions.map(r => ({
-            _id:     r.id,
-            xRatio:  r.xRatio,
-            yRatio:  r.yRatio,
-            wRatio:  r.wRatio,
-            hRatio:  r.hRatio,
-            href:    r.href,
-            coupon:  r.coupon
+            _id:    r.id,
+            xRatio: r.xRatio,
+            yRatio: r.yRatio,
+            wRatio: r.wRatio,
+            hRatio: r.hRatio,
+            href:   r.href,
+            coupon: r.coupon
           }))
         })),
         gridSize,
@@ -317,15 +349,12 @@ export default function EventCreate() {
             : { tabs, activeColor }),
           registerMode,
           ...(registerMode === 'direct'
-            ? {
-                directProducts,
-                tabDirectProducts
-              }
+            ? { directProducts, tabDirectProducts }
             : {})
         }
       }
 
-      // (3) 이벤트 생성
+      // 이벤트 생성 API 호출
       await api.post(`/api/${mallId}/events`, payload)
       msgApi.success('이벤트 생성 완료')
       navigate('/event/list')
@@ -335,6 +364,7 @@ export default function EventCreate() {
     }
   }
 
+  // ─── JSX 렌더링 (기존 코드 그대로) ───────────────────────────
   return (
     <>
       {msgCtx}
@@ -344,7 +374,7 @@ export default function EventCreate() {
         style={{
           width: isMobile ? '100%' : 1600,
           margin: '0 auto',
-          padding: isMobile ? 8 : 24,
+          padding: isMobile ? 8 : 24
         }}
       >
         <Steps
@@ -359,7 +389,7 @@ export default function EventCreate() {
           <Step title="확인 & 등록" />
         </Steps>
 
-        {/* Step 1: 제목 입력 */}
+        {/* Step 1 */}
         {current === 0 && (
           <Input
             ref={titleRef}
@@ -369,51 +399,31 @@ export default function EventCreate() {
           />
         )}
 
-        {/* Step 2: 이미지 업로드 & 매핑 */}
+        {/* Step 2 */}
         {current === 1 && (
           <>
-            <Upload.Dragger
-              {...uploadProps}
-              className="dragger"
-              style={{
-                width: '100%',
-                padding: isMobile ? 12 : 24,
-              }}
-            >
+            <Upload.Dragger {...uploadProps} className="dragger" style={{ padding: isMobile ? 12 : 24 }}>
               <p><InboxOutlined style={{ fontSize: 24 }} /></p>
               <p>이미지를 드래그 또는 클릭하여 업로드</p>
             </Upload.Dragger>
 
-            {/* URL/쿠폰 추가 버튼 */}
             <Space style={{ margin: '12px 0' }}>
               <Button
                 icon={<LinkOutlined />}
                 type={addingMode && addType==='link' ? 'primary' : 'default'}
                 onClick={() => {
-                  if (!selectedImage) {
-                    msgApi.warning('이미지를 선택한 후 추가 가능합니다.');
-                    return;
-                  }
-                  setAddType('link');
-                  setAddingMode(true);
+                  if (!selectedImage) return msgApi.warning('이미지를 선택하세요.')
+                  setAddType('link'); setAddingMode(true)
                 }}
-              >
-                URL 추가
-              </Button>
+              >URL 추가</Button>
               <Button
                 icon={<TagOutlined />}
                 type={addingMode && addType==='coupon' ? 'primary' : 'default'}
                 onClick={() => {
-                  if (!selectedImage) {
-                    msgApi.warning('이미지를 선택한 후 추가 가능합니다.');
-                    return;
-                  }
-                  setAddType('coupon');
-                  setAddingMode(true);
+                  if (!selectedImage) return msgApi.warning('이미지를 선택하세요.')
+                  setAddType('coupon'); setAddingMode(true)
                 }}
-              >
-                쿠폰 추가
-              </Button>
+              >쿠폰 추가</Button>
             </Space>
 
             {images.length > 0 && (
@@ -421,35 +431,28 @@ export default function EventCreate() {
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="thumbs" direction="horizontal">
                     {prov => (
-                      <div
-                        ref={prov.innerRef}
-                        {...prov.droppableProps}
+                      <div ref={prov.innerRef} {...prov.droppableProps}
                         className="thumb-list"
                         style={{
                           display: 'flex',
                           flexDirection: isMobile ? 'column' : 'row',
                           gap: 8,
                           overflowX: isMobile ? 'hidden' : 'auto',
-                          marginTop: 16,
+                          marginTop: 16
                         }}
                       >
                         {images.map((img, idx) => (
                           <Draggable key={img.id} draggableId={img.id} index={idx}>
                             {p => (
                               <div
-                                ref={p.innerRef}
-                                {...p.draggableProps}
-                                {...p.dragHandleProps}
-                                className={`thumb-item ${img.id === selectedId ? 'active' : ''}`}
+                                ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                className={`thumb-item ${img.id===selectedId?'active':''}`}
                                 onClick={() => setSelectedId(img.id)}
                               >
                                 <img src={img.src} alt="썸네일" />
                                 <DeleteOutlined
                                   className="thumb-delete"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    setImages(imgs => imgs.filter(i => i.id !== img.id));
-                                  }}
+                                  onClick={e => { e.stopPropagation(); setImages(imgs=>imgs.filter(i=>i.id!==img.id)) }}
                                 />
                               </div>
                             )}
@@ -462,87 +465,54 @@ export default function EventCreate() {
                 </DragDropContext>
 
                 <div
-                  className="mapping-container"
                   ref={imgRef}
-                  onMouseDown={addingMode ? onMouseDown : undefined}
-                  onMouseMove={addingMode ? onMouseMove : undefined}
-                  onMouseUp={addingMode ? onMouseUp : undefined}
+                  onMouseDown={addingMode?onMouseDown:undefined}
+                  onMouseMove={addingMode?onMouseMove:undefined}
+                  onMouseUp={addingMode?onMouseUp:undefined}
                   style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                    marginTop: 16,
-                    cursor: addingMode ? 'crosshair' : 'default',
+                    position:'relative',
+                    width:'100%',
+                    marginTop:16,
+                    cursor: addingMode?'crosshair':'default'
                   }}
                 >
                   <img
                     src={selectedImage?.src}
                     alt=""
-                    className="mapping-image"
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      objectFit: 'contain',
-                      userSelect: 'none',
-                    }}
+                    style={{ maxWidth:'100%', userSelect:'none' }}
                     draggable={false}
                   />
 
                   {dragStartPos && dragCurrent && (
                     <div
-                      className="drag-box"
                       style={{
-                        position: 'absolute',
+                        position:'absolute',
                         left: Math.min(dragStartPos.x, dragCurrent.x),
-                        top: Math.min(dragStartPos.y, dragCurrent.y),
+                        top:  Math.min(dragStartPos.y, dragCurrent.y),
                         width: Math.abs(dragCurrent.x - dragStartPos.x),
                         height: Math.abs(dragCurrent.y - dragStartPos.y),
-                        border: '1px dashed #999',
-                        background: 'rgba(200,200,200,0.2)',
+                        border:'1px dashed #999',
+                        background:'rgba(200,200,200,0.2)'
                       }}
                     />
                   )}
 
                   {selectedImage?.regions.map(r => {
                     const base = {
-                      position: 'absolute',
-                      left: `${(r.xRatio * 100).toFixed(2)}%`,
-                      top: `${(r.yRatio * 100).toFixed(2)}%`,
-                      width: `${(r.wRatio * 100).toFixed(2)}%`,
-                      height: `${(r.hRatio * 100).toFixed(2)}%`,
-                      cursor: 'pointer',
-                    };
+                      position:'absolute',
+                      left:`${(r.xRatio*100).toFixed(2)}%`,
+                      top:`${(r.yRatio*100).toFixed(2)}%`,
+                      width:`${(r.wRatio*100).toFixed(2)}%`,
+                      height:`${(r.hRatio*100).toFixed(2)}%`,
+                      cursor:'pointer'
+                    }
                     const style = r.coupon
-                      ? {
-                          ...base,
-                          border: '2px dashed #ff6347',
-                          background: 'rgba(255,99,71,0.2)',
-                        }
-                      : {
-                          ...base,
-                          border: '2px dashed #1890ff',
-                          background: 'rgba(24,144,255,0.2)',
-                        };
-                    return r.coupon ? (
-                      <button
-                        key={r.id}
-                        style={style}
-                        onClick={e => {
-                          e.stopPropagation();
-                          editRegion(r);
-                        }}
-                      />
-                    ) : (
-                      <a
-                        key={r.id}
-                        style={style}
-                        onClick={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          editRegion(r);
-                        }}
-                      />
-                    );
+                      ? { ...base, border:'2px dashed #ff6347', background:'rgba(255,99,71,0.2)' }
+                      : { ...base, border:'2px dashed #1890ff', background:'rgba(24,144,255,0.2)' }
+
+                    return r.coupon
+                      ? <button key={r.id} style={style} onClick={e=>{e.stopPropagation();editRegion(r)}}/>
+                      : <a key={r.id} style={style} onClick={e=>{e.preventDefault();e.stopPropagation();editRegion(r)}}/>
                   })}
                 </div>
               </>
@@ -550,82 +520,76 @@ export default function EventCreate() {
           </>
         )}
 
-        {/* Step 3: 레이아웃 구성 & 상품 등록 방식 */}
+        {/* Step 3 */}
         {current === 2 && (
           <>
             <h4>상품 등록 방식</h4>
             <Segmented
               options={[
-                { label: '카테고리 상품 등록', value: 'category' },
-                { label: '직접 상품 등록',   value: 'direct'   },
-                { label: '노출안함',         value: 'none'     },
+                { label:'카테고리 상품 등록', value:'category' },
+                { label:'직접 상품 등록',   value:'direct'   },
+                { label:'노출안함',         value:'none'     }
               ]}
               value={registerMode}
               onChange={setRegisterMode}
               block={isMobile}
-              style={{ marginBottom: 24 }}
+              style={{ marginBottom:24 }}
             />
 
             {/* 카테고리 상품 등록 */}
-            {registerMode === 'category' && (
+            {registerMode==='category' && (
               <>
                 <h4>1) 그리드 사이즈</h4>
-                <Space wrap style={{ gap: 8, marginBottom: 24 }}>
-                  {[2,3,4].map(n => (
+                <Space wrap style={{ gap:8, marginBottom:24 }}>
+                  {[2,3,4].map(n=>(
                     <Button
                       key={n}
                       block={isMobile}
-                      style={{ flex: isMobile ? 'none' : 1 }}
-                      type={gridSize === n ? 'primary' : 'default'}
-                      onClick={() => setGridSize(n)}
-                    >
-                      {n}×{n}
-                    </Button>
+                      style={{ flex: isMobile?'none':1 }}
+                      type={gridSize===n?'primary':'default'}
+                      onClick={()=>setGridSize(n)}
+                    >{n}×{n}</Button>
                   ))}
                 </Space>
 
-                <h4 style={{ marginBottom: 16 }}>2) 노출 방식</h4>
+                <h4 style={{ marginBottom:16 }}>2) 노출 방식</h4>
                 <Segmented
                   options={[
-                    { label: '단품상품', value: 'single' },
-                    { label: '탭상품',   value: 'tabs'   },
+                    { label:'단품상품', value:'single' },
+                    { label:'탭상품',   value:'tabs'   }
                   ]}
                   value={layoutType}
-                  onChange={val => {
-                    setLayoutType(val);
-                    setSingleRoot(null);
-                    setSingleSub(null);
-                    setTabs([
-                      { title:'', root:null, sub:null },
-                      { title:'', root:null, sub:null },
-                    ]);
-                    setActiveColor('#fe6326');
+                  onChange={val=>{
+                    setLayoutType(val)
+                    setSingleRoot(null); setSingleSub(null)
+                    setTabs([{title:'',root:null,sub:null},{title:'',root:null,sub:null}])
+                    setActiveColor('#fe6326')
                   }}
                   block={isMobile}
                 />
 
-                {layoutType === 'single' && (
-                  <div style={{ marginTop: 24 }}>
+                {layoutType==='single' && (
+                  <div style={{ marginTop:24 }}>
                     <Select
                       placeholder="대분류"
-                      style={{ width: '100%', maxWidth: 300, marginBottom: 16 }}
+                      style={{ width:'100%', maxWidth:300, marginBottom:16 }}
                       value={singleRoot}
                       onChange={setSingleRoot}
                     >
-                      {roots.map(r => (
+                      {roots.map(r=>(
                         <Select.Option key={r.category_no} value={String(r.category_no)}>
                           {r.category_name}
                         </Select.Option>
                       ))}
                     </Select>
-                    {subs.length > 0 && (
+                    {subs.length>0 && (
                       <Select
                         placeholder="소분류"
-                        style={{ width: '100%', maxWidth: 300 }}
+                        style={{ width:'100%', maxWidth:300 }}
                         value={singleSub}
                         onChange={setSingleSub}
                       >
-                        {subs.map(s => (
+                        {subs.map(s=>(
                           <Select.Option key={s.category_no} value={String(s.category_no)}>
                             {s.category_name}
                           </Select.Option>
@@ -635,27 +599,27 @@ export default function EventCreate() {
                   </div>
                 )}
 
-                {layoutType === 'tabs' && (
-                  <div style={{ marginTop: 24 }}>
-                    {tabs.map((t, i) => (
+                {layoutType==='tabs' && (
+                  <div style={{ marginTop:24 }}>
+                    {tabs.map((t,i)=>(
                       <Space
                         key={i}
-                        direction={isMobile ? 'vertical' : 'horizontal'}
-                        style={{ marginBottom: 16, width: '100%', alignItems: 'center' }}
+                        direction={isMobile?'vertical':'horizontal'}
+                        style={{ marginBottom:16, width:'100%', alignItems:'center' }}
                       >
                         <Input
-                          placeholder={`탭 ${i + 1} 제목`}
+                          placeholder={`탭 ${i+1} 제목`}
                           value={t.title}
-                          onChange={e => updateTab(i, 'title', e.target.value)}
-                          style={{ flex: 1 }}
+                          onChange={e=>updateTab(i,'title',e.target.value)}
+                          style={{ flex:1 }}
                         />
                         <Select
                           placeholder="대분류"
-                          style={{ width: isMobile ? '100%' : 150 }}
+                          style={{ width:isMobile?'100%':150 }}
                           value={t.root}
-                          onChange={v => updateTab(i, 'root', v)}
+                          onChange={v=>updateTab(i,'root',v)}
                         >
-                          {roots.map(r => (
+                          {roots.map(r=>(
                             <Select.Option key={r.category_no} value={String(r.category_no)}>
                               {r.category_name}
                             </Select.Option>
@@ -663,44 +627,37 @@ export default function EventCreate() {
                         </Select>
                         <Select
                           placeholder="소분류"
-                          style={{ width: isMobile ? '100%' : 150 }}
+                          style={{ width:isMobile?'100%':150 }}
                           value={t.sub}
-                          onChange={v => updateTab(i, 'sub', v)}
+                          onChange={v=>updateTab(i,'sub',v)}
                         >
                           {allCats
-                            .filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root)
-                            .map(s => (
+                            .filter(c=>c.category_depth===2 && String(c.parent_category_no)===t.root)
+                            .map(s=>(
                               <Select.Option key={s.category_no} value={String(s.category_no)}>
                                 {s.category_name}
                               </Select.Option>
-                            ))}
+                            ))
+                          }
                         </Select>
-                        {tabs.length >= 3 && (
+                        {tabs.length>=3 && (
                           <DeleteOutlined
-                            onClick={() =>
-                              setTabs(ts => ts.filter((_, idx) => idx !== i))
-                            }
-                            style={{ color: activeColor, fontSize: 14, cursor: 'pointer' }}
+                            onClick={()=>setTabs(ts=>ts.filter((_,idx)=>idx!==i))}
+                            style={{ color: activeColor, fontSize:14, cursor:'pointer' }}
                           />
                         )}
                       </Space>
                     ))}
-                    <Button
-                      type="dashed"
-                      block
-                      onClick={addTab}
-                      disabled={tabs.length >= 4}
-                      style={{ marginBottom: 16 }}
-                    >
+                    <Button type="dashed" block onClick={addTab} disabled={tabs.length>=4} style={{ marginBottom:16 }}>
                       + 탭 추가
                     </Button>
-                    <Space style={{ alignItems: 'center', gap: 8 }}>
+                    <Space style={{ alignItems:'center', gap:8 }}>
                       <span>활성 탭 색:</span>
                       <Input
                         type="color"
                         value={activeColor}
-                        onChange={e => setActiveColor(e.target.value)}
-                        style={{ width: 40, height: 32, padding: 0, border: 'none' }}
+                        onChange={e=>setActiveColor(e.target.value)}
+                        style={{ width:40, height:32, padding:0, border:'none' }}
                       />
                       <span>{activeColor}</span>
                     </Space>
@@ -710,157 +667,128 @@ export default function EventCreate() {
             )}
 
             {/* 직접 상품 등록 */}
-            {registerMode === 'direct' && (
+            {registerMode==='direct' && (
               <>
                 <h4>1) 그리드 사이즈</h4>
-                <Space wrap style={{ gap: 8, marginBottom: 24 }}>
-                  {[2,3,4].map(n => (
+                <Space wrap style={{ gap:8, marginBottom:24 }}>
+                  {[2,3,4].map(n=>(
                     <Button
                       key={n}
                       block={isMobile}
-                      style={{ flex: isMobile ? 'none' : 1 }}
-                      type={gridSize === n ? 'primary' : 'default'}
-                      onClick={() => setGridSize(n)}
-                    >
-                      {n}×{n}
-                    </Button>
+                      style={{ flex: isMobile?'none':1 }}
+                      type={gridSize===n?'primary':'default'}
+                      onClick={()=>setGridSize(n)}
+                    >{n}×{n}</Button>
                   ))}
                 </Space>
 
-                <h4 style={{ marginBottom: 16 }}>2) 노출 방식</h4>
+                <h4 style={{ marginBottom:16 }}>2) 노출 방식</h4>
                 <Segmented
                   options={[
-                    { label: '단품상품', value: 'single' },
-                    { label: '탭상품',   value: 'tabs'   },
+                    { label:'단품상품', value:'single' },
+                    { label:'탭상품',   value:'tabs'   }
                   ]}
                   value={layoutType}
-                  onChange={val => {
-                    setLayoutType(val);
-                    setTabs([
-                      { title: '', root: null, sub: null },
-                      { title: '', root: null, sub: null },
-                    ]);
+                  onChange={val=>{
+                    setLayoutType(val)
+                    setTabs([{title:'',root:null,sub:null},{title:'',root:null,sub:null}])
                   }}
                   block={isMobile}
                 />
 
-                {layoutType === 'single' && (
-                  <div style={{ marginTop: 24 }}>
-                    <Button
-                      block={isMobile}
-                      type={directProducts.length > 0 ? 'primary' : 'dashed'}
-                      onClick={() => openMorePrd('direct')}
-                    >
-                      {directProducts.length > 0
-                        ? `상품 ${directProducts.length}개 등록됨`
-                        : '상품 직접 등록'}
-                    </Button>
-                  </div>
+                {layoutType==='single' && (
+                  <Button
+                    block={isMobile}
+                    type={directProducts.length>0?'primary':'dashed'}
+                    onClick={()=>openMorePrd('direct')}
+                  >
+                    {directProducts.length>0
+                      ? `상품 ${directProducts.length}개 등록됨`
+                      : '상품 직접 등록'}
+                  </Button>
                 )}
 
-                {layoutType === 'tabs' && (
-                  <div style={{ marginTop: 24 }}>
-                    {tabs.map((t, i) => (
+                {layoutType==='tabs' && (
+                  <div style={{ marginTop:24 }}>
+                    {tabs.map((t,i)=>(
                       <Space
                         key={i}
-                        direction={isMobile ? 'vertical' : 'horizontal'}
-                        style={{ marginBottom: 16, width: '100%', alignItems: 'center' }}
+                        direction={isMobile?'vertical':'horizontal'}
+                        style={{ marginBottom:16, width:'100%', alignItems:'center' }}
                       >
                         <Input
-                          placeholder={`탭 ${i + 1} 제목`}
+                          placeholder={`탭 ${i+1} 제목`}
                           value={t.title}
-                          onChange={e => updateTab(i, 'title', e.target.value)}
-                          style={{ flex: 1 }}
+                          onChange={e=>updateTab(i,'title',e.target.value)}
+                          style={{ flex:1 }}
                         />
                         <Button
-                          type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'}
-                          onClick={() => openMorePrd('tab', i)}
+                          type={(tabDirectProducts[i]||[]).length>0?'primary':'default'}
+                          onClick={()=>openMorePrd('tab', i)}
                         >
-                          {(tabDirectProducts[i] || []).length > 0
-                            ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨`
+                          {(tabDirectProducts[i]||[]).length>0
+                            ? `상품 ${(tabDirectProducts[i]||[]).length}개 등록됨`
                             : '상품 직접 등록'}
                         </Button>
-                        {tabs.length > 2 && (
+                        {tabs.length>2 && (
                           <DeleteOutlined
-                            onClick={() =>
-                              setTabs(ts => ts.filter((_, idx) => idx !== i))
-                            }
-                            style={{ color: '#fe6326', fontSize: 14, cursor: 'pointer' }}
+                            onClick={()=>setTabs(ts=>ts.filter((_,idx)=>idx!==i))}
+                            style={{ color:'#fe6326', fontSize:14, cursor:'pointer' }}
                           />
                         )}
                       </Space>
                     ))}
-                    <Button
-                      type="dashed"
-                      block
-                      onClick={addTab}
-                      disabled={tabs.length >= 4}
-                    >
+                    <Button type="dashed" block onClick={addTab} disabled={tabs.length>=4}>
                       탭 추가
                     </Button>
-                    {/* 탭 색상 선택 UI 추가 */}
-                    <Space style={{ marginTop: 16, alignItems: 'center', gap: 8 }}>
+                    <Space style={{ marginTop:16, alignItems:'center', gap:8 }}>
                       <span>활성 탭 색:</span>
                       <Input
                         type="color"
                         value={activeColor}
-                        onChange={e => setActiveColor(e.target.value)}
-                        style={{ width: 40, height: 32, padding: 0, border: 'none' }}
+                        onChange={e=>setActiveColor(e.target.value)}
+                        style={{ width:40, height:32, padding:0, border:'none' }}
                       />
                       <span>{activeColor}</span>
-                    </Space>                   
+                    </Space>
                   </div>
                 )}
               </>
             )}
 
             {/* 노출안함 */}
-            {registerMode === 'none' && (
-              <div style={{ textAlign:'left', color:'#fe6326', padding:'5px 5px' }}>
+            {registerMode==='none' && (
+              <div style={{ textAlign:'left', color:'#fe6326', padding:'5px' }}>
                 상품을 노출하지 않습니다.
               </div>
             )}
           </>
         )}
 
-        {/* Step 4: 미리보기 & 등록 */}
-        {current === 3 && (
-          <div style={{ marginTop: 24 }}>
+        {/* Step 4 */}
+        {current===3 && (
+          <div style={{ marginTop:24 }}>
             <h4>미리보기</h4>
-            <div
-              style={{
-                display: 'grid',
-                maxWidth:'800px',
-                margin:'0 auto',
-                gap: 16,
-              }}
-            >
-              {images.map(img => (
-                <img
-                  key={img.id}
-                  src={img.src}
-                  alt="미리보기"
-                  style={{ width: '100%', height: 'auto' }}
-                />
+            <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
+              {images.map(img=>(
+                <img key={img.id} src={img.src} alt="미리보기" style={{ width:'100%' }} />
               ))}
             </div>
 
-            {layoutType === 'single' && (
-              <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>
-            )}
-            {layoutType === 'tabs' && (
-              <div style={{ margin:'24px auto' ,maxWidth:800}}>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                  {tabs.map((t, i) => (
+            {layoutType==='single' && <div style={{ marginTop:24 }}>{renderGrid(gridSize)}</div>}
+            {layoutType==='tabs' && (
+              <div style={{ margin:'24px auto', maxWidth:800 }}>
+                <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                  {tabs.map((t,i)=>(
                     <Button
                       key={i}
                       style={{
-                        flex: 1,
-                        background: i === 0 ? activeColor : undefined,
-                        color: i === 0 ? '#fff' : undefined,
+                        flex:1,
+                        background: i===0?activeColor:undefined,
+                        color:      i===0?'#fff':undefined
                       }}
                     >
-                      {t.title || `탭${i + 1}`}
+                      {t.title || `탭${i+1}`}
                     </Button>
                   ))}
                 </div>
@@ -868,7 +796,7 @@ export default function EventCreate() {
               </div>
             )}
 
-            <div style={{ textAlign: 'center', marginTop: 32 }}>
+            <div style={{ textAlign:'center', marginTop:32 }}>
               <Button type="primary" size="large" onClick={handleSubmit} block={isMobile}>
                 이벤트 등록
               </Button>
@@ -879,83 +807,69 @@ export default function EventCreate() {
         {/* 이전/다음 버튼 */}
         <Space
           direction={isMobile ? 'vertical' : 'horizontal'}
-          style={{ marginTop: 24, width: '100%', justifyContent: 'space-between' }}
+          style={{ marginTop:24, width:'100%', justifyContent:'space-between' }}
         >
-          {current > 0 && <Button onClick={prev} block={isMobile}>이전</Button>}
-          {current < 3 && <Button type="primary" onClick={next} block={isMobile}>다음</Button>}
+          {current>0 && <Button onClick={prev} block={isMobile}>이전</Button>}
+          {current<3 && <Button type="primary" onClick={next} block={isMobile}>다음</Button>}
         </Space>
-
-        {/* 5) 영역 설정 모달 */}
-        <Modal
-          open={modalVisible}
-          title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'}
-          onCancel={() => {
-            setModalVisible(false);
-            setPendingRegion(null);
-            setAddingMode(false);
-          }}
-          footer={[
-            pendingRegion && (
-              <Button
-                key="delete"
-                danger
-                onClick={() => {
-                  deleteRegion();
-                  setAddingMode(false);
-                }}
-              >
-                삭제
-              </Button>
-            ),
-            <Button
-              key="cancel"
-              onClick={() => {
-                setModalVisible(false);
-                setPendingRegion(null);
-                setAddingMode(false);
-              }}
-            >
-              취소
-            </Button>,
-            <Button
-              key="ok"
-              type="primary"
-              onClick={() => {
-                saveRegion();
-                setAddingMode(false);
-              }}
-            >
-              확인
-            </Button>,
-          ]}
-          width={isMobile ? '90%' : 600}
-        >
-          <Form form={mapForm} layout="vertical">
-            {addType === 'link' ? (
-              <Form.Item
-                name="href"
-                label="URL"
-                rules={[{ required: true, message: 'URL을 입력해주세요.' }]}
-              >
-                <Input placeholder="https://example.com" />
-              </Form.Item>
-            ) : (
-              <Form.Item
-                name="coupon"
-                label="쿠폰 선택"
-                rules={[{ required: true, message: '쿠폰을 선택해주세요.' }]}
-              >
-                <Select
-                  mode="multiple"
-                  options={couponOptions}
-                  tagRender={tagRender}
-                  placeholder="쿠폰을 선택하세요"
-                />
-              </Form.Item>
-            )}
-          </Form>
-        </Modal>
       </Card>
+
+      {/* 영역 설정 모달 */}
+      <Modal
+        open={modalVisible}
+        title={addType==='link' ? 'URL 영역 설정' : '쿠폰 영역 설정'}
+        onCancel={() => {
+          setModalVisible(false)
+          setPendingRegion(null)
+          setAddingMode(false)
+        }}
+        footer={[
+          pendingRegion && (
+            <Button key="delete" danger onClick={() => { deleteRegion(); setAddingMode(false) }}>
+              삭제
+            </Button>
+          ),
+          <Button key="cancel" onClick={() => {
+            setModalVisible(false)
+            setPendingRegion(null)
+            setAddingMode(false)
+          }}>
+            취소
+          </Button>,
+          <Button key="ok" type="primary" onClick={() => {
+            saveRegion()
+            setAddingMode(false)
+          }}>
+            확인
+          </Button>
+        ]}
+        width={isMobile?'90%':600}
+      >
+        <Form form={mapForm} layout="vertical">
+          {addType==='link' ? (
+            <Form.Item
+              name="href"
+              label="URL"
+              rules={[{ required:true, message:'URL을 입력해주세요.' }]}
+            >
+              <Input placeholder="https://example.com" />
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="coupon"
+              label="쿠폰 선택"
+              rules={[{ required:true, message:'쿠폰을 선택해주세요.' }]}
+            >
+              <Select
+                mode="multiple"
+                options={couponOptions}
+                tagRender={tagRender}
+                placeholder="쿠폰을 선택하세요"
+              />
+            </Form.Item>
+          )}
+        </Form>
+      </Modal>
 
       {/* MorePrd 모달 */}
       {morePrdVisible && (
@@ -964,26 +878,17 @@ export default function EventCreate() {
           visible={morePrdVisible}
           target={morePrdTarget}
           tabIndex={morePrdTabIndex}
-          initialSelected={morePrdTarget === 'direct'
-            ? directProducts.map(p => p.product_no)
-            : (tabDirectProducts[morePrdTabIndex] || []).map(p => p.product_no)
-          }
+          initialSelected={initialSelected}
           onOk={selected => {
-            if (morePrdTarget === 'direct') {
-              setDirectProducts(selected);
-            } else {
-              setTabDirectProducts(prev => ({
-                ...prev,
-                [morePrdTabIndex]: selected
-              }));
-            }
-            setMorePrdVisible(false);
-          }}
-          onCancel={() => setMorePrdVisible(false)}
+            if (morePrdTarget==='direct') setDirectProducts(selected)
+            else setTabDirectProducts(prev=>({...prev,[morePrdTabIndex]:selected}))
+            setMorePrdVisible(false)
+          }}           
+          onCancel={()=>setMorePrdVisible(false)}
         />
       )}
     </>
-  );
+  )
 }
 
 // 그리드 미리보기 헬퍼
@@ -991,30 +896,29 @@ function renderGrid(cols) {
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols},1fr)`,
-        gap: 10,
-        maxWidth: 800,
-        margin: '24px auto',
+        display:'grid',
+        gridTemplateColumns:`repeat(${cols},1fr)`,
+        gap:10,
+        maxWidth:800,
+        margin:'24px auto'
       }}
     >
-    {Array.from({ length: cols * cols }).map((_, i) => (
-      <div
-        key={i}
-        style={{
-          height: 120,
-          background: '#f0f0f0',
-          borderRadius: 4,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#999',
-        }}
-      >
-        {/* 텍스트 대신 아이콘 */}
-        <BlockOutlined  style={{ fontSize: 30}} />
-      </div>
-    ))}
+      {Array.from({ length: cols*cols }).map((_,i)=>(
+        <div
+          key={i}
+          style={{
+            height:120,
+            background:'#f0f0f0',
+            borderRadius:4,
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            color:'#999'
+          }}
+        >
+          <BlockOutlined style={{ fontSize:30 }} />
+        </div>
+      ))}
     </div>
-  );
+  )
 }
