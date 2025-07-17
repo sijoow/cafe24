@@ -164,7 +164,7 @@ export default function EventList() {
         const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
         return (
           <span
-            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            onClick={() => navigate(`/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
@@ -189,7 +189,7 @@ export default function EventList() {
           : 0;
         return (
           <span
-            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            onClick={() => navigate(`/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',

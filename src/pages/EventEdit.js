@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../axios';
 import './EventEdit.css';
 
 // Ensure axios always points to your real API
@@ -40,7 +40,7 @@ const { Step } = Steps;
 const { Option } = Select;
 
 export default function EventEdit() {
-  const { mallId, id } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const imgRef = useRef(null);
 
@@ -107,17 +107,17 @@ export default function EventEdit() {
   // ── 초기 데이터 로드 ───────────────────────────────────────────
   useEffect(() => {
     // 카테고리 & 쿠폰
-    axios.get('/api/categories/all')
+    api.get('/api/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => message.error('카테고리 로드 실패'));
-    axios.get(`/api/${mallId}/coupons`)
+      api.get('/api/coupons')
       .then(res => setCouponOptions(
         res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)` }))
       ))
       .catch(() => message.error('쿠폰 로드 실패'));
 
     // 이벤트 불러오기
-    axios.get(`/api/events/${id}`)
+    api.get(`/api/events/${id}`)
       .then(res => {
         const ev = res.data;
         setDocId(ev._id);
@@ -279,7 +279,7 @@ export default function EventEdit() {
       return message.success('이미지 삭제 완료');
     }
     try {
-      await axios.delete(`/api/${mallId}/events/${id}/images/${imageId}`);
+      await api.delete(`/api/events/${id}/images/${imageId}`);
       setImages(imgs => imgs.filter((_, i) => i !== idx));
       setSelectedIdx(0);
       message.success('이미지 삭제 완료');
@@ -297,7 +297,7 @@ export default function EventEdit() {
           if (img.file) {
             const form = new FormData();
             form.append('file', img.file);
-            const { data } = await axios.post(`/api/${mallId}/uploads/image`, form);
+            const { data } = await api.post('/api/uploads/image', form);
             return { ...img, src: data.url, file: undefined };
           }
           return img;
@@ -346,7 +346,7 @@ export default function EventEdit() {
         })),
       };
 
-      await axios.put(`/api/${mallId}/events/${id}`, payload);
+      api.put(`/api/events/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
     } catch (err) {
