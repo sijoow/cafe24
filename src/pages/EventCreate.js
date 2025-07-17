@@ -344,10 +344,18 @@ export default function EventCreate() {
         }
         return img;
       }));
-      
-      // payload 생성
+
+          
+      // payload 생성부
       const payload = {
         title,
+        // content 필수! 빈 문자열이 아닌 실제 값을 넣어줍니다.
+        content: JSON.stringify({
+          images: uploaded.map(img => img.src),
+          gridSize,
+          layoutType,
+          classification: { registerMode, /* … */ }
+        }),
         images: uploaded.map(img => ({
           _id: img.id,
           src: img.src,
@@ -372,8 +380,7 @@ export default function EventCreate() {
             ? { directProducts, tabDirectProducts }
             : {})
         }
-      }
-
+      };
       // 이벤트 생성 API 호출
       await api.post(`/api/${mallId}/events`, payload)
       msgApi.success('이벤트 생성 완료');
