@@ -44,6 +44,9 @@ export default function EventCreate() {
   // 반응형
   const screens  = useBreakpoint()
   const isMobile = !screens.sm
+  const API_BASE =
+    process.env.REACT_APP_API_BASE_URL ||
+    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
   // 세션 초기화 (새로고침 시)
   useEffect(() => {
@@ -372,7 +375,7 @@ export default function EventCreate() {
       }
 
       // 이벤트 생성 API 호출
-      await api.post(`/api/${mallId}/events`, payload)
+      await axios.post(`${API_BASE}/api/events`, payload);
       msgApi.success('이벤트 생성 완료')
       navigate('/event/list')
     } catch (e) {
