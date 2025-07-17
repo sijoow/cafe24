@@ -4,8 +4,6 @@ import axios from 'axios'
 import dayjs from 'dayjs'
 import { Card, Row, Col, Select, DatePicker, Button } from 'antd'
 import ReactECharts from 'echarts-for-react'
-import './Dashboard.css'  // 필요에 따라 스타일 파일 추가
-
 const { RangePicker } = DatePicker
 const { Option } = Select
 
