@@ -102,27 +102,27 @@ export default function EventEdit() {
     setMorePrdTabIndex(tabIndex);
     setMorePrdVisible(true);
   };
-    
+
   // ── 초기 데이터 로드 ───────────────────────────────────────────
   useEffect(() => {
-    // 1) 카테고리 로드
+    // ① 카테고리 로드 (mallId 추가)
     api.get(`/api/${mallId}/categories/all`)
       .then(res => setAllCats(res.data))
       .catch(() => message.error('카테고리 로드 실패'));
 
-    // 2) 쿠폰 로드
+    // ② 쿠폰 로드 (mallId 추가)
     api.get(`/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
             value: c.coupon_no,
-            label: `${c.coupon_name} (${c.benefit_percentage}%)`,
+            label: `${c.coupon_name} (${c.benefit_percentage}%)`
           }))
         )
       )
       .catch(() => message.error('쿠폰 로드 실패'));
 
-    // 3) 이벤트 상세 불러오기
+    // ③ 이벤트 불러오기 (mallId 추가)
     api.get(`/api/${mallId}/events/${id}`)
       .then(res => {
         const ev = res.data;
@@ -131,7 +131,7 @@ export default function EventEdit() {
         setGridSize(ev.gridSize);
         setLayoutType(ev.layoutType);
 
-        // 상품 등록 방식 초기화...
+        // 상품 등록 방식 초기화
         setRegisterMode(ev.classification.registerMode || 'category');
         if (ev.classification.registerMode === 'direct') {
           if (ev.layoutType === 'single') {
@@ -141,7 +141,7 @@ export default function EventEdit() {
           }
         }
 
-        // 카테고리 / 탭 초기화...
+        // 카테고리/탭 초기화
         if (ev.layoutType === 'single') {
           setSingleRoot(ev.classification.root);
           setSingleSub(ev.classification.sub);
@@ -155,16 +155,82 @@ export default function EventEdit() {
           (ev.images || []).map(img => ({
             id: String(img._id),
             src: img.src,
-            regions: (img.regions || []).map(r => ({ ...r, id: r._id })),
+            regions: (img.regions || []).map(r => ({ ...r, id: r._id }))
           }))
         );
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
-        // mallId 포함된 목록 페이지로 이동
+        // 목록으로 돌아갈 때도 mallId 포함
         navigate(`/${mallId}/event/list`);
       });
   }, [mallId, id, navigate]);
+
+
+// ── 초기 데이터 로드 ───────────────────────────────────────────
+useEffect(() => {
+  // 1) 카테고리 로드
+  api.get(`/api/${mallId}/categories/all`)
+    .then(res => setAllCats(res.data))
+    .catch(() => message.error('카테고리 로드 실패'));
+
+  // 2) 쿠폰 로드
+  api.get(`/api/${mallId}/coupons`)
+    .then(res =>
+      setCouponOptions(
+        res.data.map(c => ({
+          value: c.coupon_no,
+          label: `${c.coupon_name} (${c.benefit_percentage}%)`,
+        }))
+      )
+    )
+    .catch(() => message.error('쿠폰 로드 실패'));
+
+  // 3) 이벤트 상세 불러오기
+  api.get(`/api/${mallId}/events/${id}`)
+    .then(res => {
+      const ev = res.data;
+      setDocId(ev._id);
+      setTitle(ev.title);
+      setGridSize(ev.gridSize);
+      setLayoutType(ev.layoutType);
+
+      // 상품 등록 방식 초기화...
+      setRegisterMode(ev.classification.registerMode || 'category');
+      if (ev.classification.registerMode === 'direct') {
+        if (ev.layoutType === 'single') {
+          setDirectProducts(ev.classification.directProducts || []);
+        } else {
+          setTabDirectProducts(ev.classification.tabDirectProducts || {});
+        }
+      }
+
+      // 카테고리 / 탭 초기화...
+      if (ev.layoutType === 'single') {
+        setSingleRoot(ev.classification.root);
+        setSingleSub(ev.classification.sub);
+      } else {
+        setTabs(ev.classification.tabs);
+        setActiveColor(ev.classification.activeColor);
+      }
+
+      // 이미지 & regions
+      setImages(
+        (ev.images || []).map(img => ({
+          id: String(img._id),
+          src: img.src,
+          regions: (img.regions || []).map(r => ({ ...r, id: r._id })),
+        }))
+      );
+    })
+    .catch(() => {
+      message.error('이벤트 로드 실패');
+      // mallId 포함된 목록 페이지로 이동
+      navigate(`/${mallId}/event/list`);
+    });
+}, [mallId, id, navigate]);
+
+
 
   // ── 영역 편집/삭제 ───────────────────────────────────────────
   const onEditRegion = idx => {
