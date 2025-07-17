@@ -35,7 +35,10 @@ const { useBreakpoint } = Grid
 
 export default function EventCreate() {
   const navigate       = useNavigate()
-  const { mallId }     = useParams()
+   const params       = new URLSearchParams(window.location.search)
+   const paramMallId  = params.get('mall_id') || params.get('state')
+   const storedMallId = localStorage.getItem('mallId')
+   const mallId       = paramMallId || storedMallId
   const [msgApi, msgCtx] = message.useMessage()
 
   // 반응형
@@ -221,12 +224,18 @@ export default function EventCreate() {
 
   // 4) 카테고리 & 레이아웃
   const [allCats, setAllCats] = useState([])
-  useEffect(() => {
-    if (!mallId) return
-    api.get(`/api/${mallId}/categories/all`)
-      .then(res => setAllCats(res.data))
-      .catch(() => msgApi.error('카테고리 불러오기 실패'))
-  }, [mallId, msgApi])
+    useEffect(() => {
+      if (!mallId) {
+        msgApi.error('mallId가 없습니다. 다시 로그인해 주세요.')
+        return
+      }
+      api.get(`/api/${mallId}/categories/all`)
+        .then(res => setAllCats(res.data))
+        .catch(err => {
+          console.error('[EventCreate] 카테고리 로드 에러', err)
+          msgApi.error('카테고리 불러오기 실패')
+        })
+    }, [mallId, msgApi])
 
   const [singleRoot, setSingleRoot] = useState(null)
   const [singleSub, setSingleSub]   = useState(null)
@@ -288,16 +297,24 @@ export default function EventCreate() {
   // 7) 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([])
   useEffect(() => {
-    if (!mallId) return
-    api.get(`/api/${mallId}/coupons`)
-      .then(res =>
-        setCouponOptions(res.data.map(c => ({
-          value: c.coupon_no,
-          label: `${c.coupon_name} (${c.benefit_percentage}%)`
-        })))
-      )
-      .catch(() => msgApi.error('쿠폰 불러오기 실패'))
-  }, [mallId, msgApi])
+      if (!mallId) {
+        msgApi.error('mallId가 없습니다. 다시 로그인해 주세요.')
+        return
+      }
+      api.get(`/api/${mallId}/coupons`)
+        .then(res => {
+          setCouponOptions(
+            res.data.map(c => ({
+              value: c.coupon_no,
+              label: `${c.coupon_name} (${c.benefit_percentage}%)`
+            }))
+          )
+        })
+        .catch(err => {
+          console.error('[EventCreate] 쿠폰 로드 에러', err)
+          msgApi.error('쿠폰 불러오기 실패')
+        })
+    }, [mallId, msgApi])
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
