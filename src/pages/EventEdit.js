@@ -103,68 +103,68 @@ export default function EventEdit() {
     setMorePrdVisible(true);
   };
 
-  // ── 초기 데이터 로드 ───────────────────────────────────────────
-useEffect(() => {
-  // ① 카테고리 로드 (mallId 추가)
-  api.get(`/api/${mallId}/categories/all`)
-    .then(res => setAllCats(res.data))
-    .catch(() => message.error('카테고리 로드 실패'));
+    // ── 초기 데이터 로드 ───────────────────────────────────────────
+  useEffect(() => {
+    // ① 카테고리 로드 (mallId 추가)
+    api.get(`/api/${mallId}/categories/all`)
+      .then(res => setAllCats(res.data))
+      .catch(() => message.error('카테고리 로드 실패'));
 
-  // ② 쿠폰 로드 (mallId 추가)
-  api.get(`/api/${mallId}/coupons`)
-    .then(res =>
-      setCouponOptions(
-        res.data.map(c => ({
-          value: c.coupon_no,
-          label: `${c.coupon_name} (${c.benefit_percentage}%)`
-        }))
+    // ② 쿠폰 로드 (mallId 추가)
+    api.get(`/api/${mallId}/coupons`)
+      .then(res =>
+        setCouponOptions(
+          res.data.map(c => ({
+            value: c.coupon_no,
+            label: `${c.coupon_name} (${c.benefit_percentage}%)`
+          }))
+        )
       )
-    )
-    .catch(() => message.error('쿠폰 로드 실패'));
+      .catch(() => message.error('쿠폰 로드 실패'));
 
-  // ③ 이벤트 불러오기 (mallId 추가)
-  api.get(`/api/${mallId}/events/${id}`)
-    .then(res => {
-      const ev = res.data;
-      setDocId(ev._id);
-      setTitle(ev.title);
-      setGridSize(ev.gridSize);
-      setLayoutType(ev.layoutType);
+    // ③ 이벤트 불러오기 (mallId 추가)
+    api.get(`/api/${mallId}/events/${id}`)
+      .then(res => {
+        const ev = res.data;
+        setDocId(ev._id);
+        setTitle(ev.title);
+        setGridSize(ev.gridSize);
+        setLayoutType(ev.layoutType);
 
-      // 상품 등록 방식 초기화
-      setRegisterMode(ev.classification.registerMode || 'category');
-      if (ev.classification.registerMode === 'direct') {
-        if (ev.layoutType === 'single') {
-          setDirectProducts(ev.classification.directProducts || []);
-        } else {
-          setTabDirectProducts(ev.classification.tabDirectProducts || {});
+        // 상품 등록 방식 초기화
+        setRegisterMode(ev.classification.registerMode || 'category');
+        if (ev.classification.registerMode === 'direct') {
+          if (ev.layoutType === 'single') {
+            setDirectProducts(ev.classification.directProducts || []);
+          } else {
+            setTabDirectProducts(ev.classification.tabDirectProducts || {});
+          }
         }
-      }
 
-      // 카테고리/탭 초기화
-      if (ev.layoutType === 'single') {
-        setSingleRoot(ev.classification.root);
-        setSingleSub(ev.classification.sub);
-      } else {
-        setTabs(ev.classification.tabs);
-        setActiveColor(ev.classification.activeColor);
-      }
+        // 카테고리/탭 초기화
+        if (ev.layoutType === 'single') {
+          setSingleRoot(ev.classification.root);
+          setSingleSub(ev.classification.sub);
+        } else {
+          setTabs(ev.classification.tabs);
+          setActiveColor(ev.classification.activeColor);
+        }
 
-      // 이미지 & regions
-      setImages(
-        (ev.images || []).map(img => ({
-          id: String(img._id),
-          src: img.src,
-          regions: (img.regions || []).map(r => ({ ...r, id: r._id }))
-        }))
-      );
-    })
-    .catch(() => {
-      message.error('이벤트 로드 실패');
-      // 목록으로 돌아갈 때도 mallId 포함
-      navigate(`/${mallId}/event/list`);
-    });
-}, [mallId, id, navigate]);
+        // 이미지 & regions
+        setImages(
+          (ev.images || []).map(img => ({
+            id: String(img._id),
+            src: img.src,
+            regions: (img.regions || []).map(r => ({ ...r, id: r._id }))
+          }))
+        );
+      })
+      .catch(() => {
+        message.error('이벤트 로드 실패');
+        // 목록으로 돌아갈 때도 mallId 포함
+        navigate(`/${mallId}/event/list`);
+      });
+  }, [mallId, id, navigate]);
     // 1) replaceImage → 바로 업로드하지 않고 DataURL 생성
     const replaceImage = (idx, file, onSuccess) => {
       const reader = new FileReader();
