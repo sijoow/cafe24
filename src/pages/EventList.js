@@ -33,7 +33,7 @@ export default function EventList() {
     setLoading(true);
     try {
       // mallId 포함된 API 경로
-      const res = await axios.get(`/api/${mallId}/events`);
+      const res = await api.get(`/api/${mallId}/events`);
       const list = res.data.map(ev => ({
         ...ev,
         id: ev._id,
@@ -57,7 +57,7 @@ export default function EventList() {
   const handleDelete = async id => {
     try {
       // mallId 포함된 삭제 API
-      await axios.delete(`/api/${mallId}/events/${id}`);
+      await api.delete(`/api/${mallId}/events/${id}`);
       message.success('이벤트가 삭제되었습니다.');
       await fetchEvents();
     } catch (err) {
