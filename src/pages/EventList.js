@@ -87,7 +87,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
+          onClick={() => navigate(`/event/detail/${id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             lineHeight: 1.2,
@@ -135,7 +135,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '13px' : '16px',
             lineHeight: 1.3,
@@ -158,7 +158,7 @@ export default function EventList() {
       width: 120,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             whiteSpace: 'nowrap',
