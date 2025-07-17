@@ -13,7 +13,8 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+
+import '../axios'
 
 const { useBreakpoint } = Grid;
 
