@@ -13,8 +13,7 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-
-import '../axios'
+import axios from 'axios';
 
 const { useBreakpoint } = Grid;
 
@@ -34,7 +33,7 @@ export default function EventList() {
     setLoading(true);
     try {
       // mallId 포함된 API 경로
-      const res = await api.get(`/api/${mallId}/events`);
+      const res = await axios.get(`/api/${mallId}/events`);
       const list = res.data.map(ev => ({
         ...ev,
         id: ev._id,
@@ -58,7 +57,7 @@ export default function EventList() {
   const handleDelete = async id => {
     try {
       // mallId 포함된 삭제 API
-      await api.delete(`/api/${mallId}/events/${id}`);
+      await axios.delete(`/api/${mallId}/events/${id}`);
       message.success('이벤트가 삭제되었습니다.');
       await fetchEvents();
     } catch (err) {
@@ -74,7 +73,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/event/detail/${id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             lineHeight: 1.2,
