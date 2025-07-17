@@ -298,7 +298,7 @@ export default function EventCreate() {
   const [couponOptions, setCouponOptions] = useState([])
   useEffect(() => {
       if (!mallId) {
-        msgApi.error('mallId가 없습니다. 다시 로그인해 주세요.')
+        msgApi.error('mallId가 없습니다. 다시 로그인해 .')
         return
       }
       api.get(`/api/${mallId}/coupons`)
@@ -419,7 +419,14 @@ export default function EventCreate() {
         {/* Step 2 */}
         {current === 1 && (
           <>
-            <Upload.Dragger {...uploadProps} className="dragger" style={{ padding: isMobile ? 12 : 24 }}>
+            <Upload.Dragger
+              {...uploadProps}
+              className="dragger"
+              style={{
+                padding: isMobile ? 12 : 24,
+                width: '100%',
+              }}
+            >
               <p><InboxOutlined style={{ fontSize: 24 }} /></p>
               <p>이미지를 드래그 또는 클릭하여 업로드</p>
             </Upload.Dragger>
@@ -445,10 +452,36 @@ export default function EventCreate() {
 
             {images.length > 0 && (
               <>
+                {/* 업로드된 이미지를 Grid 레이아웃으로 표시 */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: 16,
+                    maxWidth: 800,
+                    margin: '16px auto 0',
+                  }}
+                >
+                  {images.map(img => (
+                    <img
+                      key={img.id}
+                      src={img.src}
+                      alt=""
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        borderRadius: 4,
+                      }}
+                    />
+                  ))}
+                </div>
+
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="thumbs" direction="horizontal">
                     {prov => (
-                      <div ref={prov.innerRef} {...prov.droppableProps}
+                      <div
+                        ref={prov.innerRef}
+                        {...prov.droppableProps}
                         className="thumb-list"
                         style={{
                           display: 'flex',
@@ -462,14 +495,19 @@ export default function EventCreate() {
                           <Draggable key={img.id} draggableId={img.id} index={idx}>
                             {p => (
                               <div
-                                ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                ref={p.innerRef}
+                                {...p.draggableProps}
+                                {...p.dragHandleProps}
                                 className={`thumb-item ${img.id===selectedId?'active':''}`}
                                 onClick={() => setSelectedId(img.id)}
                               >
                                 <img src={img.src} alt="썸네일" />
                                 <DeleteOutlined
                                   className="thumb-delete"
-                                  onClick={e => { e.stopPropagation(); setImages(imgs=>imgs.filter(i=>i.id!==img.id)) }}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setImages(imgs => imgs.filter(i => i.id !== img.id))
+                                  }}
                                 />
                               </div>
                             )}
@@ -483,14 +521,14 @@ export default function EventCreate() {
 
                 <div
                   ref={imgRef}
-                  onMouseDown={addingMode?onMouseDown:undefined}
-                  onMouseMove={addingMode?onMouseMove:undefined}
-                  onMouseUp={addingMode?onMouseUp:undefined}
+                  onMouseDown={addingMode ? onMouseDown : undefined}
+                  onMouseMove={addingMode ? onMouseMove : undefined}
+                  onMouseUp={addingMode ? onMouseUp : undefined}
                   style={{
-                    position:'relative',
-                    width:'100%',
-                    marginTop:16,
-                    cursor: addingMode?'crosshair':'default'
+                    position: 'relative',
+                    width: '100%',
+                    marginTop: 16,
+                    cursor: addingMode ? 'crosshair' : 'default'
                   }}
                 >
                   <img
@@ -503,10 +541,10 @@ export default function EventCreate() {
                   {dragStartPos && dragCurrent && (
                     <div
                       style={{
-                        position:'absolute',
-                        left: Math.min(dragStartPos.x, dragCurrent.x),
-                        top:  Math.min(dragStartPos.y, dragCurrent.y),
-                        width: Math.abs(dragCurrent.x - dragStartPos.x),
+                        position: 'absolute',
+                        left:   Math.min(dragStartPos.x, dragCurrent.x),
+                        top:    Math.min(dragStartPos.y, dragCurrent.y),
+                        width:  Math.abs(dragCurrent.x - dragStartPos.x),
                         height: Math.abs(dragCurrent.y - dragStartPos.y),
                         border:'1px dashed #999',
                         background:'rgba(200,200,200,0.2)'
@@ -516,20 +554,20 @@ export default function EventCreate() {
 
                   {selectedImage?.regions.map(r => {
                     const base = {
-                      position:'absolute',
-                      left:`${(r.xRatio*100).toFixed(2)}%`,
-                      top:`${(r.yRatio*100).toFixed(2)}%`,
-                      width:`${(r.wRatio*100).toFixed(2)}%`,
-                      height:`${(r.hRatio*100).toFixed(2)}%`,
-                      cursor:'pointer'
+                      position: 'absolute',
+                      left:   `${(r.xRatio * 100).toFixed(2)}%`,
+                      top:    `${(r.yRatio * 100).toFixed(2)}%`,
+                      width:  `${(r.wRatio * 100).toFixed(2)}%`,
+                      height: `${(r.hRatio * 100).toFixed(2)}%`,
+                      cursor: 'pointer'
                     }
                     const style = r.coupon
                       ? { ...base, border:'2px dashed #ff6347', background:'rgba(255,99,71,0.2)' }
                       : { ...base, border:'2px dashed #1890ff', background:'rgba(24,144,255,0.2)' }
 
                     return r.coupon
-                      ? <button key={r.id} style={style} onClick={e=>{e.stopPropagation();editRegion(r)}}/>
-                      : <a key={r.id} style={style} onClick={e=>{e.preventDefault();e.stopPropagation();editRegion(r)}}/>
+                      ? <button key={r.id} style={style} onClick={e => { e.stopPropagation(); editRegion(r) }} />
+                      : <a key={r.id} style={style} onClick={e => { e.preventDefault(); e.stopPropagation(); editRegion(r) }} />
                   })}
                 </div>
               </>
