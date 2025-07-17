@@ -202,7 +202,7 @@ export default function EventList() {
             size="small"
             onClick={e => {
               e.stopPropagation()
-              navigate(`/${mallId}/event/edit/${record.id}`)
+              navigate(`/event/edit/${record.id}`)
             }}
           >
             수정

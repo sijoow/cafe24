@@ -385,10 +385,10 @@ export default function EventEdit() {
       title="이벤트 수정"
       extra={
         <Space>
-          <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/event/list')}>
+         <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>
             목록
           </Button>
-          <Button onClick={() => navigate(`/event/detail/${docId}`)}>취소</Button>
+          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId}`)}>취소</Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             저장
           </Button>
