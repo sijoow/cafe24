@@ -1,7 +1,7 @@
-// src/lib/api.js
+// src/axios.js
 import axios from 'axios'
 
-// 1) 기본 인스턴스 생성
+// 1) Axios 인스턴스 생성
 const api = axios.create({
   baseURL:
     process.env.REACT_APP_API_BASE_URL ||
@@ -13,30 +13,31 @@ const api = axios.create({
   },
 })
 
-// 2) 요청 인터셉터 (토큰 자동 포함 등)
+// 2) 요청 인터셉터: localStorage에 저장된 mallId/userId를 헤더에 자동 추가
 api.interceptors.request.use(
   config => {
-    // 예: 로컬스토리지에서 토큰을 꺼내서 헤더에 붙이기
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+    const mallId = localStorage.getItem('mallId')
+    const userId = localStorage.getItem('userId')
+
+    if (mallId) config.headers['X-Mall-Id'] = mallId
+    if (userId) config.headers['X-User-Id'] = userId
+
     return config
   },
-  error => Promise.reject(error),
+  error => Promise.reject(error)
 )
 
-// 3) 응답 인터셉터 (에러 공통 처리 등)
+// 3) 응답 인터셉터: 공통 에러 처리 (예: 401 Unauthorized → 로그인 페이지로 이동)
 api.interceptors.response.use(
   response => response,
   error => {
-    // 예: 401 Unauthorized 처리
-    if (error.response?.status === 401) {
-      // 자동 로그아웃 로직 등
-      console.warn('🚨 Unauthorized - 로그아웃 처리 필요')
+    const status = error.response?.status
+    if (status === 401) {
+      // 예시: 세션 만료 시 로그인 페이지로 리다이렉트
+      window.location.href = '/login'
     }
     return Promise.reject(error)
-  },
+  }
 )
 
 export default api
