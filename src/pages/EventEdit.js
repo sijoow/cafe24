@@ -379,7 +379,6 @@ export default function EventEdit() {
     }
   };
 
-텍스
   return (
     <Card
       title="이벤트 수정"
