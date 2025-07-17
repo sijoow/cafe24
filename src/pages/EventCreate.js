@@ -457,7 +457,7 @@ export default function EventCreate() {
                   style={{
                     display: 'grid',
                     gap: 16,
-                    maxWidth: 800,
+                   //maxWidth: 800,
                     margin: '16px auto 0',
                   }}
                 >
