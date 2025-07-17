@@ -73,7 +73,7 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
+          onClick={() => navigate(`/event/detail/${id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             lineHeight: 1.2,

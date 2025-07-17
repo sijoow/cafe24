@@ -103,6 +103,7 @@ export default function App() {
         <Content style={{ margin: 16, padding: 16 }}>
           <Routes>
             <Route index element={<Dashboard />} />
+            <Route path="/auth/callback" element={<Redirect />} />         
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="event/list" element={<EventList />} />
             <Route path="event/detail/:id" element={<EventDetail />} />
@@ -113,7 +114,6 @@ export default function App() {
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />
-            <Route path="/auth/callback" element={<Redirect />} />
             <Route path="admin" element={<Admin    />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
