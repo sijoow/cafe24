@@ -104,89 +104,25 @@ export default function EventEdit() {
   };
 
   // ── 초기 데이터 로드 ───────────────────────────────────────────
-  useEffect(() => {
-    // ① 카테고리 로드 (mallId 추가)
-    api.get(`/api/${mallId}/categories/all`)
-      .then(res => setAllCats(res.data))
-      .catch(() => message.error('카테고리 로드 실패'));
-
-    // ② 쿠폰 로드 (mallId 추가)
-    api.get(`/api/${mallId}/coupons`)
-      .then(res =>
-        setCouponOptions(
-          res.data.map(c => ({
-            value: c.coupon_no,
-            label: `${c.coupon_name} (${c.benefit_percentage}%)`
-          }))
-        )
-      )
-      .catch(() => message.error('쿠폰 로드 실패'));
-
-    // ③ 이벤트 불러오기 (mallId 추가)
-    api.get(`/api/${mallId}/events/${id}`)
-      .then(res => {
-        const ev = res.data;
-        setDocId(ev._id);
-        setTitle(ev.title);
-        setGridSize(ev.gridSize);
-        setLayoutType(ev.layoutType);
-
-        // 상품 등록 방식 초기화
-        setRegisterMode(ev.classification.registerMode || 'category');
-        if (ev.classification.registerMode === 'direct') {
-          if (ev.layoutType === 'single') {
-            setDirectProducts(ev.classification.directProducts || []);
-          } else {
-            setTabDirectProducts(ev.classification.tabDirectProducts || {});
-          }
-        }
-
-        // 카테고리/탭 초기화
-        if (ev.layoutType === 'single') {
-          setSingleRoot(ev.classification.root);
-          setSingleSub(ev.classification.sub);
-        } else {
-          setTabs(ev.classification.tabs);
-          setActiveColor(ev.classification.activeColor);
-        }
-
-        // 이미지 & regions
-        setImages(
-          (ev.images || []).map(img => ({
-            id: String(img._id),
-            src: img.src,
-            regions: (img.regions || []).map(r => ({ ...r, id: r._id }))
-          }))
-        );
-      })
-      .catch(() => {
-        message.error('이벤트 로드 실패');
-        // 목록으로 돌아갈 때도 mallId 포함
-        navigate(`/${mallId}/event/list`);
-      });
-  }, [mallId, id, navigate]);
-
-
-// ── 초기 데이터 로드 ───────────────────────────────────────────
 useEffect(() => {
-  // 1) 카테고리 로드
+  // ① 카테고리 로드 (mallId 추가)
   api.get(`/api/${mallId}/categories/all`)
     .then(res => setAllCats(res.data))
     .catch(() => message.error('카테고리 로드 실패'));
 
-  // 2) 쿠폰 로드
+  // ② 쿠폰 로드 (mallId 추가)
   api.get(`/api/${mallId}/coupons`)
     .then(res =>
       setCouponOptions(
         res.data.map(c => ({
           value: c.coupon_no,
-          label: `${c.coupon_name} (${c.benefit_percentage}%)`,
+          label: `${c.coupon_name} (${c.benefit_percentage}%)`
         }))
       )
     )
     .catch(() => message.error('쿠폰 로드 실패'));
 
-  // 3) 이벤트 상세 불러오기
+  // ③ 이벤트 불러오기 (mallId 추가)
   api.get(`/api/${mallId}/events/${id}`)
     .then(res => {
       const ev = res.data;
@@ -195,7 +131,7 @@ useEffect(() => {
       setGridSize(ev.gridSize);
       setLayoutType(ev.layoutType);
 
-      // 상품 등록 방식 초기화...
+      // 상품 등록 방식 초기화
       setRegisterMode(ev.classification.registerMode || 'category');
       if (ev.classification.registerMode === 'direct') {
         if (ev.layoutType === 'single') {
@@ -205,7 +141,7 @@ useEffect(() => {
         }
       }
 
-      // 카테고리 / 탭 초기화...
+      // 카테고리/탭 초기화
       if (ev.layoutType === 'single') {
         setSingleRoot(ev.classification.root);
         setSingleSub(ev.classification.sub);
@@ -219,18 +155,91 @@ useEffect(() => {
         (ev.images || []).map(img => ({
           id: String(img._id),
           src: img.src,
-          regions: (img.regions || []).map(r => ({ ...r, id: r._id })),
+          regions: (img.regions || []).map(r => ({ ...r, id: r._id }))
         }))
       );
     })
     .catch(() => {
       message.error('이벤트 로드 실패');
-      // mallId 포함된 목록 페이지로 이동
+      // 목록으로 돌아갈 때도 mallId 포함
       navigate(`/${mallId}/event/list`);
     });
 }, [mallId, id, navigate]);
+    // 1) replaceImage → 바로 업로드하지 않고 DataURL 생성
+    const replaceImage = (idx, file, onSuccess) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const dataUrl = e.target.result;
+        setImages(imgs => {
+          const a = [...imgs];
+          a[idx] = { 
+            id: a[idx].id,
+            src: dataUrl,      // 미리보기용
+            file,              // 저장 시 업로드
+            regions: a[idx].regions
+          };
+          return a;
+        });
+        onSuccess();
+        message.success('미리보기 등록 완료 (저장 시 업로드됩니다)');
+      };
+      reader.readAsDataURL(file);
+    };
 
+  // ── 드래그 매핑 이벤트 핸들러 ─────────────────────────────────
+  const onMouseDown = e => {
+    if (!addingMode || !imgRef.current) return;
+    const { left, top } = imgRef.current.getBoundingClientRect();
+    setDragStart({ x: e.clientX - left, y: e.clientY - top });
+  };
+  const onMouseMove = e => {
+    if (!dragStart || !imgRef.current) return;
+    const { left, top } = imgRef.current.getBoundingClientRect();
+    const cur = { x: e.clientX - left, y: e.clientY - top };
+    setDragBox({
+      x: Math.min(dragStart.x, cur.x),
+      y: Math.min(dragStart.y, cur.y),
+      w: Math.abs(cur.x - dragStart.x),
+      h: Math.abs(cur.y - dragStart.y),
+    });
+  };
+  const onMouseUp = () => {
+    if (!dragBox) {
+      setDragStart(null);
+      return;
+    }
+    setPendingBox(dragBox);
+    setDragStart(null);
+    setDragBox(null);
+    if (addType === 'url') setUrlModalVisible(true);
+    if (addType === 'coupon') setCouponModalVisible(true);
+  };
 
+  // ── 새 영역 추가 ─────────────────────────────────────────────
+  const addRegion = value => {
+    if (!pendingBox) return;
+    const W = imgRef.current.clientWidth;
+    const H = imgRef.current.clientHeight;
+    const newR = {
+      id: Date.now().toString(),
+      xRatio: pendingBox.x / W,
+      yRatio: pendingBox.y / H,
+      wRatio: pendingBox.w / W,
+      hRatio: pendingBox.h / H,
+      ...(addType === 'url' ? { href: value } : {}),
+      ...(addType === 'coupon' ? { coupon: value } : {}),
+    };
+    setImages(imgs => {
+      const a = [...imgs];
+      a[selectedIdx].regions.push(newR);
+      return a;
+    });
+    message.success(addType === 'url' ? 'URL 영역 추가됨' : '쿠폰 영역 추가됨');
+    setAddingMode(false);
+    setAddType(null);
+    setPendingBox(null);
+    setNewValue('');
+  };
 
   // ── 영역 편집/삭제 ───────────────────────────────────────────
   const onEditRegion = idx => {
@@ -364,7 +373,7 @@ useEffect(() => {
           <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/event/list')}>
             목록
           </Button>
-          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId}`)}>취소</Button>
+          <Button onClick={() => navigate(`/event/detail/${docId}`)}>취소</Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             저장
           </Button>
