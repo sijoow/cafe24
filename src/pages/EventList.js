@@ -1,6 +1,6 @@
 // src/pages/EventList.jsx
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -10,56 +10,61 @@ import {
   message,
   Popconfirm,
   Grid,
-} from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
-import api from '../axios'
+} from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 
-const { useBreakpoint } = Grid
+const { useBreakpoint } = Grid;
 
 export default function EventList() {
-  const navigate = useNavigate()
-  const [data, setData]       = useState([])
-  const [loading, setLoading] = useState(false)
-  const screens  = useBreakpoint()
-  const isMobile = screens.sm === false
+  const { mallId } = useParams();
+  const navigate   = useNavigate();
+  const [data, setData]       = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const R2_PUBLIC_BASE = 'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev'
+  const screens  = useBreakpoint();
+  const isMobile = screens.sm === false;
+
+  const R2_PUBLIC_BASE =
+    'https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev';
 
   const fetchEvents = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await api.get('/api/events')
-      const list = (res.data || []).map(ev => ({
+      // mallId 포함된 API 경로
+      const res = await axios.get(`/api/${mallId}/events`);
+      const list = res.data.map(ev => ({
         ...ev,
         id: ev._id,
         createdAt: ev.createdAt
           ? new Date(ev.createdAt).toISOString().slice(0, 10)
           : '',
-      }))
-      setData(list)
+      }));
+      setData(list);
     } catch (err) {
-      console.error('[EventList] fetchEvents', err)
-      message.error('이벤트 목록 로드 실패')
+      console.error(err);
+      message.error('이벤트 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchEvents()
-  }, [])
+    fetchEvents();
+  }, [mallId]);
 
   const handleDelete = async id => {
     try {
-      await api.delete(`/api/events/${id}`)
-      message.success('이벤트 삭제 완료')
-      fetchEvents()
+      // mallId 포함된 삭제 API
+      await axios.delete(`/api/${mallId}/events/${id}`);
+      message.success('이벤트가 삭제되었습니다.');
+      await fetchEvents();
     } catch (err) {
-      console.error('[EventList] handleDelete', err)
-      message.error('이벤트 삭제 실패')
+      console.error(err);
+      message.error('이벤트 삭제에 실패했습니다.');
     }
-  }
+  };
 
   const columns = [
     {
@@ -68,15 +73,18 @@ export default function EventList() {
       width: 200,
       render: id => (
         <span
-          onClick={() => navigate(`/event/detail/${id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${id}`)}
           style={{
-            fontSize:   isMobile ? '12px' : '14px',
-            maxWidth:   isMobile ? 100 : 180,
+            fontSize: isMobile ? '12px' : '14px',
+            lineHeight: 1.2,
+            wordBreak: 'break-all',
             whiteSpace: 'nowrap',
-            overflow:   'hidden',
-            textOverflow:'ellipsis',
-            cursor:     'pointer',
-            display:    'inline-block'
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'inline-block',
+            maxWidth: isMobile ? 100 : 180,
+            cursor: 'pointer',
+            color: '#000'
           }}
         >
           {id}
@@ -88,34 +96,42 @@ export default function EventList() {
       dataIndex: 'images',
       width: 120,
       render: images => {
-        const first = images?.[0]
-        if (!first) return <span>—</span>
-        const src = first.src.startsWith('http') ? first.src : `${R2_PUBLIC_BASE}/${first.src}`
+        const src = Array.isArray(images) && images.length > 0 ? images[0].src : null;
+        if (!src) return <span>—</span>;
+        const url = src.startsWith('http') ? src : `${R2_PUBLIC_BASE}/${src}`;
         return (
           <Image
-            src={src}
+            src={url}
             width={100}
             height={60}
-            style={{ objectFit:'cover', cursor:'pointer' }}
+            style={{ objectFit: 'cover', cursor: 'pointer' }}
             preview={false}
-            onClick={() => navigate(`/event/detail/${first.id || first._id}`)}
+            alt="썸네일"
+            onClick={() => {
+              const evId = images[0]._id || images[0].id;
+              navigate(`/${mallId}/event/detail/${evId}`);
+            }}
           />
-        )
+        );
       },
     },
     {
-      title: '제목',
+      title: '이벤트 제목',
       dataIndex: 'title',
       width: 240,
-      render: (text, r) => (
+      render: (text, record) => (
         <span
-          onClick={() => navigate(`/event/detail/${r.id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
-            maxWidth:   isMobile ? 120 : 200,
+            fontSize: isMobile ? '13px' : '16px',
+            lineHeight: 1.3,
+            display: 'inline-block',
+            maxWidth: isMobile ? 120 : 200,
             whiteSpace: 'nowrap',
-            overflow:   'hidden',
-            textOverflow:'ellipsis',
-            cursor:     'pointer'
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            cursor: 'pointer',
+            color: '#000'
           }}
         >
           {text}
@@ -126,45 +142,99 @@ export default function EventList() {
       title: '생성 일자',
       dataIndex: 'createdAt',
       width: 120,
-      render: text => <span>{text}</span>,
+      render: (text, record) => (
+        <span
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          style={{
+            fontSize: isMobile ? '12px' : '14px',
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            color: '#000'
+          }}
+        >
+          {text}
+        </span>
+      ),
     },
     {
       title: '레이아웃',
       dataIndex: 'layoutType',
       width: 100,
-      render: lt => lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음'
+      render: (lt, record) => {
+        const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
+        return (
+          <span
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            style={{
+              fontSize: isMobile ? '12px' : '14px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              color: '#000'
+            }}
+          >
+            {label}
+          </span>
+        );
+      },
     },
     {
       title: '영역 수',
       dataIndex: 'images',
       width: 100,
-      render: imgs => imgs?.reduce((sum, i) => sum + (i.regions?.length||0), 0) || 0
+      render: (images, record) => {
+        const count = Array.isArray(images)
+          ? images.reduce((sum, img) =>
+              sum + (Array.isArray(img.regions) ? img.regions.length : 0)
+            , 0)
+          : 0;
+        return (
+          <span
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+            style={{
+              fontSize: isMobile ? '12px' : '14px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              color: '#000'
+            }}
+          >
+            {count}
+          </span>
+        );
+      },
     },
     {
       title: '액션',
       key: 'action',
       width: isMobile ? 140 : 180,
-      render: (_, r) => (
-        <Space size="small">
+      render: (_, record) => (
+        <Space size="small" className="action-buttons">
           <Button
             size="small"
-            onClick={e => { e.stopPropagation(); navigate(`/event/edit/${r.id}`) }}
+            onClick={e => {
+              e.stopPropagation();
+              navigate(`/${mallId}/event/edit/${record.id}`);
+            }}
           >
             수정
           </Button>
           <Popconfirm
-            title="삭제하시겠습니까?"
-            onConfirm={() => handleDelete(r.id)}
-            okText="삭제" cancelText="취소"
+            title="이벤트를 삭제하시겠습니까?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="삭제"
+            cancelText="취소"
           >
-            <Button size="small" danger onClick={e=>e.stopPropagation()}>
+            <Button
+              size="small"
+              danger
+              onClick={e => e.stopPropagation()}
+            >
               삭제
             </Button>
           </Popconfirm>
         </Space>
       ),
     },
-  ]
+  ];
 
   return (
     <Card
@@ -173,22 +243,32 @@ export default function EventList() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate('/event/create')}
+          onClick={() => navigate(`/${mallId}/event/create`)}
         >
-          새 이벤트
+          새 이벤트 생성
         </Button>
       }
-      bodyStyle={{ padding: isMobile ? 12 : 24 }}
+      style={{
+        width: '100%',
+        maxWidth: 1800,
+        margin: '0 auto',
+      }}
+      bodyStyle={{
+        padding: isMobile ? 12 : 24,
+      }}
     >
       <Table
         columns={columns}
         dataSource={data}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: isMobile ? 4 : 6, size: isMobile ? 'small':'default' }}
+        pagination={{
+          pageSize: isMobile ? 4 : 6,
+          size: isMobile ? 'small' : 'default',
+        }}
         scroll={{ x: 1400 }}
-        style={{ tableLayout:'fixed' }}
+        style={{ tableLayout: 'fixed' }}
       />
     </Card>
-  )
+  );
 }
