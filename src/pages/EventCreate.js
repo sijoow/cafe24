@@ -1,7 +1,6 @@
 // src/pages/EventCreate.js
-
-import React, { useState, useEffect, useRef } from 'react';
-import MorePrd from './MorePrd';
+import React, { useState, useEffect, useRef } from 'react'
+import MorePrd from './MorePrd'
 import {
   Card,
   Steps,
@@ -16,7 +15,7 @@ import {
   message,
   Tag,
   Grid
-} from 'antd';
+} from 'antd'
 import {
   InboxOutlined,
   DeleteOutlined,
@@ -24,328 +23,291 @@ import {
   LinkOutlined,
   TagOutlined,
   BlockOutlined
-} from '@ant-design/icons';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import axios from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
-import './EventCreate.css';
+} from '@ant-design/icons'
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
+import { useNavigate, useParams } from 'react-router-dom'
+import api from '../axios'
+import dayjs from 'dayjs'
+import './EventCreate.css'
 
-const { Step } = Steps;
-const { useBreakpoint } = Grid;
+const { Step } = Steps
+const { useBreakpoint } = Grid
 
 export default function EventCreate() {
-  const navigate = useNavigate();
-  const { mallId } = useParams();
-  const [msgApi, msgCtx] = message.useMessage();
-
-  const API_BASE =
-    process.env.REACT_APP_API_BASE_URL ||
-    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+  const navigate = useNavigate()
+  const { mallId } = useParams()
+  const [msgApi, msgCtx] = message.useMessage()
 
   // 반응형
-  const screens = useBreakpoint();
-  const isMobile = screens.sm === false;
-
-  // 새로고침시 sessionStorage 초기화
-  useEffect(() => {
-    Object.keys(sessionStorage)
-      .filter(key => key.startsWith('MorePrd_'))
-      .forEach(key => sessionStorage.removeItem(key));
-  }, []);
+  const screens = useBreakpoint()
+  const isMobile = !screens.sm
 
   // Wizard 단계
-  const [current, setCurrent] = useState(0);
-  const titleRef = useRef(null);
+  const [current, setCurrent] = useState(0)
+  const titleRef = useRef(null)
   useEffect(() => {
     if (current === 0) {
-      setTimeout(() => titleRef.current?.focus(), 0);
+      setTimeout(() => titleRef.current?.focus(), 0)
     }
-  }, [current]);
+  }, [current])
   const next = () => {
     if (current === 0) {
-      if (!title.trim()) setTitle('제목없음');
-      setCurrent(1);
+      if (!title.trim()) setTitle('제목없음')
+      setCurrent(1)
     } else if (current === 1 && images.length === 0) {
-      msgApi.warning('이미지를 업로드하세요.');
+      msgApi.warning('이미지를 업로드하세요.')
     } else if (current === 2) {
-      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
+      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.')
       else if (registerMode === 'category') {
-        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
-        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.');
-        else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.');
-        else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.');
-        else setCurrent(3);
+        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.')
+        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.')
+        else if (layoutType === 'single' && !singleRoot) msgApi.warning('상품 분류(대분류)를 선택하세요.')
+        else if (layoutType === 'tabs' && tabs.length < 2) msgApi.warning('탭을 두 개 이상 설정하세요.')
+        else setCurrent(3)
       } else {
-        setCurrent(3);
+        setCurrent(3)
       }
     } else {
-      setCurrent(c => c + 1);
+      setCurrent(c => c + 1)
     }
-  };
-  const prev = () => setCurrent(c => c - 1);
+  }
+  const prev = () => setCurrent(c => c - 1)
 
   // 1) 제목
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState('')
 
   // 2) 이미지 & 매핑
-  const [images, setImages] = useState([]); // { id, src, file?, regions: [] }
-  const [selectedId, setSelectedId] = useState(null);
-  const imgRef = useRef(null);
-
+  const [images, setImages]           = useState([])
+  const [selectedId, setSelectedId]   = useState(null)
+  const imgRef                       = useRef(null)
+  const onDragEnd                    = result => {
+    if (!result.destination) return
+    const a = Array.from(images)
+    const [m] = a.splice(result.source.index, 1)
+    a.splice(result.destination.index, 0, m)
+    setImages(a)
+  }
   const uploadProps = {
     name: 'file',
     accept: 'image/*',
     multiple: false,
     showUploadList: false,
     customRequest: ({ file, onSuccess }) => {
-      const reader = new FileReader();
+      const reader = new FileReader()
       reader.onload = e => {
-        const src = e.target.result;
-        const id = Date.now().toString() + Math.random();
+        const src = e.target.result
+        const id  = Date.now().toString() + Math.random()
         setImages(imgs => {
-          const next = [...imgs, { id, src, file, regions: [] }];
-          setSelectedId(id);
-          return next;
-        });
-        onSuccess('ok');
-      };
-      reader.readAsDataURL(file);
-    },
-  };
-
-  const onDragEnd = result => {
-    if (!result.destination) return;
-    const a = Array.from(images);
-    const [m] = a.splice(result.source.index, 1);
-    a.splice(result.destination.index, 0, m);
-    setImages(a);
-  };
+          const next = [...imgs, { id, src, file, regions: [] }]
+          setSelectedId(id)
+          return next
+        })
+        onSuccess('ok')
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   // 영역 매핑 상태
-  const [addingMode, setAddingMode] = useState(false);
-  const [addType, setAddType] = useState(null); // 'link' | 'coupon'
-  const [pendingRegion, setPendingRegion] = useState(null);
-  const [dragStartPos, setDragStart] = useState(null);
-  const [dragCurrent, setDragCurrent] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [addingMode, setAddingMode]       = useState(false)
+  const [addType, setAddType]             = useState(null)
+  const [pendingRegion, setPendingRegion] = useState(null)
+  const [dragStartPos, setDragStart]      = useState(null)
+  const [dragCurrent, setDragCurrent]     = useState(null)
+  const [modalVisible, setModalVisible]   = useState(false)
 
-  const selectedImage = images.find(img => img.id === selectedId);
+  const selectedImage = images.find(img => img.id === selectedId)
 
   const onMouseDown = e => {
-    if (!imgRef.current) return;
-    const { left, top } = imgRef.current.getBoundingClientRect();
-    setDragStart({ x: e.clientX - left, y: e.clientY - top });
-    setDragCurrent({ x: e.clientX - left, y: e.clientY - top });
-  };
+    if (!imgRef.current) return
+    const { left, top } = imgRef.current.getBoundingClientRect()
+    setDragStart({ x: e.clientX - left, y: e.clientY - top })
+    setDragCurrent({ x: e.clientX - left, y: e.clientY - top })
+  }
   const onMouseMove = e => {
-    if (!dragStartPos) return;
-    const { left, top } = imgRef.current.getBoundingClientRect();
-    setDragCurrent({ x: e.clientX - left, y: e.clientY - top });
-  };
+    if (!dragStartPos) return
+    const { left, top } = imgRef.current.getBoundingClientRect()
+    setDragCurrent({ x: e.clientX - left, y: e.clientY - top })
+  }
   const onMouseUp = () => {
     if (!dragStartPos) {
-      setDragStart(null);
-      return;
+      setDragStart(null)
+      return
     }
-    const { clientWidth: W, clientHeight: H } = imgRef.current;
-    const x = Math.min(dragStartPos.x, dragCurrent.x);
-    const y = Math.min(dragStartPos.y, dragCurrent.y);
-    const w = Math.abs(dragCurrent.x - dragStartPos.x);
-    const h = Math.abs(dragCurrent.y - dragStartPos.y);
+    const { clientWidth: W, clientHeight: H } = imgRef.current
+    const x = Math.min(dragStartPos.x, dragCurrent.x)
+    const y = Math.min(dragStartPos.y, dragCurrent.y)
+    const w = Math.abs(dragCurrent.x - dragStartPos.x)
+    const h = Math.abs(dragCurrent.y - dragStartPos.y)
     setPendingRegion({
-      id: Date.now().toString(),
-      xRatio: x / W,
-      yRatio: y / H,
-      wRatio: w / W,
-      hRatio: h / H,
-    });
-    setModalVisible(true);
-    setDragStart(null);
-    setDragCurrent(null);
-  };
+      id:      Date.now().toString(),
+      xRatio:  x / W,
+      yRatio:  y / H,
+      wRatio:  w / W,
+      hRatio:  h / H
+    })
+    setModalVisible(true)
+    setDragStart(null)
+    setDragCurrent(null)
+  }
 
-  const [mapForm] = Form.useForm();
-
+  const [mapForm] = Form.useForm()
   const saveRegion = () => {
-    if (!pendingRegion) return;
-    const vals = mapForm.getFieldsValue();
-    let updated = { ...pendingRegion };
+    if (!pendingRegion) return
+    const vals = mapForm.getFieldsValue()
+    let updated = { ...pendingRegion }
     if (addType === 'link') {
-      let href = (vals.href || '').trim();
-      if (!href) return msgApi.error('URL을 입력하세요.');
-      if (!/^https?:\/\//.test(href)) href = 'https://' + href;
-      updated.href = href;
-      delete updated.coupon;
+      let href = (vals.href || '').trim()
+      if (!href) return msgApi.error('URL을 입력하세요.')
+      if (!/^https?:\/\//.test(href)) href = 'https://' + href
+      updated.href = href
+      delete updated.coupon
     } else {
-      const coupon = (vals.coupon || []).join(',');
-      if (!coupon) return msgApi.error('쿠폰을 선택하세요.');
-      updated.coupon = coupon;
-      delete updated.href;
+      const coupon = (vals.coupon || []).join(',')
+      if (!coupon) return msgApi.error('쿠폰을 선택하세요.')
+      updated.coupon = coupon
+      delete updated.href
     }
     setImages(imgs =>
       imgs.map(img =>
         img.id === selectedId
           ? {
               ...img,
-              regions: [...img.regions.filter(r => r.id !== updated.id), updated],
+              regions: [...img.regions.filter(r => r.id !== updated.id), updated]
             }
           : img
       )
-    );
-    setModalVisible(false);
-    setPendingRegion(null);
-  };
-
+    )
+    setModalVisible(false)
+    setPendingRegion(null)
+  }
   const deleteRegion = () => {
     if (!pendingRegion) {
-      setModalVisible(false);
-      return;
+      setModalVisible(false)
+      return
     }
     setImages(imgs =>
       imgs.map(img =>
         img.id === selectedId
           ? {
               ...img,
-              regions: img.regions.filter(r => r.id !== pendingRegion.id),
+              regions: img.regions.filter(r => r.id !== pendingRegion.id)
             }
           : img
       )
-    );
-    setPendingRegion(null);
-    setModalVisible(false);
-  };
-
+    )
+    setPendingRegion(null)
+    setModalVisible(false)
+  }
   const editRegion = region => {
-    setSelectedId(selectedId); // ensure image still selected
-    setPendingRegion(region);
-    setAddType(region.coupon ? 'coupon' : 'link');
+    setPendingRegion(region)
+    setAddType(region.coupon ? 'coupon' : 'link')
     mapForm.setFieldsValue(
       region.coupon
         ? { coupon: region.coupon.split(',') }
         : { href: region.href }
-    );
-    setModalVisible(true);
-  };
+    )
+    setModalVisible(true)
+  }
 
   // 3) 카테고리 & 레이아웃
-  const [allCats, setAllCats] = useState([]);
+  const [allCats, setAllCats] = useState([])
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/categories/all`)   // ← mallId 삽입
+    if (!mallId) return
+    api.get(`/api/${mallId}/categories/all`)
       .then(res => setAllCats(res.data))
-      .catch(() => msgApi.error('카테고리 불러오기 실패'));
-  }, []);
+      .catch(() => msgApi.error('카테고리 불러오기 실패'))
+  }, [mallId, msgApi])
 
-  const [singleRoot, setSingleRoot] = useState(null);
-  const [singleSub, setSingleSub] = useState(null);
+  const [singleRoot, setSingleRoot]   = useState(null)
+  const [singleSub, setSingleSub]     = useState(null)
+  const [gridSize, setGridSize]       = useState(2)
+  const [layoutType, setLayoutType]   = useState(null)
 
-  const [gridSize, setGridSize]     = useState(2);
-  const [layoutType, setLayoutType] = useState(null);
-
-  // 탭 상태
-  const [tabs, setTabs] = useState([
-    { title: '', root: null, sub: null },
-    { title: '', root: null, sub: null },
-  ]);
-  //탭상품 레이아웃 지정색상
-  const [activeColor, setActiveColor] = useState('#fe6326');
-  const addTab = () => {
-    if (tabs.length >= 4) return;
-    const newIndex = tabs.length;
-    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedKeys`);
-    sessionStorage.removeItem(`MorePrd_tab_${newIndex}_selectedDetails`);
-    setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
-  };
-  const updateTab = (i, key, val) => {
-    setTabs(ts => {
-      const a = [...ts];
-      a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) };
-      return a;
-    });
-  };
-
-  const roots = allCats.filter(c => c.category_depth === 1);
+  const roots = allCats.filter(c => c.category_depth === 1)
   const subs  = allCats.filter(
     c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot
-  );
+  )
 
   // 3-1) 상품 등록 방식
-  const [registerMode, setRegisterMode]           = useState('category'); 
-  const [directProducts, setDirectProducts]       = useState([]);         
-  const [tabDirectProducts, setTabDirectProducts] = useState({});         
-  const [initialSelected, setInitialSelected]     = useState([]);
+  const [registerMode, setRegisterMode]           = useState('category')
+  const [directProducts, setDirectProducts]       = useState([])
+  const [tabDirectProducts, setTabDirectProducts] = useState({})
+  const [initialSelected, setInitialSelected]     = useState([])
 
   // 3-2) MorePrd 모달
-  const [morePrdVisible, setMorePrdVisible]   = useState(false);
-  const [morePrdTarget, setMorePrdTarget]     = useState('direct');
-  const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
+  const [morePrdVisible, setMorePrdVisible]   = useState(false)
+  const [morePrdTarget, setMorePrdTarget]     = useState('direct')
+  const [morePrdTabIndex, setMorePrdTabIndex] = useState(0)
 
   const openMorePrd = (target, tabIndex = 0) => {
-    setMorePrdTarget(target);
-    if (target === 'direct') {
-      setInitialSelected(directProducts.map(p => p.product_no));
-    } else {
-      setInitialSelected((tabDirectProducts[tabIndex]||[]).map(p => p.product_no));
-    }
-    setMorePrdTabIndex(tabIndex);
-    setMorePrdVisible(true);
-  };
+    setMorePrdTarget(target)
+    setInitialSelected(
+      target === 'direct'
+        ? directProducts.map(p => p.product_no)
+        : (tabDirectProducts[tabIndex] || []).map(p => p.product_no)
+    )
+    setMorePrdTabIndex(tabIndex)
+    setMorePrdVisible(true)
+  }
 
   // 4) 쿠폰 목록
-  const [couponOptions, setCouponOptions] = useState([]);
+  const [couponOptions, setCouponOptions] = useState([])
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/${mallId}/coupons`)
+    if (!mallId) return
+    api.get(`/api/${mallId}/coupons`)
       .then(res =>
         setCouponOptions(
           res.data.map(c => ({
             value: c.coupon_no,
-            label: `${c.coupon_name} (${c.benefit_percentage}%)`,
+            label: `${c.coupon_name} (${c.benefit_percentage}%)`
           }))
         )
       )
-      .catch(() => msgApi.error('쿠폰 불러오기 실패'));
-  }, []);
+      .catch(() => msgApi.error('쿠폰 불러오기 실패'))
+  }, [mallId, msgApi])
 
   const tagRender = ({ label, closable, onClose }) => (
     <Tag closable={closable} onClose={onClose} style={{ marginRight: 3 }}>
       {String(label).length > 6 ? String(label).slice(0, 6) + '…' : label}
     </Tag>
-  );
+  )
 
   // 5) 최종 제출
   const handleSubmit = async () => {
     try {
+      // (1) 이미지 업로드
       const uploaded = await Promise.all(
         images.map(async img => {
           if (img.file) {
-            const form = new FormData();
-            form.append('file', img.file);
-            const { data } = await axios.post(
-              `${API_BASE}/api/${mallId}/uploads/image`,   // ← mallId 삽입
+            const form = new FormData()
+            form.append('file', img.file)
+            const { data } = await api.post(
+              `/api/${mallId}/uploads/image`,
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-            return { ...img, src: data.url, file: undefined };
+            )
+            return { ...img, src: data.url, file: undefined }
           }
-          return img;
+          return img
         })
-      );
+      )
 
+      // (2) payload 생성
       const payload = {
         title,
         images: uploaded.map(img => ({
-          _id: img.id,
-          src: img.src,
+          _id:     img.id,
+          src:     img.src,
           regions: img.regions.map(r => ({
-            _id:    r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon,
-          })),
+            _id:     r.id,
+            xRatio:  r.xRatio,
+            yRatio:  r.yRatio,
+            wRatio:  r.wRatio,
+            hRatio:  r.hRatio,
+            href:    r.href,
+            coupon:  r.coupon
+          }))
         })),
         gridSize,
         layoutType,
@@ -354,22 +316,24 @@ export default function EventCreate() {
             ? { root: singleRoot, sub: singleSub }
             : { tabs, activeColor }),
           registerMode,
-          ...(registerMode === 'direct' && layoutType === 'single'
-            ? { directProducts }
-            : {}),
-          ...(registerMode === 'direct' && layoutType === 'tabs'
-            ? { tabDirectProducts }
-            : {}),
+          ...(registerMode === 'direct'
+            ? {
+                directProducts,
+                tabDirectProducts
+              }
+            : {})
         }
-      };
-      await axios.post(`${API_BASE}/api/${mallId}/events`, payload);  // ← mallId 삽입
-      msgApi.success('이벤트 생성 완료');
-      navigate('/event/list');
+      }
+
+      // (3) 이벤트 생성
+      await api.post(`/api/${mallId}/events`, payload)
+      msgApi.success('이벤트 생성 완료')
+      navigate('/event/list')
     } catch (e) {
-      console.error(e);
-      msgApi.error('이벤트 등록 실패');
+      console.error(e)
+      msgApi.error('이벤트 등록 실패')
     }
-  };
+  }
 
   return (
     <>
