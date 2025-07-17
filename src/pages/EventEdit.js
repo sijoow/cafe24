@@ -167,7 +167,7 @@ export default function EventEdit() {
       .catch(() => {
         message.error('이벤트 로드 실패');
         // 목록으로 돌아갈 때도 mallId 포함
-        navigate(`/event/list`);
+        navigate(`/${mallId}/event/list`);
       });
   }, [mallId, id, navigate]);
     // 1) replaceImage → 바로 업로드하지 않고 DataURL 생성
@@ -379,7 +379,7 @@ export default function EventEdit() {
     }
   };
 
-
+텍스
   return (
     <Card
       title="이벤트 수정"

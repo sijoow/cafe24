@@ -51,7 +51,7 @@ export default function EventDetail() {
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
-        navigate('/event/list');
+        navigate(`/${mallId}/event/list`);
       });
   }, [id, navigate]);
 
@@ -206,12 +206,12 @@ export default function EventDetail() {
         style={{ '--active-color': activeColor }}
         extra={
           <Space>
-            <Button
-              icon={<UnorderedListOutlined />}
-              onClick={() => navigate('/event/list')}
-            >
-              목록
-            </Button>
+          <Button
+            icon={<UnorderedListOutlined />}
+            onClick={() => navigate(`/${mallId}/event/list`)}
+          >
+            목록
+          </Button>
             <Button icon={<CodeOutlined />} onClick={handleShowHtml}>
               HTML
             </Button>
