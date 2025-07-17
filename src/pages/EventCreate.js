@@ -516,8 +516,17 @@ export default function EventCreate() {
                                 className={`thumb-item ${img.id===selectedId?'active':''}`}
                                 onClick={() => setSelectedId(img.id)}
                               >
-                                <img src={img.src} alt="썸네일" />
-                                <DeleteOutlined
+                            <img
+                              src={img.src}
+                              alt="썸네일"
+                              style={{
+                                width: 100,
+                                height: 100,
+                                objectFit: 'cover',
+                                borderRadius: 4
+                              }}
+                            />
+                            <DeleteOutlined
                                   className="thumb-delete"
                                   onClick={e => {
                                     e.stopPropagation()
