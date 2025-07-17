@@ -22,6 +22,9 @@ dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function Participation() {
   const { mallId } = useParams();
@@ -44,9 +47,9 @@ export default function Participation() {
   // 4) 통계 데이터
   const [stats, setStats] = useState([]);
 
-  // ① 마운트: 이벤트 목록 로드
+  // 1) 마운트: 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`/api/${mallId}/events`)
+    axios.get(`${API_BASE}/api/${mallId}/events`)
       .then(res => {
         const sorted = (res.data||[])
           .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
@@ -65,13 +68,13 @@ export default function Participation() {
       });
   }, [mallId]);
 
-  // ② 이벤트 변경 시 URL & 날짜 리셋
+  // 2) 이벤트 변경 시 URL & 날짜 리셋
   useEffect(() => {
     if (!selectedEvent) {
       setUrls([]); setSelectedUrl(null); setMinDate(null);
       return;
     }
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -91,7 +94,7 @@ export default function Participation() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // ③ 날짜 배열 생성
+  // 3) 날짜 배열 생성
   const dates = useMemo(() => {
     const arr = [];
     let cur = range[0].startOf('day');
@@ -103,7 +106,7 @@ export default function Participation() {
     return arr;
   }, [range]);
 
-  // ④ 통계 조회
+  // 4) 통계 조회
   const fetchStats = async () => {
     if (!selectedEvent || !selectedUrl) {
       return message.warning('이벤트와 URL을 모두 선택해주세요.');
@@ -112,7 +115,7 @@ export default function Participation() {
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
       const { data } = await axios.get(
-        `/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
         { params: {
             start_date: `${start}T00:00:00+09:00`,
             end_date:   `${end}T23:59:59.999+09:00`,
@@ -139,14 +142,13 @@ export default function Participation() {
     }
   };
 
-  // ⑤ 자동/수동 조회 트리거
+  // 5) 자동/수동 조회 트리거
   useEffect(() => {
     if (selectedEvent && selectedUrl) {
       fetchStats();
     }
   }, [selectedEvent, selectedUrl, range]);
 
-  // 테이블 컬럼 정의
   const columns = [
     { title: '날짜',     dataIndex: 'date',    key: 'date' },
     { title: 'URL 클릭', dataIndex: 'product', key: 'product', align:'right' },

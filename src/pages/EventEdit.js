@@ -107,7 +107,7 @@ export default function EventEdit() {
   // ── 초기 데이터 로드 ───────────────────────────────────────────
   useEffect(() => {
     // 카테고리 & 쿠폰
-    axios.get(`/api/${mallId}/categories/all`)
+    axios.get('/api/categories/all')
       .then(res => setAllCats(res.data))
       .catch(() => message.error('카테고리 로드 실패'));
     axios.get(`/api/${mallId}/coupons`)
@@ -117,7 +117,7 @@ export default function EventEdit() {
       .catch(() => message.error('쿠폰 로드 실패'));
 
     // 이벤트 불러오기
-    axios.get(`/api/${mallId}/events/${id}`)
+    axios.get(`/api/events/${id}`)
       .then(res => {
         const ev = res.data;
         setDocId(ev._id);
@@ -153,9 +153,9 @@ export default function EventEdit() {
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
-        navigate(`/${mallId}/event/list`);
+        navigate('/event/list');
       });
-  }, [mallId, id, navigate]);
+  }, [id, navigate]);
     // 1) replaceImage → 바로 업로드하지 않고 DataURL 생성
     const replaceImage = (idx, file, onSuccess) => {
       const reader = new FileReader();
@@ -348,7 +348,7 @@ export default function EventEdit() {
 
       await axios.put(`/api/${mallId}/events/${id}`, payload);
       message.success('저장 완료');
-      navigate(`/${mallId}/event/detail/${docId}`);
+      navigate(`/event/detail/${id}`);
     } catch (err) {
       console.error(err);
       message.error('저장에 실패했습니다');
@@ -361,10 +361,10 @@ export default function EventEdit() {
       title="이벤트 수정"
       extra={
         <Space>
-          <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>
+          <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/event/list')}>
             목록
           </Button>
-          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId}`)}>취소</Button>
+          <Button onClick={() => navigate(`/event/detail/${docId}`)}>취소</Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             저장
           </Button>

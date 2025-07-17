@@ -10,7 +10,7 @@ import {
   message,
   Grid,
 } from 'antd';
-import axios from 'axios';  // baseURL 은 src/index.js 에서 설정됨
+import axios from 'axios';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -21,6 +21,9 @@ dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function InflowEnvironment() {
   const { mallId } = useParams();
@@ -39,7 +42,7 @@ export default function InflowEnvironment() {
 
   // 1) 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`/api/${mallId}/events`)
+    axios.get(`${API_BASE}/api/${mallId}/events`)
       .then(res => {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -63,7 +66,7 @@ export default function InflowEnvironment() {
   // 2) selectedEvent 변경 시 URL & 날짜 초기화
   useEffect(() => {
     if (!selectedEvent) return;
-    axios.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -90,9 +93,9 @@ export default function InflowEnvironment() {
       url:        selectedUrl,
     };
     try {
-      // pie 데이터 (디바이스 분포)
+      // pie 데이터
       const devRes = await axios.get(
-        `/api/${mallId}/analytics/${selectedEvent}/devices`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices`,
         { params },
       );
       const rawPie = Array.isArray(devRes.data) ? devRes.data : [];
@@ -102,9 +105,9 @@ export default function InflowEnvironment() {
         value: rawPie.find(r => r.device_type === dev)?.count || 0,
       })));
 
-      // line 데이터 (날짜별 디바이스)
+      // line 데이터
       const lineRes = await axios.get(
-        `/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,
+        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,
         { params },
       );
       const rawLine = Array.isArray(lineRes.data) ? lineRes.data : [];
@@ -177,7 +180,7 @@ export default function InflowEnvironment() {
   };
 
   const lineOption = {
-    title: { text: '일자별 디바이스 유입', left: 'center' },
+    title: { text: '일자별 유입 환경', left: 'center' },
     tooltip: { trigger: 'axis' },
     legend: {
       data: lineData.devices,
@@ -215,12 +218,33 @@ export default function InflowEnvironment() {
             style={{ width: isMobile ? '100%' : 240 }}
             allowClear
           />
-          <RangePicker
-            value={range}
-            onChange={setRange}
-            disabledDate={d => minDate && d.isBefore(minDate, 'day')}
-            style={{ width: isMobile ? '100%' : 280 }}
-          />
+
+          {isMobile ? (
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <DatePicker
+                value={range[0]}
+                onChange={date => setRange([date, range[1]])}
+                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+                style={{ width: '100%' }}
+                placeholder="시작일"
+              />
+              <DatePicker
+                value={range[1]}
+                onChange={date => setRange([range[0], date])}
+                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+                style={{ width: '100%' }}
+                placeholder="종료일"
+              />
+            </Space>
+          ) : (
+            <RangePicker
+              value={range}
+              onChange={setRange}
+              disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+              style={{ width: 280 }}
+            />
+          )}
+
           <Button
             type="primary"
             loading={loading}
