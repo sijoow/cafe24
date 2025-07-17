@@ -109,7 +109,7 @@ export default function EventList() {
             alt="썸네일"
             onClick={() => {
               const evId = images[0]._id || images[0].id;
-              navigate(`/event/detail/${evId}`);
+              navigate(`/${mallId}/event/detail/${evId}`);
             }}
           />
         );
@@ -121,7 +121,7 @@ export default function EventList() {
       width: 240,
       render: (text, record) => (
         <span
-        onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '13px' : '16px',
             lineHeight: 1.3,
@@ -144,7 +144,7 @@ export default function EventList() {
       width: 120,
       render: (text, record) => (
         <span
-          onClick={() => navigate(`/event/detail/${record.id}`)}
+          onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
           style={{
             fontSize: isMobile ? '12px' : '14px',
             whiteSpace: 'nowrap',
@@ -164,7 +164,7 @@ export default function EventList() {
         const label = lt === 'single' ? '단품' : lt === 'tabs' ? '탭' : '없음';
         return (
           <span
-            onClick={() => navigate(`/event/detail/${record.id}`)}
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
@@ -189,7 +189,7 @@ export default function EventList() {
           : 0;
         return (
           <span
-            onClick={() => navigate(`/event/detail/${record.id}`)}
+            onClick={() => navigate(`/${mallId}/event/detail/${record.id}`)}
             style={{
               fontSize: isMobile ? '12px' : '14px',
               whiteSpace: 'nowrap',
@@ -212,7 +212,7 @@ export default function EventList() {
             size="small"
             onClick={e => {
               e.stopPropagation();
-              navigate(`/${mallId}/event/edit/${record.id}`)
+              navigate(`/${mallId}/event/edit/${record.id}`);
             }}
           >
             수정
