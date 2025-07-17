@@ -26,7 +26,7 @@ import {
   TagOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../axios';
 import './EventEdit.css';
 
@@ -39,7 +39,12 @@ const { Step } = Steps;
 const { Option } = Select;
 
 export default function EventEdit() {
-  const { mallId, id } = useParams();
+  // 쿼리스트링(mall_id or state) → localStorage 페일오버
+  const params       = new URLSearchParams(window.location.search);
+  const paramMallId  = params.get('mall_id') || params.get('state');
+  const storedMallId = localStorage.getItem('mallId');
+  const mallId       = paramMallId || storedMallId;
+  const { id }       = useParams();  // 이벤트 ID만 useParams로
   const navigate = useNavigate();
   const imgRef = useRef(null);
 
