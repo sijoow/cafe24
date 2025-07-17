@@ -24,7 +24,11 @@ const API_BASE =
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function EventDetail() {
-  const { mallId, id } = useParams();  
+  const params        = new URLSearchParams(window.location.search);
+  const paramMallId   = params.get('mall_id') || params.get('state');
+  const storedMallId  = localStorage.getItem('mallId');
+  const mallId        = paramMallId || storedMallId;
+  const { id }        = useParams();  
   const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
@@ -53,7 +57,7 @@ export default function EventDetail() {
         message.error('이벤트 로드 실패');
         navigate(`/${mallId}/event/list`);
       });
-  }, [id, navigate]);
+  }, [mallId, id, navigate]);
 
   if (!event) return null;
 
