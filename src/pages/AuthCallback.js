@@ -1,26 +1,44 @@
-// src/pages/AuthCallback.jsx
-import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+// src/pages/Redirect.jsx
+import React, { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import axios from '../axios'   // axios.defaults.baseURL 이 설정된 인스턴스
 
-export default function AuthCallback() {
-  const [qs] = useSearchParams();
-  const navigate = useNavigate();
+export default function Redirect() {
+  const navigate = useNavigate()
+  const { search } = useLocation()
 
   useEffect(() => {
-    // OAuth 콜백에서 mallId, userId, userName 추출
-    const mallId   = qs.get('mallId')   || qs.get('state');
-    const userId   = qs.get('user_id')  || qs.get('userId');
-    const userName = qs.get('user_name')|| qs.get('userName');
+    // 1) 쿼리에서 mallId(userId, userName) 파라미터 꺼내기
+    const params   = new URLSearchParams(search)
+    const mallId   = params.get('mallId')   || params.get('state')
+    // userId/userName 은 콜백에서 프론트로 내려줄 수도 있지만,
+    // 여기서는 API를 통해 한 번에 불러오기 때문에 생략해도 됩니다.
 
-    if (mallId) {
-      // 로컬스토리지에 저장해 두면 axios interceptor 등이 사용할 수 있습니다
-      localStorage.setItem('mallId', mallId);
-      if (userId)   localStorage.setItem('userId',   userId);
-      if (userName) localStorage.setItem('userName', userName);
+    if (!mallId) {
+      console.error('🚨 OAuth 콜백에 mallId가 없습니다.')
+      navigate('/', { replace: true })
+      return
     }
-    // URL 파라미터에 의존하지 않고, MallContext가 /api/mall 호출로 mallId를 가져오도록 루트로만 이동
-    navigate('/', { replace: true });
-  }, [qs, navigate]);
 
-  return null;
+    // 2) 백엔드 호출: MongoDB 에 저장된 토큰/설치 정보 가져오기
+    axios
+      .get(`/api/${mallId}/mall`)
+      .then(({ data }) => {
+        // data = { mallId, userId, userName }
+        // 3) localStorage 또는 Context 에 저장
+        localStorage.setItem('mallId',   data.mallId)
+        if (data.userId)   localStorage.setItem('userId',   data.userId)
+        if (data.userName) localStorage.setItem('userName', data.userName)
+      })
+      .catch(err => {
+        console.error('❌ /api/:mallId/mall 호출 실패', err.response?.status, err.response?.data)
+        // 필요하면 에러 화면으로 보낼 수도 있습니다.
+      })
+      .finally(() => {
+        // 4) 루트로 리다이렉트
+        navigate('/', { replace: true })
+      })
+  }, [search, navigate])
+
+  return null
 }
