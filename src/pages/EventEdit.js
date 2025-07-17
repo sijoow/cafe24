@@ -287,14 +287,38 @@ export default function EventEdit() {
     if (images.length === 1) {
       return message.warning('최소 1장 필요');
     }
-    if (!/^[0-9a-fA-F]{24}$/.test(imageId)) {
-      setImages(imgs => imgs.filter((_, i) => i !== idx));
-      setSelectedIdx(0);
-      return message.success('이미지 삭제 완료');
-    }
+
+    // 남길 이미지들만 모아서 전체 이벤트를 PUT 업데이트합니다.
+    const remaining = images.filter((_, i) => i !== idx);
+    const payload = {
+      title,
+      content: '',
+      gridSize,
+      layoutType,
+      classification: {
+        registerMode,
+        ...(registerMode === 'category' && { root: singleRoot, sub: singleSub }),
+        ...(registerMode === 'direct' && layoutType === 'single' && { directProducts }),
+        ...(registerMode === 'direct' && layoutType === 'tabs'  && { tabDirectProducts, tabs, activeColor }),
+      },
+      images: remaining.map(img => ({
+        _id: img.id,
+        src: img.src,
+        regions: img.regions.map(r => ({
+          _id:    r.id,
+          xRatio: r.xRatio,
+          yRatio: r.yRatio,
+          wRatio: r.wRatio,
+          hRatio: r.hRatio,
+          href:   r.href,
+          coupon: r.coupon,
+        }))
+      }))
+    };
+
     try {
-      await api.delete(`/api/${mallId}/events/${id}/images/${imageId}`);
-      setImages(imgs => imgs.filter((_, i) => i !== idx));
+      await api.put(`/api/${mallId}/events/${id}`, payload);
+      setImages(remaining);
       setSelectedIdx(0);
       message.success('이미지 삭제 완료');
     } catch (err) {
@@ -302,8 +326,9 @@ export default function EventEdit() {
       message.error('이미지 삭제 실패');
     }
   };
+  
   // ── 싱픔 수정데이터 저장 ───────────────────────────────────────────────────────
-  const handleSave = async () => {
+   const handleSave = async () => {
     try {
       // ① 파일 업로드 (미리보기 → 실제 URL 교체)
       const uploaded = await Promise.all(
@@ -320,47 +345,32 @@ export default function EventEdit() {
 
       // ② payload 구성 & 전송
       const payload = {
-        title,        // 제목
-        gridSize,     // 그리드 사이즈
-        layoutType,   // single | tabs
+        title,
+        content: '',       // 빈 문자열이라도 반드시 포함
+        gridSize,
+        layoutType,
         classification: {
-          registerMode,  // category | direct | none
-
-          // 카테고리 등록일 때
-          ...(registerMode === 'category' && {
-            root: singleRoot,
-            sub: singleSub,
-          }),
-
-          // 직접 등록(single)일 때
-          ...(registerMode === 'direct' && layoutType === 'single' && {
-            directProducts,
-          }),
-
-          // 직접 등록(tabs)일 때
-          ...(registerMode === 'direct' && layoutType === 'tabs' && {
-            tabDirectProducts,
-            tabs,
-            activeColor,
-          }),
+          registerMode,
+          ...(registerMode === 'category' && { root: singleRoot, sub: singleSub }),
+          ...(registerMode === 'direct' && layoutType === 'single' && { directProducts }),
+          ...(registerMode === 'direct' && layoutType === 'tabs'  && { tabDirectProducts, tabs, activeColor }),
         },
-
         images: uploaded.map(img => ({
           _id: img.id,
           src: img.src,
           regions: img.regions.map(r => ({
-            _id: r.id,
+            _id:    r.id,
             xRatio: r.xRatio,
             yRatio: r.yRatio,
             wRatio: r.wRatio,
             hRatio: r.hRatio,
-            href: r.href,
+            href:   r.href,
             coupon: r.coupon,
-          })),
+          }))
         })),
       };
 
-      api.put(`/api/${mallId}/events/${id}`, payload);
+      await api.put(`/api/${mallId}/events/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
     } catch (err) {
