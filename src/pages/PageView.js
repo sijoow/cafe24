@@ -11,7 +11,7 @@ import {
   message,
   Grid,
 } from 'antd';
-import api from '../axios';                // ← 커스텀 axios 인스턴스
+import api from '../axios';                 // 커스텀 axios 인스턴스
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useParams } from 'react-router-dom';
@@ -23,24 +23,24 @@ const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
 export default function StatEventVisitors() {
-  // ① mallId를 URL 파라미터로 받아옵니다
+  // 1) mallId를 URL에서 받아옵니다
   const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  const [events, setEvents]               = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [events, setEvents]                 = useState([]);
+  const [selectedEvent, setSelectedEvent]   = useState(null);
 
-  const [urls, setUrls]                   = useState([]);
-  const [selectedUrl, setSelectedUrl]     = useState(null);
+  const [urls, setUrls]                     = useState([]);
+  const [selectedUrl, setSelectedUrl]       = useState(null);
 
-  const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
-  const [minDate, setMinDate]             = useState(null);
+  const [range, setRange]                   = useState([dayjs().subtract(7, 'day'), dayjs()]);
+  const [minDate, setMinDate]               = useState(null);
 
-  const [data, setData]                   = useState([]);
-  const [loading, setLoading]             = useState(false);
+  const [data, setData]                     = useState([]);
+  const [loading, setLoading]               = useState(false);
 
-  // 1) 이벤트 목록 로드
+  // 2) 이벤트 목록 로드
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -48,8 +48,8 @@ export default function StatEventVisitors() {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .map(ev => ({
-            label: ev.title || '(제목없음)',
-            value: ev._id,
+            label:     ev.title || '(제목없음)',
+            value:     ev._id,
             createdAt: ev.createdAt,
           }));
         setEvents(opts);
@@ -61,10 +61,13 @@ export default function StatEventVisitors() {
           setRange([start, dayjs()]);
         }
       })
-      .catch(() => message.error('이벤트 목록 불러오기 실패'));
+      .catch(err => {
+        console.error('이벤트 목록 로드 에러', err);
+        message.error('이벤트 목록을 불러오지 못했습니다.');
+      });
   }, [mallId]);
 
-  // 2) URL 목록 및 날짜 초기화
+  // 3) URL 목록 & 날짜 초기화
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
@@ -77,7 +80,10 @@ export default function StatEventVisitors() {
         setUrls(res.data || []);
         if (res.data?.length) setSelectedUrl(res.data[0]);
       })
-      .catch(() => message.error('URL 목록 불러오기 실패'));
+      .catch(err => {
+        console.error('URL 목록 로드 에러', err);
+        message.error('URL 목록을 불러오지 못했습니다.');
+      });
 
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
@@ -87,14 +93,14 @@ export default function StatEventVisitors() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // 3) 통계 조회 함수
+  // 4) 통계 조회
   const fetchStats = async () => {
     if (!mallId || !selectedEvent) {
-      message.warning('이벤트를 선택하세요');
+      message.warning('이벤트를 선택해주세요');
       return;
     }
     if (!selectedUrl) {
-      message.warning('URL을 선택하세요');
+      message.warning('URL을 선택해주세요');
       return;
     }
 
@@ -112,7 +118,6 @@ export default function StatEventVisitors() {
         }
       );
 
-      // API 응답 가공
       const apiList = (res.data || []).map(o => ({
         date:              o.date,
         totalVisitors:     o.totalVisitors     || 0,
@@ -145,15 +150,15 @@ export default function StatEventVisitors() {
 
       setData(tableData);
     } catch (err) {
-      console.error(err);
-      message.error('통계 로드 실패');
+      console.error('통계 로드 에러', err);
+      message.error('통계 데이터를 불러오지 못했습니다.');
       setData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // 4) 자동 조회 트리거
+  // 5) 자동 조회 트리거
   useEffect(() => {
     if (selectedEvent && selectedUrl) {
       fetchStats();
@@ -217,7 +222,12 @@ export default function StatEventVisitors() {
               style={{ width: 280, minWidth: 160 }}
             />
           )}
-          <Button type="primary" loading={loading} onClick={fetchStats} block={isMobile}>
+          <Button
+            type="primary"
+            loading={loading}
+            onClick={fetchStats}
+            block={isMobile}
+          >
             조회
           </Button>
         </Space>
