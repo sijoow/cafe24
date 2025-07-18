@@ -119,6 +119,7 @@ export default function App() {
             <Route path="stats/environment" element={<InflowEnvironment />} />
             <Route path="/auth/callback" element={<Redirect />} />
             <Route path="admin" element={<Admin    />} />
+            <Route path="stats/prddata"  element={<PrdData />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </Content>
