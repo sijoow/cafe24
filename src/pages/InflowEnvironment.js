@@ -50,7 +50,7 @@ export default function InflowEnvironment() {
 
   // ─── 1) 마운트: 이벤트 목록 불러오기 ─────────────────────────────
   useEffect(() => {
-    axios.get(`${API_BASE}/api/events`, { headers })
+    axios.get((`/api/${mallId}/events`), { headers })
       .then(res => {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
