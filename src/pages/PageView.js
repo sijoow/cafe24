@@ -1,4 +1,5 @@
 // src/pages/StatEventVisitors.jsx
+
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -10,59 +11,56 @@ import {
   message,
   Grid,
 } from 'antd';
-import api from '../axios';               // ← axios → api 로 변경
+import axios from '../axios';                // ← axios 인스턴스 사용
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import './NormalSection.css';
+
 dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
 export default function StatEventVisitors() {
-  // 0) mallId 가져오기 (Dashboard.js 와 동일)
-  const mallId = localStorage.getItem('mallId');
-  if (!mallId) {
-    message.error('mallId가 없습니다. 먼저 대시보드에서 로그인해주세요.');
-    return null;
-  }
-
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
   const [events, setEvents]             = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
   const [urls, setUrls]                 = useState([]);
   const [selectedUrl, setSelectedUrl]   = useState(null);
-  const [range, setRange]               = useState([dayjs().subtract(7,'day'), dayjs()]);
+
+  const [range, setRange]               = useState([dayjs().subtract(7, 'day'), dayjs()]);
   const [minDate, setMinDate]           = useState(null);
+
   const [data, setData]                 = useState([]);
   const [loading, setLoading]           = useState(false);
 
   // 1) 이벤트 목록 로드
   useEffect(() => {
-    api.get(`/api/${mallId}/events`)
+    axios.get('/api/events')
       .then(res => {
         const opts = (res.data || [])
-          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .map(ev => ({
-            label:     ev.title || '(제목없음)',
-            value:     ev._id,
+            label: ev.title || '(제목없음)',
+            value: ev._id,
             createdAt: ev.createdAt,
           }));
         setEvents(opts);
         if (opts.length) {
           const { value, createdAt } = opts[0];
           setSelectedEvent(value);
-          const min = dayjs(createdAt);
-          setMinDate(min);
-          setRange([min, dayjs()]);
+          const start = dayjs(createdAt);
+          setMinDate(start);
+          setRange([start, dayjs()]);
         }
       })
       .catch(() => message.error('이벤트 목록 불러오기 실패'));
-  }, [mallId]);
+  }, []);
 
-  // 2) URL 목록 & 날짜 재설정
+  // 2) URL 목록 및 날짜 초기화
   useEffect(() => {
     if (!selectedEvent) {
       setUrls([]);
@@ -70,7 +68,7 @@ export default function StatEventVisitors() {
       setMinDate(null);
       return;
     }
-    api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         setUrls(res.data || []);
         if (res.data?.length) setSelectedUrl(res.data[0]);
@@ -79,23 +77,28 @@ export default function StatEventVisitors() {
 
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
-      const min = dayjs(ev.createdAt);
-      setMinDate(min);
-      setRange([min, dayjs()]);
+      const start = dayjs(ev.createdAt);
+      setMinDate(start);
+      setRange([start, dayjs()]);
     }
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
-  // 3) 통계 조회
+  // 3) 통계 조회 함수
   const fetchStats = async () => {
-    if (!selectedEvent) return message.warning('이벤트를 선택하세요');
-    if (!selectedUrl)   return message.warning('URL을 선택하세요');
+    if (!selectedEvent) {
+      message.warning('이벤트를 선택하세요');
+      return;
+    }
+    if (!selectedUrl) {
+      message.warning('URL을 선택하세요');
+      return;
+    }
 
     setLoading(true);
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
-
     try {
-      const res = await api.get(
-        `/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`,
+      const res = await axios.get(
+        `/api/analytics/${selectedEvent}/visitors-by-date`,
         {
           params: {
             start_date: `${start}T00:00:00+09:00`,
@@ -105,7 +108,7 @@ export default function StatEventVisitors() {
         }
       );
 
-      // API에서 넘어온 통계 리스트를 날짜별로 병합
+      // API 응답 가공
       const apiList = (res.data || []).map(o => ({
         date:              o.date,
         totalVisitors:     o.totalVisitors     || 0,
@@ -113,6 +116,7 @@ export default function StatEventVisitors() {
         returningVisitors: o.returningVisitors || 0,
         revisitRate:       o.revisitRate       || '0 %',
       }));
+
       // 전체 날짜 축 생성
       const days = [];
       let cur = range[0].startOf('day'),
@@ -121,32 +125,31 @@ export default function StatEventVisitors() {
         days.push(cur.format('YYYY-MM-DD'));
         cur = cur.add(1, 'day');
       }
-      // lookup & 테이블 데이터 생성
+
+      // 누락 날짜 0으로 채우기
       const lookup = new Map(apiList.map(o => [o.date, o]));
       const tableData = days.map(date => {
         const row = lookup.get(date) || {
           date,
-          totalVisitors: 0,
-          newVisitors:   0,
+          totalVisitors:     0,
+          newVisitors:       0,
           returningVisitors: 0,
-          revisitRate:   '0 %',
+          revisitRate:       '0 %',
         };
         return { key: date, ...row };
       });
 
       setData(tableData);
-    }
-    catch (err) {
+    } catch (err) {
       console.error(err);
       message.error('통계 로드 실패');
       setData([]);
-    }
-    finally {
+    } finally {
       setLoading(false);
     }
   };
 
-  // 4) 초기/자동 조회
+  // 4) 자동 조회 트리거
   useEffect(() => {
     if (selectedEvent && selectedUrl) {
       fetchStats();
@@ -154,50 +157,50 @@ export default function StatEventVisitors() {
   }, [selectedEvent, selectedUrl, range]);
 
   const columns = [
-    { title: '날짜',       dataIndex: 'date',              key: 'date' },
-    { title: '총 방문자',   dataIndex: 'totalVisitors',    key: 'totalVisitors',    align:'right' },
-    { title: '신규 방문자', dataIndex: 'newVisitors',      key: 'newVisitors',      align:'right' },
-    { title: '재방문자',    dataIndex: 'returningVisitors',key: 'returningVisitors',align:'right' },
-    { title: '재방문 비율', dataIndex: 'revisitRate',      key: 'revisitRate',      align:'right' },
+    { title: '날짜',         dataIndex: 'date',               key: 'date' },
+    { title: '총 방문자',    dataIndex: 'totalVisitors',      key: 'totalVisitors',      align: 'right' },
+    { title: '신규 방문자',  dataIndex: 'newVisitors',        key: 'newVisitors',        align: 'right' },
+    { title: '재방문자',     dataIndex: 'returningVisitors',  key: 'returningVisitors',  align: 'right' },
+    { title: '재방문 비율',  dataIndex: 'revisitRate',        key: 'revisitRate',        align: 'right' },
   ];
 
   return (
     <Card
       title="이벤트 방문자 통계 (일별)"
       extra={
-        <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width:'100%' } : undefined}>
+        <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width: '100%' } : undefined}>
           <Select
             placeholder="이벤트 선택"
             options={events}
             value={selectedEvent}
             onChange={setSelectedEvent}
             allowClear
-            style={{ width: isMobile ? '100%' : 200 }}
+            style={{ width: isMobile ? '100%' : 200, minWidth: 120 }}
           />
           <Select
             placeholder="URL 선택"
-            options={urls.map(u => ({ label:u, value:u }))}
+            options={urls.map(u => ({ label: u, value: u }))}
             value={selectedUrl}
             onChange={setSelectedUrl}
             allowClear
-            style={{ width: isMobile ? '100%' : 240 }}
+            style={{ width: isMobile ? '100%' : 240, minWidth: 120 }}
           />
           {isMobile ? (
-            <Space direction="vertical" style={{ width:'100%' }} size="small">
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <DatePicker
                 value={range[0]}
                 format="YYYY-MM-DD"
                 onChange={d => d && setRange([d, range[1]])}
-                disabledDate={cur => minDate && cur.isBefore(minDate, 'day')}
-                style={{ width:'100%' }}
+                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+                style={{ width: '100%' }}
                 allowClear={false}
               />
               <DatePicker
                 value={range[1]}
                 format="YYYY-MM-DD"
                 onChange={d => d && setRange([range[0], d])}
-                disabledDate={cur => minDate && cur.isBefore(minDate, 'day')}
-                style={{ width:'100%' }}
+                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+                style={{ width: '100%' }}
                 allowClear={false}
               />
             </Space>
@@ -206,21 +209,16 @@ export default function StatEventVisitors() {
               value={range}
               format="YYYY-MM-DD"
               onChange={setRange}
-              disabledDate={cur => minDate && cur.isBefore(minDate, 'day')}
-              style={{ width:280 }}
+              disabledDate={d => minDate && d.isBefore(minDate, 'day')}
+              style={{ width: 280, minWidth: 160 }}
             />
           )}
-          <Button
-            type="primary"
-            loading={loading}
-            onClick={fetchStats}
-            block={isMobile}
-          >
+          <Button type="primary" loading={loading} onClick={fetchStats} block={isMobile}>
             조회
           </Button>
         </Space>
       }
-      style={{ width:'100%', maxWidth:1700, margin:'0 auto' }}
+      style={{ width: '100%', maxWidth: 1700, margin: '0 auto' }}
       bodyStyle={{ padding: isMobile ? 12 : 24 }}
     >
       <Table
@@ -228,7 +226,7 @@ export default function StatEventVisitors() {
         dataSource={data}
         loading={loading}
         pagination={false}
-        locale={{ emptyText:'조회된 데이터가 없습니다.' }}
+        locale={{ emptyText: '조회된 데이터가 없습니다.' }}
         bordered
         scroll={{ x: isMobile ? 'max-content' : undefined }}
       />
