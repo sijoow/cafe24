@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, Select, Button, Table, Space, message, Grid } from 'antd';
-import api from '../axios';
 import dayjs from 'dayjs';
+import api from '../axios';
 
 const { useBreakpoint } = Grid;
 
@@ -14,19 +14,19 @@ export default function PrdData() {
   const mallId = localStorage.getItem('mallId');
 
   // ─── 상태 선언 ───────────────────────────────────────────────
-  const [events, setEvents]             = useState([]);
+  const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [minDate, setMinDate]           = useState(null);   // 이벤트 생성일
-  const [data, setData]                 = useState([]);
-  const [loading, setLoading]           = useState(false);
+  const [minDate, setMinDate]             = useState(null);
+  const [data, setData]                   = useState([]);
+  const [loading, setLoading]             = useState(false);
 
   // ─── 1) 이벤트 목록 로드 ─────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
       .then(res => {
-        const evs = (res.data||[])
-          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const evs = (res.data || [])
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) {
           const first = evs[0];
@@ -47,10 +47,9 @@ export default function PrdData() {
       return;
     }
     setLoading(true);
-    // 조회 기간: 생성일 → 오늘
+
     const start = minDate.format('YYYY-MM-DD');
     const end   = dayjs().format('YYYY-MM-DD');
-
     try {
       const res = await api.get(
         `/api/${mallId}/analytics/${selectedEvent}/product-clicks`,
@@ -61,6 +60,7 @@ export default function PrdData() {
           }
         }
       );
+      // res.data should be [{ productNo, clicks }, ...]
       setData(res.data);
     } catch (err) {
       console.error('[PRODUCT CLICKS ERROR]', err);
@@ -76,19 +76,21 @@ export default function PrdData() {
     <Card
       title="상품 클릭 순위 (전체 기간)"
       extra={(
-        <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width:'100%' } : undefined}>
-          {/* 이벤트 선택 */}
+        <Space
+          wrap
+          size={isMobile ? 'small' : 'middle'}
+          style={isMobile ? { width: '100%' } : undefined}
+        >
           <Select
             placeholder="이벤트 선택"
-            options={events.map(e=>({
-              label: e.title||'(제목없음)', value: e._id
+            options={events.map(e => ({
+              label: e.title || '(제목없음)',
+              value: e._id,
             }))}
             value={selectedEvent}
             onChange={val => setSelectedEvent(val)}
-            style={{ width: isMobile?'100%':200 }}
+            style={{ width: isMobile ? '100%' : 200 }}
           />
-
-          {/* 조회 버튼 */}
           <Button
             type="primary"
             loading={loading}
@@ -99,8 +101,8 @@ export default function PrdData() {
           </Button>
         </Space>
       )}
-      style={{ width:'100%', maxWidth:1700, margin:'0 auto' }}
-      bodyStyle={{ padding: isMobile?12:24 }}
+      style={{ width: '100%', maxWidth: 1700, margin: '0 auto' }}
+      bodyStyle={{ padding: isMobile ? 12 : 24 }}
     >
       <Table
         rowKey="productNo"
@@ -108,13 +110,25 @@ export default function PrdData() {
         dataSource={data}
         pagination={false}
         bordered
-        scroll={{ x: isMobile?'max-content':undefined }}
+        scroll={{ x: isMobile ? 'max-content' : undefined }}
         locale={{ emptyText: '데이터가 없습니다.' }}
         columns={[
-          { title:'순위',      dataIndex:'_',      key:'rank',
-            render: (_,__,i)=> i+1 /* 테이블 index+1 */ },
-          { title:'상품번호',  dataIndex:'productNo', key:'productNo' },
-          { title:'클릭수',    dataIndex:'clicks',    key:'clicks', align:'right' },
+          {
+            title: '순위',
+            key: 'rank',
+            render: (_text, _record, index) => index + 1,
+          },
+          {
+            title: '상품번호',
+            dataIndex: 'productNo',
+            key: 'productNo',
+          },
+          {
+            title: '클릭수',
+            dataIndex: 'clicks',
+            key: 'clicks',
+            align: 'right',
+          },
         ]}
       />
     </Card>
