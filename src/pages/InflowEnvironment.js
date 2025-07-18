@@ -25,17 +25,20 @@ export default function InflowEnvironment() {
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
+  // 이벤트, URL, 날짜, 로딩 상태
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [urls, setUrls]                   = useState([]);
   const [selectedUrl, setSelectedUrl]     = useState(null);
   const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
   const [minDate, setMinDate]             = useState(null);
-  const [pieData, setPieData]             = useState([]);
-  const [lineData, setLineData]           = useState({ dates: [], devices: [], series: [] });
   const [loading, setLoading]             = useState(false);
 
-  // 1) 이벤트 목록 로드
+  // 차트용 데이터
+  const [pieData, setPieData]             = useState([]);
+  const [lineData, setLineData]           = useState({ dates: [], devices: [], series: [] });
+
+  // 1) 마운트: 이벤트 목록 불러오기
   useEffect(() => {
     axios.get('/api/events')
       .then(res => {
@@ -58,7 +61,7 @@ export default function InflowEnvironment() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, []);
 
-  // 2) selectedEvent 변경 시 URL & 날짜 초기화
+  // 2) selectedEvent 변경 시 → URL 목록 + 날짜 초기화
   useEffect(() => {
     if (!selectedEvent) return;
     axios.get(`/api/analytics/${selectedEvent}/urls`)
@@ -77,11 +80,12 @@ export default function InflowEnvironment() {
     }
   }, [selectedEvent, events]);
 
-  // 3) 데이터 조회
+  // 3) 데이터 조회 함수
   const fetchData = useCallback(async () => {
     if (!selectedEvent || !selectedUrl) return;
     setLoading(true);
 
+    // 날짜 포맷팅
     const [s, e] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${s}T00:00:00+09:00`,
@@ -90,7 +94,7 @@ export default function InflowEnvironment() {
     };
 
     try {
-      // ── pie 데이터 ───────────────────────────────────────────
+      // ── Pie 데이터: 디바이스별 합계
       const devRes = await axios.get(
         `/api/analytics/${selectedEvent}/devices`,
         { params }
@@ -98,18 +102,18 @@ export default function InflowEnvironment() {
       const rawPie = Array.isArray(devRes.data) ? devRes.data : [];
       const allDevices = ['PC', 'Android', 'iOS'];
       setPieData(allDevices.map(dev => ({
-        name: dev,
+        name:  dev,
         value: rawPie.find(r => r.device_type === dev)?.count || 0,
       })));
 
-      // ── line 데이터 ──────────────────────────────────────────
+      // ── Line 데이터: 날짜별 디바이스별
       const lineRes = await axios.get(
         `/api/analytics/${selectedEvent}/devices-by-date`,
         { params }
       );
       const rawLine = Array.isArray(lineRes.data) ? lineRes.data : [];
 
-      // 전체 날짜 축 생성
+      // 날짜 축 생성
       const dates = [];
       let cursor = range[0].startOf('day');
       const last   = range[1].startOf('day');
@@ -118,6 +122,7 @@ export default function InflowEnvironment() {
         cursor = cursor.add(1, 'day');
       }
 
+      // 디바이스별 series 구성
       const series = allDevices.map(dev => ({
         name: dev,
         type: 'line',
@@ -136,9 +141,11 @@ export default function InflowEnvironment() {
     }
   }, [selectedEvent, selectedUrl, range]);
 
-  // 4) 초기/변경 시 자동 조회
+  // 4) 자동 조회 트리거
   useEffect(() => {
-    if (selectedEvent && selectedUrl) fetchData();
+    if (selectedEvent && selectedUrl) {
+      fetchData();
+    }
   }, [selectedEvent, selectedUrl, range, fetchData]);
 
   // ─── ECharts 옵션 ─────────────────────────────────────────────
@@ -180,7 +187,7 @@ export default function InflowEnvironment() {
   };
 
   const lineOption = {
-    title: { text: '일자별 유입 환경', left: 'center' },
+    title: { text: '일자별 디바이스 유입', left: 'center' },
     tooltip: { trigger: 'axis' },
     legend: {
       data: lineData.devices,
@@ -203,18 +210,18 @@ export default function InflowEnvironment() {
           style={{ width: '100%' }}
         >
           <Select
+            placeholder="이벤트 선택"
             options={events}
             value={selectedEvent}
             onChange={setSelectedEvent}
-            placeholder="이벤트 선택"
             style={{ width: isMobile ? '100%' : 200 }}
             allowClear
           />
           <Select
+            placeholder="페이지 선택"
             options={urls.map(u => ({ label: u, value: u }))}
             value={selectedUrl}
             onChange={setSelectedUrl}
-            placeholder="페이지 선택"
             style={{ width: isMobile ? '100%' : 240 }}
             allowClear
           />
@@ -223,17 +230,15 @@ export default function InflowEnvironment() {
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <DatePicker
                 value={range[0]}
-                onChange={date => setRange([date, range[1]])}
+                onChange={d => setRange([d, range[1]])}
                 disabledDate={d => minDate && d.isBefore(minDate, 'day')}
                 style={{ width: '100%' }}
-                placeholder="시작일"
               />
               <DatePicker
                 value={range[1]}
-                onChange={date => setRange([range[0], date])}
+                onChange={d => setRange([range[0], d])}
                 disabledDate={d => minDate && d.isBefore(minDate, 'day')}
                 style={{ width: '100%' }}
-                placeholder="종료일"
               />
             </Space>
           ) : (
@@ -272,6 +277,7 @@ export default function InflowEnvironment() {
         >
           <ReactECharts option={pieOption} style={{ height: isMobile ? 200 : 300 }} />
         </Card>
+
         <Card
           title="일자별 디바이스"
           loading={loading}

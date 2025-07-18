@@ -1,7 +1,7 @@
 // src/pages/Participation.jsx
 
 import React, { useEffect, useState, useMemo } from 'react';
-import axios from '../axios';              // ← 우리 axios 인스턴스 사용
+import axios from '../axios';              // ← axios 인스턴스 사용
 import {
   Select,
   DatePicker,
@@ -44,7 +44,7 @@ export default function Participation() {
 
   // 1) 마운트: 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`/api/events`)
+    axios.get('/api/events')
       .then(res => {
         const sorted = (res.data||[])
           .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
@@ -69,6 +69,7 @@ export default function Participation() {
       setUrls([]); setSelectedUrl(null); setMinDate(null);
       return;
     }
+
     axios.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
@@ -107,22 +108,26 @@ export default function Participation() {
       return message.warning('이벤트와 URL을 모두 선택해주세요.');
     }
     setLoading(true);
+
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
       const { data } = await axios.get(
         `/api/analytics/${selectedEvent}/clicks-by-date`,
-        { params: {
+        {
+          params: {
             start_date: `${start}T00:00:00+09:00`,
             end_date:   `${end}T23:59:59.999+09:00`,
             url:        selectedUrl,
-          }}
+          }
+        }
       );
       const raw = Array.isArray(data) ? data : [];
+      // 날짜별로 매핑, 누락된 날짜는 0으로 채움
       const filled = dates.map(d => {
         const r = raw.find(x => x.date === d) || {};
         return {
-          key:     d,
-          date:    d,
+          key:    d,
+          date:   d,
           product: r.product || 0,
           coupon:  r.coupon  || 0,
         };
@@ -167,7 +172,7 @@ export default function Participation() {
         >
           <Select
             placeholder="이벤트 선택"
-            options={events.map(e => ({ label: e.title, value: e._id }))}
+            options={events.map(e => ({ label: e.title||'(제목없음)', value: e._id }))}
             value={selectedEvent}
             onChange={setSelectedEvent}
             style={{
@@ -191,40 +196,29 @@ export default function Participation() {
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <DatePicker
                 value={range[0]}
-                onChange={date => setRange([date, range[1]])}
+                onChange={d => d && setRange([d, range[1]])}
                 format="YYYY-MM-DD"
+                disabledDate={d => minDate && d.isBefore(minDate,'day')}
+                style={{ width:'100%' }}
                 allowClear={false}
-                disabledDate={current =>
-                  minDate && current.isBefore(minDate, 'day')
-                }
-                style={{ width: '100%' }}
-                placeholder="시작일"
               />
               <DatePicker
                 value={range[1]}
-                onChange={date => setRange([range[0], date])}
+                onChange={d => d && setRange([range[0], d])}
                 format="YYYY-MM-DD"
+                disabledDate={d => minDate && d.isBefore(minDate,'day')}
+                style={{ width:'100%' }}
                 allowClear={false}
-                disabledDate={current =>
-                  minDate && current.isBefore(minDate, 'day')
-                }
-                style={{ width: '100%' }}
-                placeholder="종료일"
               />
             </Space>
           ) : (
             <RangePicker
               value={range}
-              format="YYYY-MM-DD"
               onChange={setRange}
+              format="YYYY-MM-DD"
+              disabledDate={d => minDate && d.isBefore(minDate,'day')}
+              style={{ width:280, minWidth:160 }}
               allowClear={false}
-              disabledDate={current =>
-                minDate && current.isBefore(minDate, 'day')
-              }
-              style={{
-                width: 280,
-                minWidth: 160,
-              }}
             />
           )}
 
@@ -240,7 +234,7 @@ export default function Participation() {
       }
     >
       {loading ? (
-        <Spin tip="로딩 중..." style={{ display: 'block', marginTop: 24 }} />
+        <Spin tip="로딩 중..." style={{ display:'block', marginTop:24 }} />
       ) : (
         <Table
           dataSource={stats}
