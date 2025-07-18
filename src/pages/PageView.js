@@ -11,10 +11,9 @@ import {
   message,
   Grid,
 } from 'antd';
-import api from '../axios';                 // 커스텀 axios 인스턴스
+import api from '../axios';                   // ← axios 인스턴스
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
@@ -23,11 +22,25 @@ const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
 export default function StatEventVisitors() {
-  // 1) mallId를 URL에서 받아옵니다
-  const { mallId } = useParams();
+  // ─── 1) mallId 결정 ───────────────────────────────────────────
+  const [mallId, setMallId] = useState(null);
+  useEffect(() => {
+    const params  = new URLSearchParams(window.location.search);
+    const q       = params.get('mall_id') || params.get('state') || params.get('mallId');
+    if (q) {
+      localStorage.setItem('mallId', q);
+      setMallId(q);
+    } else {
+      const stored = localStorage.getItem('mallId');
+      if (stored) setMallId(stored);
+      else message.error('mall_id 파라미터가 없습니다.');
+    }
+  }, []);
+
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
+  // ─── 상태 선언 ───────────────────────────────────────────────
   const [events, setEvents]                 = useState([]);
   const [selectedEvent, setSelectedEvent]   = useState(null);
 
@@ -40,7 +53,7 @@ export default function StatEventVisitors() {
   const [data, setData]                     = useState([]);
   const [loading, setLoading]               = useState(false);
 
-  // 2) 이벤트 목록 로드
+  // ─── 2) 이벤트 목록 로드 ───────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -62,12 +75,12 @@ export default function StatEventVisitors() {
         }
       })
       .catch(err => {
-        console.error('이벤트 목록 로드 에러', err);
+        console.error('이벤트 목록 로드 실패', err);
         message.error('이벤트 목록을 불러오지 못했습니다.');
       });
   }, [mallId]);
 
-  // 3) URL 목록 & 날짜 초기화
+  // ─── 3) URL 목록 & 날짜 초기화 ─────────────────────────────────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
@@ -81,10 +94,11 @@ export default function StatEventVisitors() {
         if (res.data?.length) setSelectedUrl(res.data[0]);
       })
       .catch(err => {
-        console.error('URL 목록 로드 에러', err);
+        console.error('URL 목록 로드 실패', err);
         message.error('URL 목록을 불러오지 못했습니다.');
       });
 
+    // 이벤트 생성일 기준으로 최소 날짜 세팅
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
       const start = dayjs(ev.createdAt);
@@ -93,14 +107,14 @@ export default function StatEventVisitors() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // 4) 통계 조회
+  // ─── 4) 통계 조회 함수 ─────────────────────────────────────────
   const fetchStats = async () => {
     if (!mallId || !selectedEvent) {
-      message.warning('이벤트를 선택해주세요');
+      message.warning('이벤트를 선택해주세요.');
       return;
     }
     if (!selectedUrl) {
-      message.warning('URL을 선택해주세요');
+      message.warning('URL을 선택해주세요.');
       return;
     }
 
@@ -118,39 +132,29 @@ export default function StatEventVisitors() {
         }
       );
 
-      const apiList = (res.data || []).map(o => ({
-        date:              o.date,
-        totalVisitors:     o.totalVisitors     || 0,
-        newVisitors:       o.newVisitors       || 0,
-        returningVisitors: o.returningVisitors || 0,
-        revisitRate:       o.revisitRate       || '0 %',
-      }));
-
-      // 전체 날짜 축 생성
+      // API 응답 가공 & 누락일 0으로 채우기
+      const raw = res.data || [];
+      const map  = new Map(raw.map(o => [o.date, o]));
       const days = [];
-      let cur = range[0].startOf('day'),
-          last = range[1].startOf('day');
+      let cur = range[0].startOf('day'), last = range[1].startOf('day');
       while (cur.isSameOrBefore(last, 'day')) {
         days.push(cur.format('YYYY-MM-DD'));
         cur = cur.add(1, 'day');
       }
-
-      // 누락 날짜 0으로 채우기
-      const lookup = new Map(apiList.map(o => [o.date, o]));
       const tableData = days.map(date => {
-        const row = lookup.get(date) || {
+        const o = map.get(date) || {};
+        return {
+          key: date,
           date,
-          totalVisitors:     0,
-          newVisitors:       0,
-          returningVisitors: 0,
-          revisitRate:       '0 %',
+          totalVisitors:     o.totalVisitors     || 0,
+          newVisitors:       o.newVisitors       || 0,
+          returningVisitors: o.returningVisitors || 0,
+          revisitRate:       o.revisitRate       || '0 %',
         };
-        return { key: date, ...row };
       });
-
       setData(tableData);
     } catch (err) {
-      console.error('통계 로드 에러', err);
+      console.error('통계 로드 실패', err);
       message.error('통계 데이터를 불러오지 못했습니다.');
       setData([]);
     } finally {
@@ -158,19 +162,19 @@ export default function StatEventVisitors() {
     }
   };
 
-  // 5) 자동 조회 트리거
+  // ─── 5) 자동 조회 트리거 ───────────────────────────────────────
   useEffect(() => {
-    if (selectedEvent && selectedUrl) {
+    if (mallId && selectedEvent && selectedUrl) {
       fetchStats();
     }
   }, [mallId, selectedEvent, selectedUrl, range]);
 
   const columns = [
-    { title: '날짜',         dataIndex: 'date',              key: 'date' },
-    { title: '총 방문자',    dataIndex: 'totalVisitors',     key: 'totalVisitors',     align: 'right' },
-    { title: '신규 방문자',  dataIndex: 'newVisitors',       key: 'newVisitors',       align: 'right' },
-    { title: '재방문자',     dataIndex: 'returningVisitors', key: 'returningVisitors', align: 'right' },
-    { title: '재방문 비율',  dataIndex: 'revisitRate',       key: 'revisitRate',       align: 'right' },
+    { title: '날짜',        dataIndex: 'date',              key: 'date' },
+    { title: '총 방문자',   dataIndex: 'totalVisitors',     key: 'totalVisitors',     align: 'right' },
+    { title: '신규 방문자', dataIndex: 'newVisitors',       key: 'newVisitors',       align: 'right' },
+    { title: '재방문자',    dataIndex: 'returningVisitors', key: 'returningVisitors', align: 'right' },
+    { title: '재방문 비율', dataIndex: 'revisitRate',       key: 'revisitRate',       align: 'right' },
   ];
 
   return (
