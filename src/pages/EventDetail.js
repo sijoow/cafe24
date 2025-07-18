@@ -179,7 +179,7 @@ export default function EventDetail() {
   
     // 4) widget.js 스크립트 태그 (쿠폰만 전역으로)
     const scriptAttrs = [
-      `src="${API_BASE}/api/${mallId}/widget.js"`,
+      `src="${API_BASE}/widget.js"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${tabs.length}"`,
