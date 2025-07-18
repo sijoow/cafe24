@@ -60,8 +60,14 @@ export default function PrdData() {
           }
         }
       );
-      // res.data should be [{ productNo, clicks }, ...]
-      setData(res.data);
+
+      // res.data is [{ productNo, clickCount }, ...]
+      // map it to { productNo, clicks } so Table can use 'clicks'
+      const mapped = res.data.map(item => ({
+        productNo: item.productNo,
+        clicks:    item.clickCount
+      }));
+      setData(mapped);
     } catch (err) {
       console.error('[PRODUCT CLICKS ERROR]', err);
       message.error('상품 클릭 순위 조회 실패');
