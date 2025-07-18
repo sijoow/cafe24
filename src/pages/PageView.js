@@ -11,7 +11,7 @@ import {
   message,
   Grid,
 } from 'antd';
-import api from '../axios';                   // ← axios 인스턴스
+import api from '../axios';                // ← axios 인스턴스 사용
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import './NormalSection.css';
@@ -21,7 +21,7 @@ dayjs.extend(isSameOrBefore);
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
-export default function StatEventVisitors() {
+export default function PageView() {
   // ─── 1) mallId 결정 ───────────────────────────────────────────
   const [mallId, setMallId] = useState(null);
   useEffect(() => {
@@ -32,18 +32,15 @@ export default function StatEventVisitors() {
       setMallId(q);
     } else {
       const stored = localStorage.getItem('mallId');
-      if (stored) {
-        setMallId(stored);
-      } else {
-        message.error('mall_id 파라미터가 없습니다.');
-      }
+      if (stored) setMallId(stored);
+      else message.error('mall_id 파라미터가 없습니다.');
     }
   }, []);
 
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  // ─── 2) 컴포넌트 상태 선언 ───────────────────────────────────────
+  // ─── 2) 상태 선언 ─────────────────────────────────────────────
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -56,16 +53,16 @@ export default function StatEventVisitors() {
   const [data, setData]                   = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // ─── 3) 이벤트 목록 로드 ────────────────────────────────────────
+  // ─── 3) 이벤트 목록 로드 ─────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
       .then(res => {
         const opts = (res.data || [])
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
           .map(ev => ({
-            label: ev.title || '(제목없음)',
-            value: ev._id,
+            label:     ev.title || '(제목없음)',
+            value:     ev._id,
             createdAt: ev.createdAt,
           }));
         setEvents(opts);
@@ -83,7 +80,7 @@ export default function StatEventVisitors() {
       });
   }, [mallId]);
 
-  // ─── 4) URL 목록 & 날짜 초기화 ─────────────────────────────────
+  // ─── 4) URL 목록 & 날짜 초기화 ────────────────────────────────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
@@ -93,15 +90,16 @@ export default function StatEventVisitors() {
     }
     api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
-        setUrls(res.data || []);
-        if (res.data?.length) setSelectedUrl(res.data[0]);
+        const list = res.data || [];
+        setUrls(list);
+        setSelectedUrl(list[0] || null);
       })
       .catch(err => {
         console.error('URL 목록 로드 실패', err);
         message.error('URL 목록을 불러오지 못했습니다.');
       });
 
-    // 이벤트 생성일 기준 최소 날짜 세팅
+    // 이벤트 생성일 기준 최소 날짜도 재설정
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
       const start = dayjs(ev.createdAt);
@@ -110,7 +108,7 @@ export default function StatEventVisitors() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // ─── 5) 통계 조회 함수 ─────────────────────────────────────────
+  // ─── 5) 통계 조회 함수 ────────────────────────────────────────
   const fetchStats = async () => {
     if (!mallId || !selectedEvent) {
       message.warning('이벤트를 선택해주세요.');
@@ -135,11 +133,11 @@ export default function StatEventVisitors() {
         }
       );
 
-      // API 응답 가공 & 누락일 0으로 채우기
+      // 누락일 0으로 채우기
       const raw = res.data || [];
       const map = new Map(raw.map(o => [o.date, o]));
       const days = [];
-      let cur = range[0].startOf('day'), last = range[1].startOf('day');
+      let cur  = range[0].startOf('day'), last = range[1].startOf('day');
       while (cur.isSameOrBefore(last, 'day')) {
         days.push(cur.format('YYYY-MM-DD'));
         cur = cur.add(1, 'day');
@@ -165,7 +163,7 @@ export default function StatEventVisitors() {
     }
   };
 
-  // ─── 6) 자동 조회 트리거 ───────────────────────────────────────
+  // ─── 6) 자동 조회 트리거 ─────────────────────────────────────
   useEffect(() => {
     if (mallId && selectedEvent && selectedUrl) {
       fetchStats();
@@ -184,39 +182,40 @@ export default function StatEventVisitors() {
     <Card
       title="이벤트 방문자 통계 (일별)"
       extra={
-        <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width: '100%' } : undefined}>
+        <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width:'100%' } : undefined}>
           <Select
             placeholder="이벤트 선택"
             options={events}
             value={selectedEvent}
             onChange={setSelectedEvent}
             allowClear
-            style={{ width: isMobile ? '100%' : 200, minWidth: 120 }}
+            style={{ width: isMobile ? '100%' : 200, minWidth:120 }}
           />
           <Select
             placeholder="URL 선택"
-            options={urls.map(u => ({ label: u, value: u }))}
+            options={urls.map(u=>({ label:u, value:u }))}
             value={selectedUrl}
             onChange={setSelectedUrl}
             allowClear
-            style={{ width: isMobile ? '100%' : 240, minWidth: 120 }}
+            style={{ width: isMobile ? '100%' : 240, minWidth:120 }}
           />
+
           {isMobile ? (
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space direction="vertical" size="small" style={{ width:'100%' }}>
               <DatePicker
                 value={range[0]}
                 format="YYYY-MM-DD"
-                onChange={d => d && setRange([d, range[1]])}
-                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
-                style={{ width: '100%' }}
+                onChange={d=>d&&setRange([d,range[1]])}
+                disabledDate={d=>minDate&&d.isBefore(minDate,'day')}
+                style={{ width:'100%' }}
                 allowClear={false}
               />
               <DatePicker
                 value={range[1]}
                 format="YYYY-MM-DD"
-                onChange={d => d && setRange([range[0], d])}
-                disabledDate={d => minDate && d.isBefore(minDate, 'day')}
-                style={{ width: '100%' }}
+                onChange={d=>d&&setRange([range[0],d])}
+                disabledDate={d=>minDate&&d.isBefore(minDate,'day')}
+                style={{ width:'100%' }}
                 allowClear={false}
               />
             </Space>
@@ -225,21 +224,17 @@ export default function StatEventVisitors() {
               value={range}
               format="YYYY-MM-DD"
               onChange={setRange}
-              disabledDate={d => minDate && d.isBefore(minDate, 'day')}
-              style={{ width: 280, minWidth: 160 }}
+              disabledDate={d=>minDate&&d.isBefore(minDate,'day')}
+              style={{ width:280, minWidth:160 }}
             />
           )}
-          <Button
-            type="primary"
-            loading={loading}
-            onClick={fetchStats}
-            block={isMobile}
-          >
+
+          <Button type="primary" loading={loading} onClick={fetchStats} block={isMobile}>
             조회
           </Button>
         </Space>
       }
-      style={{ width: '100%', maxWidth: 1700, margin: '0 auto' }}
+      style={{ width:'100%', maxWidth:1700, margin:'0 auto' }}
       bodyStyle={{ padding: isMobile ? 12 : 24 }}
     >
       <Table
@@ -248,10 +243,9 @@ export default function StatEventVisitors() {
         loading={loading}
         pagination={false}
         bordered
-        locale={{ emptyText: '조회된 데이터가 없습니다.' }}
+        locale={{ emptyText:'조회된 데이터가 없습니다.' }}
         scroll={{ x: isMobile ? 'max-content' : undefined }}
       />
     </Card>
   );
 }
-
