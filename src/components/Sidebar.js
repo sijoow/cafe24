@@ -64,6 +64,10 @@ export default function Sidebar({ collapsed, onToggle }) {
            <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
             <Link to="/stats/environment">유입 환경</Link>
           </Menu.Item>
+          <Menu.Item key="stats:prddata">
+            <Link to="/stats/prddata">상품 클릭데이터</Link>
+          </Menu.Item>
+
         </Menu.ItemGroup>
       </Menu>
     </div>

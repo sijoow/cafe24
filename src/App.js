@@ -26,6 +26,8 @@ import OverlayLayout from './components/OverLayout';
 //리다이렉트 페이지
 import Redirect from './pages/Redirect'
 import Admin    from './pages/Admin';
+import PrdData from './pages/PrdData';
+
 const { Sider, Content } = AntLayout;
 const { useBreakpoint } = Grid;
 
@@ -53,6 +55,8 @@ export default function App() {
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
+          <Route path="stats/prddata"  element={<PrdData />} />
+
           <Route path="admin" element={<Admin    />} />
           
           <Route path="*" element={<Dashboard />} />
