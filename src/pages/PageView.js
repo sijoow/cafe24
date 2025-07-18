@@ -25,35 +25,38 @@ export default function StatEventVisitors() {
   // ─── 1) mallId 결정 ───────────────────────────────────────────
   const [mallId, setMallId] = useState(null);
   useEffect(() => {
-    const params  = new URLSearchParams(window.location.search);
-    const q       = params.get('mall_id') || params.get('state') || params.get('mallId');
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('mall_id') || params.get('state') || params.get('mallId');
     if (q) {
       localStorage.setItem('mallId', q);
       setMallId(q);
     } else {
       const stored = localStorage.getItem('mallId');
-      if (stored) setMallId(stored);
-      else message.error('mall_id 파라미터가 없습니다.');
+      if (stored) {
+        setMallId(stored);
+      } else {
+        message.error('mall_id 파라미터가 없습니다.');
+      }
     }
   }, []);
 
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  // ─── 상태 선언 ───────────────────────────────────────────────
-  const [events, setEvents]                 = useState([]);
-  const [selectedEvent, setSelectedEvent]   = useState(null);
+  // ─── 2) 컴포넌트 상태 선언 ───────────────────────────────────────
+  const [events, setEvents]               = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
-  const [urls, setUrls]                     = useState([]);
-  const [selectedUrl, setSelectedUrl]       = useState(null);
+  const [urls, setUrls]                   = useState([]);
+  const [selectedUrl, setSelectedUrl]     = useState(null);
 
-  const [range, setRange]                   = useState([dayjs().subtract(7, 'day'), dayjs()]);
-  const [minDate, setMinDate]               = useState(null);
+  const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
+  const [minDate, setMinDate]             = useState(null);
 
-  const [data, setData]                     = useState([]);
-  const [loading, setLoading]               = useState(false);
+  const [data, setData]                   = useState([]);
+  const [loading, setLoading]             = useState(false);
 
-  // ─── 2) 이벤트 목록 로드 ───────────────────────────────────────
+  // ─── 3) 이벤트 목록 로드 ────────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -61,8 +64,8 @@ export default function StatEventVisitors() {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .map(ev => ({
-            label:     ev.title || '(제목없음)',
-            value:     ev._id,
+            label: ev.title || '(제목없음)',
+            value: ev._id,
             createdAt: ev.createdAt,
           }));
         setEvents(opts);
@@ -80,7 +83,7 @@ export default function StatEventVisitors() {
       });
   }, [mallId]);
 
-  // ─── 3) URL 목록 & 날짜 초기화 ─────────────────────────────────
+  // ─── 4) URL 목록 & 날짜 초기화 ─────────────────────────────────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
@@ -98,7 +101,7 @@ export default function StatEventVisitors() {
         message.error('URL 목록을 불러오지 못했습니다.');
       });
 
-    // 이벤트 생성일 기준으로 최소 날짜 세팅
+    // 이벤트 생성일 기준 최소 날짜 세팅
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
       const start = dayjs(ev.createdAt);
@@ -107,7 +110,7 @@ export default function StatEventVisitors() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // ─── 4) 통계 조회 함수 ─────────────────────────────────────────
+  // ─── 5) 통계 조회 함수 ─────────────────────────────────────────
   const fetchStats = async () => {
     if (!mallId || !selectedEvent) {
       message.warning('이벤트를 선택해주세요.');
@@ -134,7 +137,7 @@ export default function StatEventVisitors() {
 
       // API 응답 가공 & 누락일 0으로 채우기
       const raw = res.data || [];
-      const map  = new Map(raw.map(o => [o.date, o]));
+      const map = new Map(raw.map(o => [o.date, o]));
       const days = [];
       let cur = range[0].startOf('day'), last = range[1].startOf('day');
       while (cur.isSameOrBefore(last, 'day')) {
@@ -162,7 +165,7 @@ export default function StatEventVisitors() {
     }
   };
 
-  // ─── 5) 자동 조회 트리거 ───────────────────────────────────────
+  // ─── 6) 자동 조회 트리거 ───────────────────────────────────────
   useEffect(() => {
     if (mallId && selectedEvent && selectedUrl) {
       fetchStats();
