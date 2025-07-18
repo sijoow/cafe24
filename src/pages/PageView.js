@@ -11,9 +11,10 @@ import {
   message,
   Grid,
 } from 'antd';
-import axios from '../axios';                // ← axios 인스턴스 사용
+import api from '../axios';                // ← 커스텀 axios 인스턴스
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
@@ -22,24 +23,27 @@ const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
 export default function StatEventVisitors() {
+  // ① mallId를 URL 파라미터로 받아옵니다
+  const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  const [events, setEvents]             = useState([]);
+  const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
-  const [urls, setUrls]                 = useState([]);
-  const [selectedUrl, setSelectedUrl]   = useState(null);
+  const [urls, setUrls]                   = useState([]);
+  const [selectedUrl, setSelectedUrl]     = useState(null);
 
-  const [range, setRange]               = useState([dayjs().subtract(7, 'day'), dayjs()]);
-  const [minDate, setMinDate]           = useState(null);
+  const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
+  const [minDate, setMinDate]             = useState(null);
 
-  const [data, setData]                 = useState([]);
-  const [loading, setLoading]           = useState(false);
+  const [data, setData]                   = useState([]);
+  const [loading, setLoading]             = useState(false);
 
   // 1) 이벤트 목록 로드
   useEffect(() => {
-    axios.get('/api/events')
+    if (!mallId) return;
+    api.get(`/api/${mallId}/events`)
       .then(res => {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -58,17 +62,17 @@ export default function StatEventVisitors() {
         }
       })
       .catch(() => message.error('이벤트 목록 불러오기 실패'));
-  }, []);
+  }, [mallId]);
 
   // 2) URL 목록 및 날짜 초기화
   useEffect(() => {
-    if (!selectedEvent) {
+    if (!mallId || !selectedEvent) {
       setUrls([]);
       setSelectedUrl(null);
       setMinDate(null);
       return;
     }
-    axios.get(`/api/analytics/${selectedEvent}/urls`)
+    api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         setUrls(res.data || []);
         if (res.data?.length) setSelectedUrl(res.data[0]);
@@ -81,11 +85,11 @@ export default function StatEventVisitors() {
       setMinDate(start);
       setRange([start, dayjs()]);
     }
-  }, [selectedEvent, events]);
+  }, [mallId, selectedEvent, events]);
 
   // 3) 통계 조회 함수
   const fetchStats = async () => {
-    if (!selectedEvent) {
+    if (!mallId || !selectedEvent) {
       message.warning('이벤트를 선택하세요');
       return;
     }
@@ -97,8 +101,8 @@ export default function StatEventVisitors() {
     setLoading(true);
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
-      const res = await axios.get(
-        `/api/analytics/${selectedEvent}/visitors-by-date`,
+      const res = await api.get(
+        `/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`,
         {
           params: {
             start_date: `${start}T00:00:00+09:00`,
@@ -154,14 +158,14 @@ export default function StatEventVisitors() {
     if (selectedEvent && selectedUrl) {
       fetchStats();
     }
-  }, [selectedEvent, selectedUrl, range]);
+  }, [mallId, selectedEvent, selectedUrl, range]);
 
   const columns = [
-    { title: '날짜',         dataIndex: 'date',               key: 'date' },
-    { title: '총 방문자',    dataIndex: 'totalVisitors',      key: 'totalVisitors',      align: 'right' },
-    { title: '신규 방문자',  dataIndex: 'newVisitors',        key: 'newVisitors',        align: 'right' },
-    { title: '재방문자',     dataIndex: 'returningVisitors',  key: 'returningVisitors',  align: 'right' },
-    { title: '재방문 비율',  dataIndex: 'revisitRate',        key: 'revisitRate',        align: 'right' },
+    { title: '날짜',         dataIndex: 'date',              key: 'date' },
+    { title: '총 방문자',    dataIndex: 'totalVisitors',     key: 'totalVisitors',     align: 'right' },
+    { title: '신규 방문자',  dataIndex: 'newVisitors',       key: 'newVisitors',       align: 'right' },
+    { title: '재방문자',     dataIndex: 'returningVisitors', key: 'returningVisitors', align: 'right' },
+    { title: '재방문 비율',  dataIndex: 'revisitRate',       key: 'revisitRate',       align: 'right' },
   ];
 
   return (
@@ -226,8 +230,8 @@ export default function StatEventVisitors() {
         dataSource={data}
         loading={loading}
         pagination={false}
-        locale={{ emptyText: '조회된 데이터가 없습니다.' }}
         bordered
+        locale={{ emptyText: '조회된 데이터가 없습니다.' }}
         scroll={{ x: isMobile ? 'max-content' : undefined }}
       />
     </Card>
