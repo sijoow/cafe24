@@ -21,9 +21,9 @@ dayjs.extend(isSameOrBefore);
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
-export default function PageView() {
+export default function StatEventVisitors() {
   // ─── 1) mallId 결정 ───────────────────────────────────────────
-  const { mallId } = useParams();
+  const [mallId, setMallId] = useState(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('mall_id') || params.get('state') || params.get('mallId');
