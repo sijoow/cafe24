@@ -11,7 +11,7 @@ import {
   message,
   Grid,
 } from 'antd';
-import api from '../axios';                // ← axios 인스턴스 사용
+import api from '../axios';                // ← axios 인스턴스
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import './NormalSection.css';
@@ -22,7 +22,7 @@ const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
 export default function PageView() {
-  // ─── 1) mallId 결정 ───────────────────────────────────────────
+  // ─── 1) mallId 결정 ───────────────────────────────
   const [mallId, setMallId] = useState(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,7 +40,7 @@ export default function PageView() {
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
-  // ─── 2) 상태 선언 ─────────────────────────────────────────────
+  // ─── 2) 상태 선언 ───────────────────────────────────
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -53,7 +53,7 @@ export default function PageView() {
   const [data, setData]                   = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // ─── 3) 이벤트 목록 로드 ─────────────────────────────────────
+  // ─── 3) 이벤트 목록 로드 ───────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -80,7 +80,7 @@ export default function PageView() {
       });
   }, [mallId]);
 
-  // ─── 4) URL 목록 & 날짜 초기화 ────────────────────────────────
+  // ─── 4) URL 목록 & 날짜 초기화 ────────────────────────────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
@@ -99,7 +99,7 @@ export default function PageView() {
         message.error('URL 목록을 불러오지 못했습니다.');
       });
 
-    // 이벤트 생성일 기준 최소 날짜도 재설정
+    // 이벤트 생성일 기준 최소 날짜도 리셋
     const ev = events.find(e => e.value === selectedEvent);
     if (ev) {
       const start = dayjs(ev.createdAt);
@@ -108,21 +108,22 @@ export default function PageView() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // ─── 5) 통계 조회 함수 ────────────────────────────────────────
+  // ─── 5) 방문자 통계 조회 ───────────────────────────────────
   const fetchStats = async () => {
     if (!mallId || !selectedEvent) {
-      message.warning('이벤트를 선택해주세요.');
+      message.warning('이벤트를 선택하세요');
       return;
     }
     if (!selectedUrl) {
-      message.warning('URL을 선택해주세요.');
+      message.warning('URL을 선택하세요');
       return;
     }
 
     setLoading(true);
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
-      const res = await api.get(
+      // 5-1) 방문자 by date
+      const visRes = await api.get(
         `/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`,
         {
           params: {
@@ -132,18 +133,20 @@ export default function PageView() {
           },
         }
       );
+      const raw = Array.isArray(visRes.data) ? visRes.data : [];
 
-      // 누락일 0으로 채우기
-      const raw = res.data || [];
-      const map = new Map(raw.map(o => [o.date, o]));
+      // 5-2) 빈 날짜 0으로 채우기
+      const lookup = new Map(raw.map(o => [o.date, o]));
       const days = [];
-      let cur  = range[0].startOf('day'), last = range[1].startOf('day');
+      let cur = range[0].startOf('day'),
+          last = range[1].startOf('day');
       while (cur.isSameOrBefore(last, 'day')) {
         days.push(cur.format('YYYY-MM-DD'));
         cur = cur.add(1, 'day');
       }
+
       const tableData = days.map(date => {
-        const o = map.get(date) || {};
+        const o = lookup.get(date) || {};
         return {
           key: date,
           date,
@@ -153,6 +156,7 @@ export default function PageView() {
           revisitRate:       o.revisitRate       || '0 %',
         };
       });
+
       setData(tableData);
     } catch (err) {
       console.error('통계 로드 실패', err);
@@ -163,7 +167,7 @@ export default function PageView() {
     }
   };
 
-  // ─── 6) 자동 조회 트리거 ─────────────────────────────────────
+  // ─── 6) 자동/수동 조회 트리거 ───────────────────────────────
   useEffect(() => {
     if (mallId && selectedEvent && selectedUrl) {
       fetchStats();
@@ -193,7 +197,7 @@ export default function PageView() {
           />
           <Select
             placeholder="URL 선택"
-            options={urls.map(u=>({ label:u, value:u }))}
+            options={urls.map(u => ({ label:u, value:u }))}
             value={selectedUrl}
             onChange={setSelectedUrl}
             allowClear
