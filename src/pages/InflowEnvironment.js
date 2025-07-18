@@ -10,23 +10,18 @@ import {
   message,
   Grid,
 } from 'antd';
-import axios from 'axios';
+import axios from '../axios';              // ← 커스텀 axios 인스턴스
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
-const API_BASE =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function InflowEnvironment() {
-  const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
@@ -42,7 +37,7 @@ export default function InflowEnvironment() {
 
   // 1) 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`${API_BASE}/api/${mallId}/events`)
+    axios.get('/api/events')
       .then(res => {
         const opts = (res.data || [])
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -61,12 +56,12 @@ export default function InflowEnvironment() {
         }
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
-  }, [mallId]);
+  }, []);
 
   // 2) selectedEvent 변경 시 URL & 날짜 초기화
   useEffect(() => {
     if (!selectedEvent) return;
-    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -80,23 +75,25 @@ export default function InflowEnvironment() {
       setMinDate(start);
       setRange([start, dayjs()]);
     }
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
   // 3) 데이터 조회
   const fetchData = useCallback(async () => {
     if (!selectedEvent || !selectedUrl) return;
     setLoading(true);
+
     const [s, e] = range.map(d => d.format('YYYY-MM-DD'));
     const params = {
       start_date: `${s}T00:00:00+09:00`,
       end_date:   `${e}T23:59:59.999+09:00`,
       url:        selectedUrl,
     };
+
     try {
-      // pie 데이터
+      // ── pie 데이터 ───────────────────────────────────────────
       const devRes = await axios.get(
-        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices`,
-        { params },
+        `/api/analytics/${selectedEvent}/devices`,
+        { params }
       );
       const rawPie = Array.isArray(devRes.data) ? devRes.data : [];
       const allDevices = ['PC', 'Android', 'iOS'];
@@ -105,10 +102,10 @@ export default function InflowEnvironment() {
         value: rawPie.find(r => r.device_type === dev)?.count || 0,
       })));
 
-      // line 데이터
+      // ── line 데이터 ──────────────────────────────────────────
       const lineRes = await axios.get(
-        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,
-        { params },
+        `/api/analytics/${selectedEvent}/devices-by-date`,
+        { params }
       );
       const rawLine = Array.isArray(lineRes.data) ? lineRes.data : [];
 
@@ -120,6 +117,7 @@ export default function InflowEnvironment() {
         dates.push(cursor.format('YYYY-MM-DD'));
         cursor = cursor.add(1, 'day');
       }
+
       const series = allDevices.map(dev => ({
         name: dev,
         type: 'line',
@@ -128,6 +126,7 @@ export default function InflowEnvironment() {
           return rec ? rec.count : 0;
         }),
       }));
+
       setLineData({ dates, devices: allDevices, series });
     } catch (err) {
       console.error(err);
@@ -135,13 +134,14 @@ export default function InflowEnvironment() {
     } finally {
       setLoading(false);
     }
-  }, [mallId, selectedEvent, selectedUrl, range]);
+  }, [selectedEvent, selectedUrl, range]);
 
+  // 4) 초기/변경 시 자동 조회
   useEffect(() => {
     if (selectedEvent && selectedUrl) fetchData();
   }, [selectedEvent, selectedUrl, range, fetchData]);
 
-  // 4) 차트 옵션
+  // ─── ECharts 옵션 ─────────────────────────────────────────────
   const pieOption = {
     title: {
       text: '유입 환경 (디바이스)',
@@ -167,7 +167,7 @@ export default function InflowEnvironment() {
       radius: isMobile ? ['30%', '50%'] : ['40%', '60%'],
       center: isMobile ? ['50%', '45%'] : ['40%', '50%'],
       avoidLabelOverlap: true,
-      label: { show: false, position: 'outside' },
+      label: { show: false },
       emphasis: {
         label: {
           show: true,

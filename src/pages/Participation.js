@@ -1,7 +1,7 @@
 // src/pages/Participation.jsx
 
 import React, { useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../axios';              // ← 우리 axios 인스턴스 사용
 import {
   Select,
   DatePicker,
@@ -15,19 +15,14 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { useParams } from 'react-router-dom';
 import './NormalSection.css';
 
 dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
-const API_BASE =
-  process.env.REACT_APP_API_BASE_URL ||
-  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function Participation() {
-  const { mallId } = useParams();
   const screens = useBreakpoint();
   const isMobile = screens.sm === false;
 
@@ -49,7 +44,7 @@ export default function Participation() {
 
   // 1) 마운트: 이벤트 목록 로드
   useEffect(() => {
-    axios.get(`${API_BASE}/api/${mallId}/events`)
+    axios.get(`/api/events`)
       .then(res => {
         const sorted = (res.data||[])
           .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
@@ -66,7 +61,7 @@ export default function Participation() {
         console.error('[EVENTS LOAD ERROR]', err);
         message.error('이벤트 목록 로드 실패');
       });
-  }, [mallId]);
+  }, []);
 
   // 2) 이벤트 변경 시 URL & 날짜 리셋
   useEffect(() => {
@@ -74,7 +69,7 @@ export default function Participation() {
       setUrls([]); setSelectedUrl(null); setMinDate(null);
       return;
     }
-    axios.get(`${API_BASE}/api/${mallId}/analytics/${selectedEvent}/urls`)
+    axios.get(`/api/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
         setUrls(list);
@@ -92,7 +87,7 @@ export default function Participation() {
       setMinDate(start);
       setRange([start, dayjs()]);
     }
-  }, [mallId, selectedEvent, events]);
+  }, [selectedEvent, events]);
 
   // 3) 날짜 배열 생성
   const dates = useMemo(() => {
@@ -115,7 +110,7 @@ export default function Participation() {
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
     try {
       const { data } = await axios.get(
-        `${API_BASE}/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
+        `/api/analytics/${selectedEvent}/clicks-by-date`,
         { params: {
             start_date: `${start}T00:00:00+09:00`,
             end_date:   `${end}T23:59:59.999+09:00`,
@@ -168,7 +163,7 @@ export default function Participation() {
         <Space
           wrap
           size={isMobile ? 'small' : 'middle'}
-          style={{ width: isMobile ? '100%' : 'auto' }}
+          style={{ width: isMobile ? '100%' : undefined }}
         >
           <Select
             placeholder="이벤트 선택"
