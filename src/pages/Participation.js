@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Select, Button, Table, Card, Space, message, Spin, Grid, DatePicker } from 'antd';
+import moment from 'moment';
 import api from '../axios';
 
 const { useBreakpoint } = Grid;
@@ -19,14 +20,14 @@ export default function Participation() {
   // 이벤트 상세에서 뽑아낸 쿠폰 번호 배열
   const [couponNos, setCouponNos] = useState([]);
 
-  // 날짜 범위 (["YYYY-MM-DD", "YYYY-MM-DD"])
-  const [dateRange, setDateRange] = useState([]);
+  // 날짜 범위 (moment 객체 두 개)
+  const [dateRange, setDateRange] = useState([ moment(), moment() ]);
 
   // 통계 데이터 & 로딩
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ─── 이벤트 목록 로드 ───────────────────────────────────────────
+  // ─── 1) 이벤트 목록 로드 ─────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -35,17 +36,21 @@ export default function Participation() {
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
         setEvents(evs);
-        setSelectedEvent(evs[0]?._id || null);
+        if (evs[0]) {
+          setSelectedEvent(evs[0]._id);
+        }
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ─── 선택된 이벤트 상세에서 couponNos 뽑기 ────────────────────────
+  // ─── 2) selectedEvent 바뀔 때마다: couponNos, dateRange 세팅 ───────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
       return;
     }
+
+    // 2-1) 이벤트 상세에서 coupon 배열 뽑기
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         const ev = res.data;
@@ -65,9 +70,16 @@ export default function Participation() {
         message.error('이벤트 상세 로드 실패');
         setCouponNos([]);
       });
-  }, [mallId, selectedEvent]);
 
-  // ─── 통계 조회 ─────────────────────────────────────────────────
+    // 2-2) 해당 이벤트의 생성일자 → dateRange 기본값 세팅
+    const ev = events.find(e => e._id === selectedEvent);
+    const start = ev
+      ? moment(ev.createdAt)
+      : moment();           // 혹시 못 찾으면 오늘로
+    setDateRange([ start, moment() ]);
+  }, [mallId, selectedEvent, events]);
+
+  // ─── 3) 통계 조회 함수 ────────────────────────────────────────
   const fetchStats = () => {
     if (!selectedEvent) {
       return message.warning('게시판을 선택해주세요.');
@@ -80,11 +92,12 @@ export default function Participation() {
     }
 
     setLoading(true);
-    // build query string
+
+    const [ start, end ] = dateRange;
     const params = new URLSearchParams({
       coupon_no: couponNos.join(','),
-      start_date: dateRange[0],
-      end_date:   dateRange[1]
+      start_date: start.format('YYYY-MM-DD'),
+      end_date:   end.format('YYYY-MM-DD')
     }).toString();
 
     api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${params}`)
@@ -106,6 +119,7 @@ export default function Participation() {
         size="middle"
         style={{ marginBottom: 16, flexWrap: 'wrap' }}
       >
+        {/* 게시판 선택 */}
         <Select
           placeholder="게시판 선택"
           options={events.map(e => ({
@@ -117,12 +131,15 @@ export default function Participation() {
           style={{ width: isMobile ? '100%' : 240 }}
         />
 
+        {/* 시작일 ~ 종료일: RangePicker */}
         <RangePicker
           style={{ width: isMobile ? '100%' : 280 }}
-          onChange={(_, dateStrings) => setDateRange(dateStrings)}
+          value={dateRange}
+          onChange={dates => setDateRange(dates)}
           allowClear={false}
         />
 
+        {/* 조회 버튼 */}
         <Button
           type="primary"
           onClick={fetchStats}
