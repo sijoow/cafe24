@@ -59,10 +59,10 @@ export default function Participation() {
   }, [mallId]);
 
   // 2) URL / 쿠폰 목록
-  const [urls, setUrls]                         = useState([]);
-  const [selectedUrls, setSelectedUrls]         = useState([]);
-  const [coupons, setCoupons]                   = useState([]);
-  const [selectedCoupons, setSelectedCoupons]   = useState([]);
+  const [urls, setUrls]                       = useState([]);
+  const [selectedUrls, setSelectedUrls]       = useState([]);
+  const [coupons, setCoupons]                 = useState([]);
+  const [selectedCoupons, setSelectedCoupons] = useState([]);
 
   // 3) 날짜 범위
   const [range, setRange]     = useState([dayjs().subtract(7,'day'), dayjs()]);
@@ -81,7 +81,7 @@ export default function Participation() {
       return;
     }
 
-    // 5-a) 이벤트 설정에서 URL 추출
+    // 5-a) 이벤트 설정에서 URL 영역(href)만 꺼내오기
     api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         setUrls(res.data);
@@ -92,10 +92,10 @@ export default function Participation() {
         setUrls([]); setSelectedUrls([]);
       });
 
-    // 5-b) 해당 이벤트에서 클릭된 distinct 쿠폰번호 → 전체 쿠폰 API에서 이름 매칭
+    // 5-b) 클릭된 distinct 쿠폰번호 -> 전체 쿠폰에서 이름 매핑
     api.get(`/api/${mallId}/analytics/${selectedEvent}/coupons-distinct`)
       .then(async res => {
-        const nos = res.data; // [1001,1002,...]
+        const nos = res.data; // ex: [1001,1002,...]
         if (!nos.length) {
           setCoupons([]); setSelectedCoupons([]);
           return;
@@ -108,7 +108,7 @@ export default function Participation() {
             value: c.coupon_no
           }));
         setCoupons(list);
-        setSelectedCoupons(list.map(x=>x.value)); // 전체 선택
+        setSelectedCoupons(list.map(x => x.value)); // 전체 선택
       })
       .catch(() => {
         message.error('쿠폰 목록 로드 실패');
@@ -136,55 +136,55 @@ export default function Participation() {
     return arr;
   }, [range]);
 
-// (7) 통계 조회 함수
-const fetchStats = async (type) => {
-  if (!selectedEvent) return message.warning('게시판(이벤트)을 선택해주세요.');
-  setLoading(true);
+  // 7) 통계 조회 함수
+  const fetchStats = async (type) => {
+    if (!selectedEvent) return message.warning('게시판(이벤트)을 선택해주세요.');
+    setLoading(true);
 
-  const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
-  try {
-    const params = {
-      start_date: `${start}T00:00:00+09:00`,
-      end_date:   `${end  }T23:59:59.999+09:00`
-    };
-    if (type === 'url' && selectedUrls.length) {
-      params.url = selectedUrls.join(',');
-    }
-    if (type === 'coupon' && selectedCoupons.length) {
-      params.coupon_no = selectedCoupons.join(',');
-    }
+    const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
+    try {
+      const params = {
+        start_date: `${start}T00:00:00+09:00`,
+        end_date:   `${end  }T23:59:59.999+09:00`
+      };
+      if (type === 'url' && selectedUrls.length) {
+        params.url = selectedUrls.join(',');
+      }
+      if (type === 'coupon' && selectedCoupons.length) {
+        params.coupon_no = selectedCoupons.join(',');
+      }
 
-    const { data: raw } = await api.get(
-      `/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
-      { params }
-    );
-    // raw: [{ date, data:{ key1:count1, key2:count2, … } }, …]
+      const { data: raw } = await api.get(
+        `/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,
+        { params }
+      );
+      // raw: [{ date, data: { key1:count1, key2:count2, … } }, …]
 
-    // 8) 날짜 × 항목별로 채우기 + 합계 계산
-    const items = type === 'url' ? selectedUrls : selectedCoupons;
-    const filled = dates.map(date => {
-      // 같은 date의 레코드 찾기
-      const rec = raw.find(r => r.date === date)?.data || {};
-      const row = { key: date, date };
-      // 각 컬럼별 값을 rec[key] 에서 가져오고, 없으면 0
-      items.forEach(k => {
-        row[k] = rec[k] || 0;
+      // 8) 날짜 × 항목별로 채우기 + 합계 계산
+      const items = type === 'url' ? selectedUrls : selectedCoupons;
+      const filled = dates.map(date => {
+        // 같은 date의 레코드 찾기
+        const rec = raw.find(r => r.date === date)?.data || {};
+        const row = { key: date, date };
+        // 각 컬럼별 값을 rec[key] 에서 가져오고, 없으면 0
+        items.forEach(k => {
+          row[k] = rec[k] || 0;
+        });
+        // 마지막에 합계 컬럼 추가
+        row.total = items.reduce((sum, k) => sum + row[k], 0);
+        return row;
       });
-      // 마지막에 합계 컬럼 추가
-      row.total = items.reduce((sum, k) => sum + row[k], 0);
-      return row;
-    });
 
-    setStats(filled);
+      setStats(filled);
 
-  } catch (err) {
-    console.error(err);
-    message.error('통계 조회 실패');
-    setStats([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error(err);
+      message.error('통계 조회 실패');
+      setStats([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 8) 초기·자동 호출: 이벤트, URL/쿠폰, 날짜 바뀔 때마다 URL 탭 조회
   useEffect(() => {
@@ -193,13 +193,12 @@ const fetchStats = async (type) => {
 
   // 9) 컬럼 생성 (제목에 라벨 또는 URL 사용)
   const makeColumns = (type) => {
-    const items = type === 'url' ? urls : coupons.map(c=>c.value);
+    const items = type === 'url' ? urls : coupons.map(c => c.value);
     return [
       { title: '날짜', dataIndex: 'date', key: 'date' },
       ...items.map(key => {
-        // 쿠폰이면 label, URL이면 그냥 문자열
         const title = type === 'coupon'
-          ? (coupons.find(c=>c.value===key)?.label || key)
+          ? (coupons.find(c => c.value === key)?.label || key)
           : key;
         return {
           title,
@@ -213,7 +212,7 @@ const fetchStats = async (type) => {
         dataIndex: 'total',
         key: 'total',
         align: 'right',
-        sorter: (a,b)=>a.total-b.total,
+        sorter: (a,b) => a.total - b.total,
         defaultSortOrder: 'descend'
       }
     ];
@@ -222,38 +221,38 @@ const fetchStats = async (type) => {
   return (
     <Card title="이벤트 참여 클릭 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
       {/* ─── 게시판(이벤트) 선택 */}
-      <Space style={{ marginBottom: 16 }} direction={isMobile?'vertical':'horizontal'} wrap>
+      <Space style={{ marginBottom: 16 }} direction={isMobile ? 'vertical' : 'horizontal'} wrap>
         <Select
           placeholder="게시판 선택"
-          options={events.map(e=>({ label: e.title||'(제목없음)', value: e._id }))}
+          options={events.map(e => ({ label: e.title || '(제목없음)', value: e._id }))}
           value={selectedEvent}
           onChange={setSelectedEvent}
-          style={{ width: isMobile?'100%':200 }}
+          style={{ width: isMobile ? '100%' : 200 }}
         />
       </Space>
 
       <Tabs defaultActiveKey="url" onChange={fetchStats}>
         {/* URL 클릭 탭 */}
         <TabPane tab="URL 클릭" key="url">
-          <Space direction={isMobile?'vertical':'horizontal'} size="middle" style={{ marginBottom:16 }}>
+          <Space direction={isMobile ? 'vertical' : 'horizontal'} size="middle" style={{ marginBottom:16 }}>
             <Select
               mode="multiple"
               placeholder="URL 선택"
-              options={urls.map(u=>({ label: u, value: u }))}
+              options={urls.map(u => ({ label: u, value: u }))}
               value={selectedUrls}
               onChange={setSelectedUrls}
-              style={{ width: isMobile?'100%':240 }}
+              style={{ width: isMobile ? '100%' : 240 }}
               allowClear
             />
             <RangePicker
               value={range}
-              disabledDate={d=>minDate && d.isBefore(minDate,'day')}
+              disabledDate={d => minDate && d.isBefore(minDate, 'day')}
               format="YYYY-MM-DD"
               onChange={setRange}
-              style={{ width: isMobile?'100%':280 }}
+              style={{ width: isMobile ? '100%' : 280 }}
               allowClear={false}
             />
-            <Button type="primary" loading={loading} onClick={()=>fetchStats('url')} block={isMobile}>
+            <Button type="primary" loading={loading} onClick={() => fetchStats('url')} block={isMobile}>
               조회
             </Button>
           </Space>
@@ -272,25 +271,25 @@ const fetchStats = async (type) => {
 
         {/* 쿠폰 클릭 탭 */}
         <TabPane tab="쿠폰 클릭" key="coupon">
-          <Space direction={isMobile?'vertical':'horizontal'} size="middle" style={{ marginBottom:16 }}>
+          <Space direction={isMobile ? 'vertical' : 'horizontal'} size="middle" style={{ marginBottom:16 }}>
             <Select
               mode="multiple"
               placeholder="쿠폰 선택"
               options={coupons}
               value={selectedCoupons}
               onChange={setSelectedCoupons}
-              style={{ width: isMobile?'100%':240 }}
+              style={{ width: isMobile ? '100%' : 240 }}
               allowClear
             />
             <RangePicker
               value={range}
-              disabledDate={d=>minDate && d.isBefore(minDate,'day')}
+              disabledDate={d => minDate && d.isBefore(minDate, 'day')}
               format="YYYY-MM-DD"
               onChange={setRange}
-              style={{ width: isMobile?'100%':280 }}
+              style={{ width: isMobile ? '100%' : 280 }}
               allowClear={false}
             />
-            <Button type="primary" loading={loading} onClick={()=>fetchStats('coupon')} block={isMobile}>
+            <Button type="primary" loading={loading} onClick={() => fetchStats('coupon')} block={isMobile}>
               조회
             </Button>
           </Space>
@@ -310,4 +309,3 @@ const fetchStats = async (type) => {
     </Card>
   );
 }
-//데이터 추가
