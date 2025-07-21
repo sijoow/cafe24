@@ -25,31 +25,33 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) 통계 & 로딩
+  // 2) 통계 데이터 & 로딩
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
 
   // 3) 조회 함수
   const fetchStats = () => {
     if (!selectedEvent) {
-      return message.warning('이벤트를 선택해주세요.');
+      return message.warning('게시판을 선택해주세요.');
     }
     setLoading(true);
-    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats`)
-      .then(res => {
-        // [{ couponNo, couponName, downloadCount, usedCount }, …]
-        setStats(res.data);
-      })
-      .catch(() => {
-        message.error('쿠폰 다운로드/사용 통계 조회 실패');
-        setStats([]);
-      })
-      .finally(() => setLoading(false));
+    api.get(
+      `/api/${mallId}/analytics/${selectedEvent}/coupon-stats`
+    )
+    .then(res => {
+      // [{ couponNo, couponName, downloadCount, usedCount }, …]
+      setStats(res.data);
+    })
+    .catch(() => {
+      message.error('쿠폰 다운로드/사용 통계 조회 실패');
+      setStats([]);
+    })
+    .finally(() => setLoading(false));
   };
 
   return (
     <Card title="쿠폰 다운로드 / 사용 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
-      {/* ─── 필터 */}
+      {/* ─── 필터 영역 ─────────────────────────── */}
       <Space
         direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
@@ -75,34 +77,33 @@ export default function Participation() {
         </Button>
       </Space>
 
-      {/* ─── 결과 테이블 */}
-      {loading ? (
-        <Spin tip="로딩 중…" />
-      ) : (
-        <Table
-          rowKey="couponNo"
-          dataSource={stats}
-          pagination={false}
-          bordered
-          scroll={{ x: 'max-content' }}
-          columns={[
-            { title: '쿠폰 번호',   dataIndex: 'couponNo',      key: 'couponNo' },
-            { title: '쿠폰명',       dataIndex: 'couponName',    key: 'couponName' },
-            {
-              title: '다운로드 수',
-              dataIndex: 'downloadCount',
-              key: 'downloadCount',
-              align: 'right'
-            },
-            {
-              title: '사용 수',
-              dataIndex: 'usedCount',
-              key: 'usedCount',
-              align: 'right'
-            }
-          ]}
-        />
-      )}
+      {/* ─── 결과 테이블 ───────────────────────── */}
+      {loading
+        ? <Spin tip="로딩 중…" />
+        : <Table
+            rowKey="couponNo"
+            dataSource={stats}
+            pagination={false}
+            bordered
+            scroll={{ x: 'max-content' }}
+            columns={[
+              { title: '쿠폰 번호',  dataIndex: 'couponNo',      key: 'couponNo' },
+              { title: '쿠폰명',      dataIndex: 'couponName',    key: 'couponName' },
+              {
+                title: '다운로드 수',
+                dataIndex: 'downloadCount',
+                key: 'downloadCount',
+                align: 'right'
+              },
+              {
+                title: '사용 수',
+                dataIndex: 'usedCount',
+                key: 'usedCount',
+                align: 'right'
+              }
+            ]}
+          />
+      }
     </Card>
   );
 }
