@@ -36,9 +36,7 @@ export default function Participation() {
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
         setEvents(evs);
-        if (evs[0]) {
-          setSelectedEvent(evs[0]._id);
-        }
+        if (evs[0]) setSelectedEvent(evs[0]._id);
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
@@ -175,8 +173,7 @@ export default function Participation() {
                 align: 'right'
               }
             ]}
-          />
-      }
+          />}
     </Card>
   );
 }
