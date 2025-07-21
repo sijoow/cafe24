@@ -1,5 +1,3 @@
-// src/pages/Participation.jsx
-
 import React, { useEffect, useState } from 'react';
 import { Select, Button, Table, Card, Space, message, Spin, Grid } from 'antd';
 import api from '../axios';
@@ -7,14 +5,13 @@ import api from '../axios';
 const { useBreakpoint } = Grid;
 
 export default function Participation() {
-  const screens      = useBreakpoint();
-  const isMobile     = !screens.sm;
-  const mallId       = localStorage.getItem('mallId');
+  const screens = useBreakpoint();
+  const isMobile = !screens.sm;
+  const mallId = localStorage.getItem('mallId');
 
-  // ─── 1) 게시판(이벤트) 목록 ────────────────────────────────────
+  // 1) 이벤트(게시판) 목록
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -28,43 +25,23 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ─── 2) 해당 이벤트에 설정된 쿠폰 목록 ─────────────────────────
-  const [coupons, setCoupons] = useState([]);
-  useEffect(() => {
-    if (!mallId || !selectedEvent) {
-      setCoupons([]);
-      return;
-    }
-    api.get(`/api/${mallId}/events/${selectedEvent}`)
-      .then(res => {
-        const nos = res.data.classification?.additional_coupon_no || [];
-        // 전체 쿠폰 정보에서 이름 매핑
-        return api.get(`/api/${mallId}/coupons`)
-          .then(r2 => nos.map(no => {
-            const info = r2.data.find(c => c.coupon_no === no);
-            return { couponNo: no, couponName: info?.coupon_name || no };
-          }));
-      })
-      .then(list => setCoupons(list))
-      .catch(() => {
-        message.error('쿠폰 목록 로드 실패');
-        setCoupons([]);
-      });
-  }, [mallId, selectedEvent]);
-
-  // ─── 3) 통계 데이터 ───────────────────────────────────────────
+  // 2) 통계 & 로딩
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // 3) 조회 함수
   const fetchStats = () => {
     if (!selectedEvent) {
       return message.warning('이벤트를 선택해주세요.');
     }
     setLoading(true);
     api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats`)
-      .then(res => setStats(res.data))
+      .then(res => {
+        // [{ couponNo, couponName, downloadCount, usedCount }, …]
+        setStats(res.data);
+      })
       .catch(() => {
-        message.error('쿠폰 통계 조회 실패');
+        message.error('쿠폰 다운로드/사용 통계 조회 실패');
         setStats([]);
       })
       .finally(() => setLoading(false));
@@ -72,7 +49,7 @@ export default function Participation() {
 
   return (
     <Card title="쿠폰 다운로드 / 사용 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
-      {/* ─── 필터 영역 ─────────────────────────────────────────────── */}
+      {/* ─── 필터 */}
       <Space
         direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
@@ -98,7 +75,7 @@ export default function Participation() {
         </Button>
       </Space>
 
-      {/* ─── 결과 테이블 ───────────────────────────────────────────── */}
+      {/* ─── 결과 테이블 */}
       {loading ? (
         <Spin tip="로딩 중…" />
       ) : (
@@ -107,6 +84,7 @@ export default function Participation() {
           dataSource={stats}
           pagination={false}
           bordered
+          scroll={{ x: 'max-content' }}
           columns={[
             { title: '쿠폰 번호',   dataIndex: 'couponNo',      key: 'couponNo' },
             { title: '쿠폰명',       dataIndex: 'couponName',    key: 'couponName' },
@@ -123,7 +101,6 @@ export default function Participation() {
               align: 'right'
             }
           ]}
-          scroll={{ x: 'max-content' }}
         />
       )}
     </Card>
