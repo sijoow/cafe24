@@ -73,7 +73,7 @@ export default function Participation() {
     const ev = events.find(e => e._id === selectedEvent);
     const start = ev
       ? moment(ev.createdAt)
-      : moment();           // 혹시 못 찾으면 오늘로
+      : moment();
     setDateRange([ start, moment() ]);
   }, [mallId, selectedEvent, events]);
 
@@ -93,15 +93,13 @@ export default function Participation() {
 
     const [ start, end ] = dateRange;
     const params = new URLSearchParams({
-      coupon_no: couponNos.join(','),
+      coupon_no:  couponNos.join(','),
       start_date: start.format('YYYY-MM-DD'),
       end_date:   end.format('YYYY-MM-DD')
     }).toString();
 
     api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${params}`)
-      .then(res => {
-        setStats(res.data);
-      })
+      .then(res => setStats(res.data))
       .catch(() => {
         message.error('쿠폰 다운로드/사용 통계 조회 실패');
         setStats([]);
@@ -111,7 +109,7 @@ export default function Participation() {
 
   return (
     <Card title="쿠폰 다운로드 / 사용 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
-      {/* ─── 필터 영역 ─────────────────────────────────────────────── */}
+      {/* ── 필터 영역 ─────────────────────────── */}
       <Space
         direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
@@ -132,14 +130,15 @@ export default function Participation() {
         {/* 시작일 ~ 종료일: RangePicker */}
         <RangePicker
           style={{ width: isMobile ? '100%' : 280 }}
-          value={dateRange}                         // 여전히 controlled
+          value={dateRange}
           defaultPickerValue={[
-            dateRange[0],                           // 좌측: 시작일자 달
-            dateRange[0].clone().add(1, 'month'),   // 우측: 시작일자 다음 달
+            dateRange[0],                              // 좌측 달: 시작일자 월
+            dateRange[0].clone().add(1, 'month'),      // 우측 달: 시작일자 다음달
           ]}
           onChange={dates => setDateRange(dates)}
           allowClear={false}
         />
+
         {/* 조회 버튼 */}
         <Button
           type="primary"
@@ -151,7 +150,7 @@ export default function Participation() {
         </Button>
       </Space>
 
-      {/* ─── 결과 테이블 ───────────────────────────────────────────── */}
+      {/* ── 결과 테이블 ─────────────────────────── */}
       {loading
         ? <Spin tip="로딩 중…" />
         : <Table
@@ -161,8 +160,8 @@ export default function Participation() {
             bordered
             scroll={{ x: 'max-content' }}
             columns={[
-              { title: '쿠폰 번호',  dataIndex: 'couponNo',      key: 'couponNo' },
-              { title: '쿠폰명',      dataIndex: 'couponName',    key: 'couponName' },
+              { title: '쿠폰 번호', dataIndex: 'couponNo', key: 'couponNo' },
+              { title: '쿠폰명',     dataIndex: 'couponName', key: 'couponName' },
               {
                 title: '다운로드 수',
                 dataIndex: 'downloadCount',
