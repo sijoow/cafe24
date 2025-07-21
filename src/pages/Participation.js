@@ -35,8 +35,21 @@ export default function Participation() {
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         // classification.additional_coupon_no 에 쿠폰 번호 배열이 있다고 가정
-        setCouponNos(res.data.classification?.additional_coupon_no || []);
-      })
+            // images[].regions[].coupon 에서 모두 꺼내서 중복 제거
+            const ev = res.data;
+            const allCoupons = [];
+            (ev.images || []).forEach(img => {
+              (img.regions || []).forEach(r => {
+                if (r.coupon) {
+                  Array.isArray(r.coupon)
+                    ? allCoupons.push(...r.coupon)
+                    : allCoupons.push(r.coupon);
+                }
+              });
+            });
+            // 중복 제거
+             setCouponNos(Array.from(new Set(allCoupons)));
+              })
       .catch(() => {
         message.error('이벤트 상세 로드 실패');
         setCouponNos([]);
