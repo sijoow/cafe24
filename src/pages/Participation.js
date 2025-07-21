@@ -132,11 +132,14 @@ export default function Participation() {
         {/* 시작일 ~ 종료일: RangePicker */}
         <RangePicker
           style={{ width: isMobile ? '100%' : 280 }}
-          value={dateRange}
+          value={dateRange}                         // 여전히 controlled
+          defaultPickerValue={[
+            dateRange[0],                           // 좌측: 시작일자 달
+            dateRange[0].clone().add(1, 'month'),   // 우측: 시작일자 다음 달
+          ]}
           onChange={dates => setDateRange(dates)}
           allowClear={false}
         />
-
         {/* 조회 버튼 */}
         <Button
           type="primary"
