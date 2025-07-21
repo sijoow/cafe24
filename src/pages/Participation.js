@@ -12,6 +12,10 @@ export default function Participation() {
   // 1) 이벤트(게시판) 목록
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // **이벤트 상세 + 쿠폰 번호 배열**
+  const [couponNos, setCouponNos] = useState([]);
+
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -25,6 +29,20 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
+  // selectedEvent 바뀔 때마다 상세 불러오기
+  useEffect(() => {
+    if (!selectedEvent) return;
+    api.get(`/api/${mallId}/events/${selectedEvent}`)
+      .then(res => {
+        // classification.additional_coupon_no 에 쿠폰 번호 배열이 있다고 가정
+        setCouponNos(res.data.classification?.additional_coupon_no || []);
+      })
+      .catch(() => {
+        message.error('이벤트 상세 로드 실패');
+        setCouponNos([]);
+      });
+  }, [mallId, selectedEvent]);
+
   // 2) 통계 데이터 & 로딩
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,19 +52,24 @@ export default function Participation() {
     if (!selectedEvent) {
       return message.warning('게시판을 선택해주세요.');
     }
+    if (couponNos.length === 0) {
+      return message.warning('해당 게시판에 등록된 쿠폰이 없습니다.');
+    }
+
     setLoading(true);
-    api.get(
-      `/api/${mallId}/analytics/${selectedEvent}/coupon-stats`
-    )
-    .then(res => {
-      // [{ couponNo, couponName, downloadCount, usedCount }, …]
-      setStats(res.data);
-    })
-    .catch(() => {
-      message.error('쿠폰 다운로드/사용 통계 조회 실패');
-      setStats([]);
-    })
-    .finally(() => setLoading(false));
+
+    // 쿼리스트링으로 coupon_no=번호,번호,… 추가
+    const qs = `?coupon_no=${couponNos.join(',')}`;
+    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats${qs}`)
+      .then(res => {
+        // [{ couponNo, couponName, downloadCount, usedCount }, …]
+        setStats(res.data);
+      })
+      .catch(() => {
+        message.error('쿠폰 다운로드/사용 통계 조회 실패');
+        setStats([]);
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
