@@ -310,3 +310,4 @@ const fetchStats = async (type) => {
     </Card>
   );
 }
+//데이터 추가
