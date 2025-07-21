@@ -7,13 +7,14 @@ import api from '../axios';
 const { useBreakpoint } = Grid;
 
 export default function Participation() {
-  const screens = useBreakpoint();
-  const isMobile = !screens.sm;
-  const mallId = localStorage.getItem('mallId');
+  const screens      = useBreakpoint();
+  const isMobile     = !screens.sm;
+  const mallId       = localStorage.getItem('mallId');
 
-  // ─── 1) 게시판(이벤트) 목록 ─────────────────────────────────────
+  // ─── 1) 게시판(이벤트) 목록 ────────────────────────────────────
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -27,8 +28,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ─── 2) 해당 이벤트에 설정된 쿠폰 목록 ───────────────────────────
-  // (events[].classification.additional_coupon_no 를 활용)
+  // ─── 2) 해당 이벤트에 설정된 쿠폰 목록 ─────────────────────────
   const [coupons, setCoupons] = useState([]);
   useEffect(() => {
     if (!mallId || !selectedEvent) {
@@ -36,31 +36,23 @@ export default function Participation() {
       return;
     }
     api.get(`/api/${mallId}/events/${selectedEvent}`)
-      .then(async res => {
-        const classification = res.data.classification || {};
-        const couponNos = classification.additional_coupon_no || [];
-        if (!couponNos.length) {
-          setCoupons([]);
-          return;
-        }
-        // 전체 쿠폰정보에서 이름 매핑
-        const { data: allCoupons } = await api.get(`/api/${mallId}/coupons`);
-        const list = couponNos.map(no => {
-          const info = allCoupons.find(c => c.coupon_no === no);
-          return {
-            label: info?.coupon_name || no,
-            value: no
-          };
-        });
-        setCoupons(list);
+      .then(res => {
+        const nos = res.data.classification?.additional_coupon_no || [];
+        // 전체 쿠폰 정보에서 이름 매핑
+        return api.get(`/api/${mallId}/coupons`)
+          .then(r2 => nos.map(no => {
+            const info = r2.data.find(c => c.coupon_no === no);
+            return { couponNo: no, couponName: info?.coupon_name || no };
+          }));
       })
+      .then(list => setCoupons(list))
       .catch(() => {
         message.error('쿠폰 목록 로드 실패');
         setCoupons([]);
       });
   }, [mallId, selectedEvent]);
 
-  // ─── 3) 통계 데이터 ────────────────────────────────────────────
+  // ─── 3) 통계 데이터 ───────────────────────────────────────────
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -69,13 +61,10 @@ export default function Participation() {
       return message.warning('이벤트를 선택해주세요.');
     }
     setLoading(true);
-    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-download-usage`)
-      .then(res => {
-        // 기대되는 형태: [{ couponNo, couponName, downloadCount, usedCount }, …]
-        setStats(res.data);
-      })
+    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats`)
+      .then(res => setStats(res.data))
       .catch(() => {
-        message.error('쿠폰 다운로드/사용 통계 조회 실패');
+        message.error('쿠폰 통계 조회 실패');
         setStats([]);
       })
       .finally(() => setLoading(false));
