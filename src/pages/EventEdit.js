@@ -903,7 +903,18 @@ export default function EventEdit() {
                   >
                     탭 추가
                   </Button>
-                </div>
+                    {/* ── 활성 탭 색상 선택 UI 추가 ── */}
+                    <Space style={{ marginTop: 12, alignItems: 'center', gap: 8 }}>
+                      <span>활성 탭 색:</span>
+                      <Input
+                        type="color"
+                        value={activeColor}
+                        onChange={e => setActiveColor(e.target.value)}
+                        style={{ width: 32, height: 32, padding: 0, border: 'none' }}
+                      />
+                      <span>{activeColor}</span>
+                    </Space>
+                    </div> 
               )}
             </>
           )}

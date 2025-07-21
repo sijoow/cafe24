@@ -60,6 +60,18 @@
   cursor: pointer;
 }
 
+.thumb-list {
+  /* IE/Edge */
+  -ms-overflow-style: none;
+  /* Firefox */
+  scrollbar-width: none;
+}
+
+.thumb-list::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
 /* 매핑 이미지 컨테이너 */
 .mapping-container {
   position: relative;

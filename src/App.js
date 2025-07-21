@@ -13,7 +13,6 @@ import EventEdit    from './pages/EventEdit';   // ← 이 줄
 import Dashboard          from './pages/Dashboard';
 import EventCreate        from './pages/EventCreate';
 import EventList          from './pages/EventList';
-import RewardCoupon       from './pages/RewardCoupon';
 
 import PageView           from  './pages/PageView';
 import Participation      from  './pages/Participation'
@@ -50,15 +49,12 @@ export default function App() {
           <Route path="event/detail/:id" element={<EventDetail />} />
           <Route path="event/edit/:id" element={<EventEdit />} />
           <Route path="event/create" element={<EventCreate />} />
-          <Route path="reward/coupon" element={<RewardCoupon />} />
           <Route path="stats/pageview"     element={<PageView />} />
           <Route path="stats/participation" element={<Participation />} />
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="redirect"  element={<Redirect />} />
           <Route path="stats/prddata"  element={<PrdData />} />
-
           <Route path="admin" element={<Admin    />} />
-          
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
@@ -112,7 +108,6 @@ export default function App() {
             <Route path="event/detail/:id" element={<EventDetail />} />
             <Route path="event/edit/:id" element={<EventEdit />} />
             <Route path="event/create" element={<EventCreate />} />
-            <Route path="reward/coupon" element={<RewardCoupon />} />
             <Route path="stats/pageview"     element={<PageView />} />
             <Route path="stats/participation" element={<Participation />} />
             <Route path="stats/environment" element={<InflowEnvironment />} />

@@ -174,7 +174,7 @@ export default function EventDetail() {
       html += `</div>\n\n`;
   
     } else {
-      html += `<p>상품을 노출하지 않습니다.</p>\n\n`;
+      html += ``;
     }
   
     // 4) widget.js 스크립트 태그 (쿠폰만 전역으로)
@@ -213,7 +213,7 @@ export default function EventDetail() {
           <Space>
           <Button
             icon={<UnorderedListOutlined />}
-            onClick={() => navigate(`/${mallId}/event/list`)}
+            onClick={() => navigate(`/event/list`)}
           >
             목록
           </Button>
@@ -261,14 +261,34 @@ export default function EventDetail() {
                   : 'rgba(24,144,255,0.2)',
               };
               if (r.coupon) {
+                // r.coupon이 [‘쿠폰A’, ‘쿠폰B’] 같은 배열일 수도 있다고 가정
+                const coupons = Array.isArray(r.coupon) ? r.coupon : [r.coupon];
                 return (
                   <button
                     key={r.id}
                     style={style}
-                    onClick={() => downloadCoupon(r.coupon)}
+                    onClick={() => {
+                      // 1) 쿠폰 다운로드
+                      coupons.forEach(cpn => downloadCoupon(cpn));
+                      // 2) 트래킹 API 호출 (각 쿠폰별로)
+                      coupons.forEach(cpn => {
+                        fetch(`/api/${mallId}/track`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            pageId: id,
+                            visitorId: sessionStorage.getItem('visitorId'),
+                            type: 'click',
+                            element: 'coupon',
+                            timestamp: new Date().toISOString(),
+                            productNo: cpn
+                          })
+                        });
+                      });
+                    }}
                   />
                 );
-              } else {
+              }  else {
                 let hrefVal = r.href;
                 if (!/^https?:\/\//.test(hrefVal)) {
                   hrefVal = 'https://' + hrefVal;

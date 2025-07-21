@@ -121,10 +121,6 @@ export default function EventList() {
             style={{ objectFit: 'cover', cursor: 'pointer' }}
             preview={false}
             alt="썸네일"
-            onClick={() => {
-              const evId = images[0]._id || images[0].id
-              navigate(`/event/detail/${evId}`)
-            }}
           />
         )
       },
@@ -229,7 +225,7 @@ export default function EventList() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate(`/${mallId}/event/create`)}
+          onClick={() => navigate(`/event/create`)}
         >
           새 이벤트 생성
         </Button>

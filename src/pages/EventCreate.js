@@ -470,9 +470,9 @@ export default function EventCreate() {
                 {/* 업로드된 이미지를 Grid 레이아웃으로 표시 */}
                 <div
                   style={{
-                    display: 'grid',
+                    display: 'none',
                     gap: 16,
-                   //maxWidth: 800,
+                     maxWidth: 150,
                     margin: '16px auto 0',
                   }}
                 >
@@ -483,7 +483,6 @@ export default function EventCreate() {
                       alt=""
                       style={{
                         width: '100%',
-                        height: 'auto',
                         objectFit: 'contain',
                         borderRadius: 4,
                       }}
@@ -494,34 +493,40 @@ export default function EventCreate() {
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="thumbs" direction="horizontal">
                     {prov => (
-                      <div
-                        ref={prov.innerRef}
-                        {...prov.droppableProps}
-                        className="thumb-list"
-                        style={{
-                          display: 'flex',
-                          flexDirection: isMobile ? 'column' : 'row',
-                          gap: 8,
-                          overflowX: isMobile ? 'hidden' : 'auto',
-                          marginTop: 16
-                        }}
-                      >
+                        <div
+                          ref={prov.innerRef}
+                          {...prov.droppableProps}
+                          className="thumb-list"
+                          style={{
+                            display:        'flex',
+                            flexDirection:  isMobile ? 'column' : 'row',
+                            gap:            8,
+                            width:          '100%',    // 부모 폭에 맞춰
+                            height:         120,       // 썸네일 높이에 맞춰 고정
+                            overflowX:      'hidden',  // 가로 스크롤 숨기기
+                            overflowY:      'hidden',  // 세로 스크롤 숨기기
+                            marginTop:      16
+                          }}
+                        >
                         {images.map((img, idx) => (
                           <Draggable key={img.id} draggableId={img.id} index={idx}>
                             {p => (
                               <div
-                                ref={p.innerRef}
-                                {...p.draggableProps}
-                                {...p.dragHandleProps}
-                                className={`thumb-item ${img.id===selectedId?'active':''}`}
-                                onClick={() => setSelectedId(img.id)}
-                              >
+                                  ref={p.innerRef}
+                                  {...p.draggableProps}
+                                  {...p.dragHandleProps}
+                                  className={`thumb-item ${img.id===selectedId?'active':''}`}
+                                  style={{
+                                    ...p.draggableProps.style,
+                                    transition: 'transform 0.2s ease, opacity 0.2s ease'
+                                  }}
+                                  onClick={() => setSelectedId(img.id)}
+                                >
                             <img
                               src={img.src}
                               alt="썸네일"
                               style={{
                                 width: 100,
-                                height: 100,
                                 objectFit: 'cover',
                                 borderRadius: 4
                               }}
@@ -550,6 +555,7 @@ export default function EventCreate() {
                   onMouseUp={addingMode ? onMouseUp : undefined}
                   style={{
                     position: 'relative',
+                    textAlign:'center',
                     width: '100%',
                     marginTop: 16,
                     cursor: addingMode ? 'crosshair' : 'default'
@@ -558,7 +564,7 @@ export default function EventCreate() {
                   <img
                     src={selectedImage?.src}
                     alt=""
-                    style={{ maxWidth:'100%', userSelect:'none' }}
+                    style={{ maxWidth:'800px',margin:'0 auto', userSelect:'none' }}
                     draggable={false}
                   />
 

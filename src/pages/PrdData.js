@@ -10,7 +10,6 @@ const { useBreakpoint } = Grid;
 export default function PrdData() {
   const screens = useBreakpoint();
   const isMobile = !screens.sm;
-
   const mallId = localStorage.getItem('mallId');
 
   // ─── 상태 선언 ───────────────────────────────────────────────
@@ -29,30 +28,39 @@ export default function PrdData() {
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) {
-          const first = evs[0];
-          setSelectedEvent(first._id);
-          setMinDate(dayjs(first.createdAt));
+          // 가장 최신으로 셋업
+          setSelectedEvent(evs[0]._id);
+          setMinDate(dayjs(evs[0].createdAt));
         }
       })
-      .catch(err => {
-        console.error('[EVENTS LOAD ERROR]', err);
-        message.error('이벤트 목록을 불러오지 못했습니다.');
-      });
+      .catch(() => message.error('이벤트 목록을 불러오지 못했습니다.'));
   }, [mallId]);
 
-  // ─── 2) 상품 클릭 순위 조회 ───────────────────────────────────
-  const fetchRanking = async () => {
-    if (!selectedEvent) {
-      message.warning('이벤트를 선택해주세요.');
-      return;
+  // ─── 1-2) selectedEvent 변경 시 minDate를 이벤트 생성일로 재설정 ─────────
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const ev = events.find(e => e._id === selectedEvent);
+    if (ev?.createdAt) {
+      setMinDate(dayjs(ev.createdAt));
     }
-    setLoading(true);
+  }, [selectedEvent, events]);
 
-    const start = minDate.format('YYYY-MM-DD');
-    const end   = dayjs().format('YYYY-MM-DD');
+  // ─── 2) selectedEvent 또는 minDate 바뀔 때마다 자동 조회 ──────
+  useEffect(() => {
+    if (selectedEvent && minDate) {
+      fetchPerformance();
+    }
+  }, [selectedEvent, minDate]);
+
+  // ─── 3) 상품 클릭 퍼포먼스 조회 ───────────────────────────────────
+  const fetchPerformance = async () => {
+    setLoading(true);
     try {
-      const res = await api.get(
-        `/api/${mallId}/analytics/${selectedEvent}/product-clicks`,
+      const start = minDate.format('YYYY-MM-DD');
+      const end   = dayjs().format('YYYY-MM-DD');
+
+      const { data: perf } = await api.get(
+        `/api/${mallId}/analytics/${selectedEvent}/product-performance`,
         {
           params: {
             start_date: `${start}T00:00:00+09:00`,
@@ -61,26 +69,27 @@ export default function PrdData() {
         }
       );
 
-      // res.data is [{ productNo, clickCount }, ...]
-      // map it to { productNo, clicks } so Table can use 'clicks'
-      const mapped = res.data.map(item => ({
-        productNo: item.productNo,
-        clicks:    item.clickCount
-      }));
-      setData(mapped);
+      // 클릭수 내림차순 정렬
+      const sorted = (perf || []).slice().sort((a, b) => b.clicks - a.clicks);
+      setData(sorted);
     } catch (err) {
-      console.error('[PRODUCT CLICKS ERROR]', err);
-      message.error('상품 클릭 순위 조회 실패');
+      console.error('[PRODUCT PERFORMANCE ERROR]', err);
+      message.error('상품 퍼포먼스 조회 실패');
       setData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ─── 카드 제목에 날짜 범위 표시 ─────────────────────────────────
+  const title = minDate
+    ? `상품 클릭 퍼포먼스 (${minDate.format('YYYY-MM-DD')} ~ ${dayjs().format('YYYY-MM-DD')})`
+    : '상품 클릭 퍼포먼스';
+
   // ─── 렌더링 ────────────────────────────────────────────────
   return (
     <Card
-      title="상품 클릭 순위 (전체 기간)"
+      title={title}
       extra={(
         <Space
           wrap
@@ -100,14 +109,14 @@ export default function PrdData() {
           <Button
             type="primary"
             loading={loading}
-            onClick={fetchRanking}
+            onClick={fetchPerformance}
             block={isMobile}
           >
             조회
           </Button>
         </Space>
       )}
-      style={{ width: '100%', maxWidth: 1700, margin: '0 auto' }}
+      style={{ width: '100%', maxWidth: 1600, margin: '0 auto' }}
       bodyStyle={{ padding: isMobile ? 12 : 24 }}
     >
       <Table
@@ -119,22 +128,13 @@ export default function PrdData() {
         scroll={{ x: isMobile ? 'max-content' : undefined }}
         locale={{ emptyText: '데이터가 없습니다.' }}
         columns={[
-          {
-            title: '순위',
-            key: 'rank',
-            render: (_text, _record, index) => index + 1,
+          { title: '순위',       key: 'rank',      render: (_t, _r, i) => i + 1 },
+          { title: '상품번호',   dataIndex: 'productNo',   key: 'productNo' },
+          { title: '상품명',     dataIndex: 'productName', key: 'productName' },
+          { title: '클릭수',     dataIndex: 'clicks',      key: 'clicks', align: 'right',
+            sorter: (a, b) => a.clicks - b.clicks, defaultSortOrder: 'descend'
           },
-          {
-            title: '상품번호',
-            dataIndex: 'productNo',
-            key: 'productNo',
-          },
-          {
-            title: '클릭수',
-            dataIndex: 'clicks',
-            key: 'clicks',
-            align: 'right',
-          },
+          // 클릭율은 제거하셨으니 컬럼에서 빼두었습니다
         ]}
       />
     </Card>

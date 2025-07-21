@@ -1,23 +1,14 @@
 // src/components/AppHeader.jsx
-import React, { useEffect, useState } from 'react'
-import './AppHeader.css'
+import React, { useState } from 'react';
+import './AppHeader.css';
 
 export default function AppHeader({ collapsed, onToggle }) {
-  // 1) 초기값을 'GUEST' 로 두고
-  const [label, setLabel] = useState('GUEST')
-
-  // 2) 마운트 시 localStorage에서 mallId 꺼내기
-  useEffect(() => {
-    const mallId = localStorage.getItem('mallId')
-    if (mallId) {
-      setLabel(mallId)
-    }
-  }, [])
+  // 로컬스토리지에서 mallId를 바로 읽어오고, 없으면 'GUEST'
+  const [label] = useState(() => localStorage.getItem('mallId') || 'GUEST');
 
   return (
     <header className="app-header">
       <div className="header-right">
-        {/* 레벨·아바타는 고정, 라벨만 mallId로 대체 */}
         <span className="membership-label free">
           {label}
         </span>
@@ -28,5 +19,5 @@ export default function AppHeader({ collapsed, onToggle }) {
         />
       </div>
     </header>
-  )
+  );
 }

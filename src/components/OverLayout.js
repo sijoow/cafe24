@@ -16,8 +16,15 @@ export default function OverlayLayout({ children }) {
   const isMobile = !screens.sm;    // sm (≥576px) 이 false 면 모바일 모드
 
   // 상태 분리: 모바일 Drawer, 데스크탑 Sider
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [drawerVisible, setDrawerVisible]   = useState(false);
   const [siderCollapsed, setSiderCollapsed] = useState(false);
+
+  // 모바일 헤더용 mallId 라벨
+  const [label, setLabel] = useState('GUEST');
+  useEffect(() => {
+    const id = localStorage.getItem('mallId');
+    if (id) setLabel(id);
+  }, []);
 
   // 브레이크포인트 변경 시 상태 초기화 (무한루프 방지)
   useEffect(() => {
@@ -47,7 +54,9 @@ export default function OverlayLayout({ children }) {
             className="overlay-trigger hamButton"
           />
           <div className="header-right">
-            <span className="membership-label free">GUEST</span>
+            <span className="membership-label free">
+              {label}
+            </span>
             <img
               src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png"
               alt="회원 아바타"

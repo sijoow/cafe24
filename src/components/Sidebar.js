@@ -13,8 +13,10 @@ import {
   BarChartOutlined,
   TeamOutlined,
   ShareAltOutlined,
+  ShoppingCartOutlined,    // 👈 여기 추가
 } from '@ant-design/icons';
 import './Sidebar.css';
+
 export default function Sidebar({ collapsed, onToggle }) {
   return (
     <div className="sidebar-wrapper">
@@ -24,7 +26,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/icon_png.png"
           alt="몬몬 로고"
           className="sidebar-logo"
-        /> 
+        />
         <span className="collapse-icon" onClick={onToggle}>
           {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
         </span>
@@ -61,15 +63,14 @@ export default function Sidebar({ collapsed, onToggle }) {
           <Menu.Item key="stats:participation" icon={<TeamOutlined />}>
             <Link to="/stats/participation">이벤트 참여자 현황</Link>
           </Menu.Item>
-           <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
+          <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
             <Link to="/stats/environment">유입 환경</Link>
           </Menu.Item>
-          <Menu.Item key="stats:prddata">
+          <Menu.Item key="stats:prddata" icon={<ShoppingCartOutlined />}>
             <Link to="/stats/prddata">상품 클릭데이터</Link>
           </Menu.Item>
-
         </Menu.ItemGroup>
       </Menu>
     </div>
-  );
+);
 }
