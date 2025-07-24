@@ -3,13 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   Select,
-  Button,
   Table,
   Card,
   Space,
   message,
   Spin,
-  Grid
+  Grid,
+  Button
 } from 'antd';
 import moment from 'moment';
 import api from '../axios';
@@ -43,7 +43,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ── 2) 이벤트 선택 시: couponNos 추출 + eventStart 세팅 + 자동 조회 ─
+  // ── 2) 이벤트 선택 시: couponNos 추출 + eventStart 세팅 ─────
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -51,16 +51,14 @@ export default function Participation() {
       return;
     }
 
-    // 2-1) 이벤트 정보 받아오기
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         const ev = res.data;
 
-        // A) 그 이벤트의 생성일을 period start로 저장
-        const start = moment(ev.createdAt);
-        setEventStart(start);
+        // 이벤트 생성일을 period start로 저장
+        setEventStart(moment(ev.createdAt));
 
-        // B) 이미지 영역에서 couponNo 추출
+        // 이미지 영역에서 couponNo 추출
         const all = [];
         (ev.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
@@ -79,7 +77,7 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent]);
 
-  // ── 3) couponNos 또는 eventStart 변경 시: 통계 자동 조회 ──────────
+  // ── 3) couponNos 변경 시: 통계 자동 조회 ─────────────────────
   useEffect(() => {
     if (!selectedEvent || couponNos.length === 0) {
       setStats([]);
@@ -88,13 +86,10 @@ export default function Participation() {
 
     const fetchStats = async () => {
       setLoading(true);
-      const start_date = eventStart.format('YYYY-MM-DD');
-      const end_date   = moment().format('YYYY-MM-DD');
 
+      // coupon_no 파라미터만 전송
       const params = new URLSearchParams({
-        coupon_no:  couponNos.join(','),
-        start_date,
-        end_date
+        coupon_no: couponNos.join(',')
       }).toString();
 
       try {
@@ -111,7 +106,7 @@ export default function Participation() {
     };
 
     fetchStats();
-  }, [mallId, selectedEvent, couponNos, eventStart]);
+  }, [mallId, selectedEvent, couponNos]);
 
   // ── 렌더링 ─────────────────────────────────────────────────
   return (
@@ -136,6 +131,13 @@ export default function Participation() {
         <div style={{ lineHeight: '32px' }}>
           기간: {eventStart.format('YYYY-MM-DD')} → {moment().format('YYYY-MM-DD')}
         </div>
+
+        <Button onClick={() => {
+          // 수동 조회도 가능
+          setStats([]); // 상태 초기화 → effect가 다시 실행됩니다
+        }}>
+          새로 고침
+        </Button>
       </Space>
 
       {/* 결과 테이블 */}
@@ -149,8 +151,8 @@ export default function Participation() {
           bordered
           scroll={{ x: 'max-content' }}
           columns={[
-            { title: '쿠폰 번호',    dataIndex: 'couponNo',      key: 'couponNo' },
-            { title: '쿠폰명',       dataIndex: 'couponName',    key: 'couponName' },
+            { title: '쿠폰 번호', dataIndex: 'couponNo', key: 'couponNo' },
+            { title: '쿠폰명',     dataIndex: 'couponName', key: 'couponName' },
             {
               title: '다운로드 수',
               dataIndex: 'downloadCount',
