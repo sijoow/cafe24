@@ -132,8 +132,8 @@ export default function Participation() {
           style={{ width: isMobile ? '100%' : 280 }}
           value={dateRange}
           defaultPickerValue={[
-            dateRange[0],                              // 좌측 달: 시작일자 월
-            dateRange[0].clone().add(1, 'month'),      // 우측 달: 시작일자 다음달
+            dateRange[0],
+            dateRange[0].clone().add(1, 'month'),
           ]}
           onChange={dates => setDateRange(dates)}
           allowClear={false}
