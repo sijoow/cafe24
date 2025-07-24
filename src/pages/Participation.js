@@ -9,14 +9,12 @@ import {
   Space,
   message,
   Spin,
-  Grid,
-  DatePicker
+  Grid
 } from 'antd';
 import moment from 'moment';
 import api from '../axios';
 
 const { useBreakpoint } = Grid;
-const { RangePicker } = DatePicker;
 
 export default function Participation() {
   const screens = useBreakpoint();
@@ -27,9 +25,9 @@ export default function Participation() {
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [couponNos, setCouponNos]         = useState([]);
-  const [dateRange, setDateRange]         = useState([moment(), moment()]);
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
+  const [eventStart, setEventStart]       = useState(moment());
 
   // ── 1) 이벤트 목록 로드 ─────────────────────────────────────
   useEffect(() => {
@@ -45,32 +43,35 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ── 2) 이벤트 선택 시: couponNos 추출 + 일단 기본 dateRange 세팅 ─────
+  // ── 2) 이벤트 선택 시: couponNos 추출 + eventStart 세팅 + 자동 조회 ─
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
+      setStats([]);
       return;
     }
 
+    // 2-1) 이벤트 정보 받아오기
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         const ev = res.data;
-        // 2-1) 이미지 영역에서 couponNo 모으기
-        const allCoupons = [];
+
+        // A) 그 이벤트의 생성일을 period start로 저장
+        const start = moment(ev.createdAt);
+        setEventStart(start);
+
+        // B) 이미지 영역에서 couponNo 추출
+        const all = [];
         (ev.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
               Array.isArray(r.coupon)
-                ? allCoupons.push(...r.coupon)
-                : allCoupons.push(r.coupon);
+                ? all.push(...r.coupon)
+                : all.push(r.coupon);
             }
           })
         );
-        const uniqueCoupons = Array.from(new Set(allCoupons));
-        setCouponNos(uniqueCoupons);
-
-        // 2-2) 일단 이벤트 생성일 → 오늘 까지 기본값
-        setDateRange([ moment(ev.createdAt), moment() ]);
+        setCouponNos(Array.from(new Set(all)));
       })
       .catch(() => {
         message.error('이벤트 상세 로드 실패');
@@ -78,68 +79,39 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent]);
 
-  // ── 3) couponNos가 세팅되면: 쿠폰 API에서 발급 기간 가져와 dateRange 덮어쓰기 ─
+  // ── 3) couponNos 또는 eventStart 변경 시: 통계 자동 조회 ──────────
   useEffect(() => {
-    if (!mallId || couponNos.length === 0) return;
+    if (!selectedEvent || couponNos.length === 0) {
+      setStats([]);
+      return;
+    }
 
-    api.get(`/api/${mallId}/coupons`)
-      .then(res => {
-        const allCoupons = res.data || [];
-        // coupon_no 필드가 문자열일 수 있으니 String으로 일치시켜 필터
-        const matched = allCoupons.filter(c =>
-          couponNos.includes(String(c.coupon_no))
+    const fetchStats = async () => {
+      setLoading(true);
+      const start_date = eventStart.format('YYYY-MM-DD');
+      const end_date   = moment().format('YYYY-MM-DD');
+
+      const params = new URLSearchParams({
+        coupon_no:  couponNos.join(','),
+        start_date,
+        end_date
+      }).toString();
+
+      try {
+        const { data } = await api.get(
+          `/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${params}`
         );
-        if (!matched.length) return;
-
-        // start_date / end_date 필드 사용
-        const startDates = matched
-          .map(c => c.start_date || c.coupon_start_date)
-          .filter(Boolean)
-          .map(d => moment(d));
-        const endDates = matched
-          .map(c => c.end_date   || c.coupon_end_date)
-          .filter(Boolean)
-          .map(d => moment(d));
-
-        if (startDates.length && endDates.length) {
-          const minStart = moment.min(startDates);
-          const maxEnd   = moment.max(endDates);
-          setDateRange([minStart, maxEnd]);
-        }
-      })
-      .catch(() => {
-        // 쿠폰 정보가 없으면 그냥 기본 dateRange 유지
-      });
-  }, [mallId, couponNos]);
-
-  // ── 4) 통계 조회 ─────────────────────────────────────────────
-  const fetchStats = () => {
-    if (!selectedEvent) {
-      return message.warning('게시판을 선택해주세요.');
-    }
-    if (couponNos.length === 0) {
-      return message.warning('해당 게시판에 등록된 쿠폰이 없습니다.');
-    }
-    if (dateRange.length !== 2) {
-      return message.warning('조회할 시작·끝 날짜를 선택해주세요.');
-    }
-
-    setLoading(true);
-    const [ start, end ] = dateRange;
-    const params = new URLSearchParams({
-      coupon_no:  couponNos.join(','),
-      start_date: start.format('YYYY-MM-DD'),
-      end_date:   end.format('YYYY-MM-DD'),
-    }).toString();
-
-    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${params}`)
-      .then(res => setStats(res.data))
-      .catch(() => {
+        setStats(data);
+      } catch {
         message.error('쿠폰 다운로드/사용 통계 조회 실패');
         setStats([]);
-      })
-      .finally(() => setLoading(false));
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [mallId, selectedEvent, couponNos, eventStart]);
 
   // ── 렌더링 ─────────────────────────────────────────────────
   return (
@@ -161,25 +133,9 @@ export default function Participation() {
           style={{ width: isMobile ? '100%' : 240 }}
         />
 
-        <RangePicker
-          style={{ width: isMobile ? '100%' : 280 }}
-          value={dateRange}
-          onChange={setDateRange}
-          allowClear={false}
-          defaultPickerValue={[
-            dateRange[0],
-            dateRange[0].clone().add(1, 'month'),
-          ]}
-        />
-
-        <Button
-          type="primary"
-          onClick={fetchStats}
-          loading={loading}
-          block={isMobile}
-        >
-          조회
-        </Button>
+        <div style={{ lineHeight: '32px' }}>
+          기간: {eventStart.format('YYYY-MM-DD')} → {moment().format('YYYY-MM-DD')}
+        </div>
       </Space>
 
       {/* 결과 테이블 */}
@@ -193,8 +149,8 @@ export default function Participation() {
           bordered
           scroll={{ x: 'max-content' }}
           columns={[
-            { title: '쿠폰 번호', dataIndex: 'couponNo', key: 'couponNo' },
-            { title: '쿠폰명',     dataIndex: 'couponName', key: 'couponName' },
+            { title: '쿠폰 번호',    dataIndex: 'couponNo',      key: 'couponNo' },
+            { title: '쿠폰명',       dataIndex: 'couponName',    key: 'couponName' },
             {
               title: '다운로드 수',
               dataIndex: 'downloadCount',
