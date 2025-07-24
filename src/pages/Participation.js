@@ -6,10 +6,10 @@ import {
   Table,
   Card,
   Space,
+  Button,
   message,
   Spin,
-  Grid,
-  Button
+  Grid
 } from 'antd';
 import moment from 'moment';
 import api from '../axios';
@@ -55,7 +55,7 @@ export default function Participation() {
       .then(res => {
         const ev = res.data;
 
-        // 이벤트 생성일을 period start로 저장
+        // 이벤트 생성일을 기간 시작일로 저장
         setEventStart(moment(ev.createdAt));
 
         // 이미지 영역에서 couponNo 추출
@@ -132,10 +132,13 @@ export default function Participation() {
           기간: {eventStart.format('YYYY-MM-DD')} → {moment().format('YYYY-MM-DD')}
         </div>
 
-        <Button onClick={() => {
-          // 수동 조회도 가능
-          setStats([]); // 상태 초기화 → effect가 다시 실행됩니다
-        }}>
+        <Button
+          onClick={() => {
+            // 수동 새로고침
+            setStats([]);
+            // couponNos가 바뀌면 effect가 다시 실행됩니다
+          }}
+        >
           새로 고침
         </Button>
       </Space>
@@ -152,17 +155,17 @@ export default function Participation() {
           scroll={{ x: 'max-content' }}
           columns={[
             { title: '쿠폰 번호', dataIndex: 'couponNo', key: 'couponNo' },
-            { title: '쿠폰명',     dataIndex: 'couponName', key: 'couponName' },
+            { title: '쿠폰명',    dataIndex: 'couponName', key: 'couponName' },
             {
-              title: '다운로드 수',
-              dataIndex: 'downloadCount',
-              key: 'downloadCount',
+              title: '사용 쿠폰',
+              dataIndex: 'usedCount',
+              key: 'usedCount',
               align: 'right'
             },
             {
-              title: '사용 수',
-              dataIndex: 'usedCount',
-              key: 'usedCount',
+              title: '미사용 쿠폰',
+              dataIndex: 'unusedCount',
+              key: 'unusedCount',
               align: 'right'
             }
           ]}
