@@ -385,7 +385,7 @@ const handleSave = async () => {
     console.log('▶ PUT success:', res.data);
 
     message.success('저장 완료');
-    navigate(`/${mallId}/event/detail/${id}`);
+    navigate(`/event/detail/${id}`);
   } catch (err) {
     console.error(
       '▶ handleSave ERROR:',
