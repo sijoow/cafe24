@@ -31,21 +31,12 @@ export default function Participation() {
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [couponNos, setCouponNos]         = useState([]);
-  const [couponList, setCouponList]       = useState([]);   // ← 전체 쿠폰 마스터 목록
   const [range, setRange]                 = useState([ dayjs().subtract(7, 'day'), dayjs() ]);
   const [minDate, setMinDate]             = useState(null);
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // ─── 전체 쿠폰 마스터 목록 로드 ─────────────────────────────────
-  useEffect(() => {
-    if (!mallId) return;
-    api.get(`/api/${mallId}/coupons`)      // 백엔드 /api/:mallId/coupons 호출
-      .then(res => setCouponList(res.data))
-      .catch(() => message.warning('전체 쿠폰 목록을 불러오지 못했습니다.'));
-  }, [mallId]);
-
-  // ─── 1) 이벤트 목록 + 날짜 초기화 ────────────────────────────────
+  // 1) Load events & init date
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -66,7 +57,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // ─── 2) 이벤트 변경 시 쿠폰 번호 & 날짜 리셋 ─────────────────────────
+  // 2) On event change → extract couponNos & reset date
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -74,12 +65,13 @@ export default function Participation() {
     }
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
-        // 이미지 regions 안의 coupon 배열을 전부 모아서 중복 제거
         const all = [];
         (res.data.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
-              Array.isArray(r.coupon) ? all.push(...r.coupon) : all.push(r.coupon);
+              Array.isArray(r.coupon)
+                ? all.push(...r.coupon)
+                : all.push(r.coupon);
             }
           })
         );
@@ -98,7 +90,7 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // ─── 3) 쿠폰 통계 + 이름 매핑(fetchStats) ─────────────────────────
+  // 3) Fetch stats + individually fetch missing coupon names
   const fetchStats = useCallback(async () => {
     if (!selectedEvent)            return message.warning('게시판을 선택해주세요.');
     if (couponNos.length === 0)    return message.warning('등록된 쿠폰이 없습니다.');
@@ -113,22 +105,38 @@ export default function Participation() {
         end_date:   end.format('YYYY-MM-DD'),
       }).toString();
 
-      // 1) 통계 데이터 가져오기
+      // 3‑1) 기본 통계 요청
       const statRes = await api.get(
         `/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`
       );
-      let data = statRes.data || [];
+      const data = Array.isArray(statRes.data) ? statRes.data : [];
 
-      // 2) 마스터 쿠폰 목록에서 이름 매핑 (couponList 에서 찾아서 채움)
-      const nameMap = couponList.reduce((acc, c) => {
-        acc[c.coupon_no] = c.coupon_name;
-        return acc;
-      }, {});
-
-      data = data.map(item => ({
-        ...item,
-        couponName: item.couponName || nameMap[item.couponNo] || '(이름없음)'
-      }));
+      // 3‑2) 이름이 없는 항목만 개별 조회
+      await Promise.all(
+        data
+          .filter(item => !item.couponName)
+          .map(async item => {
+            try {
+              const { data: arr } = await api.get(
+                `/api/${mallId}/coupons`,
+                {
+                  params: {
+                    shop_no:    1,
+                    coupon_no:  item.couponNo,
+                    fields:     'coupon_no,coupon_name',
+                    limit:      1
+                  }
+                }
+              );
+              const name = Array.isArray(arr) && arr[0]?.coupon_name
+                ? arr[0].coupon_name
+                : '(이름없음)';
+              item.couponName = name;
+            } catch {
+              item.couponName = '(이름없음)';
+            }
+          })
+      );
 
       setStats(data);
     } catch (err) {
@@ -138,11 +146,11 @@ export default function Participation() {
     } finally {
       setLoading(false);
     }
-  }, [mallId, selectedEvent, couponNos, range, couponList]);
+  }, [mallId, selectedEvent, couponNos, range]);
 
-  // ─── 4) 테이블 컬럼 정의 ───────────────────────────────────────
+  // 4) Table columns
   const columns = [
-    { title: '쿠폰 번호',   dataIndex: 'couponNo',     key: 'couponNo' },
+    { title: '쿠폰 번호',   dataIndex: 'couponNo',       key: 'couponNo' },
     {
       title: '쿠폰명',
       dataIndex: 'couponName',
@@ -165,12 +173,12 @@ export default function Participation() {
     }
   ];
 
-  // ─── 5) 합계 계산 ─────────────────────────────────────────────
+  // 5) Totals for summary
   const totals = stats.reduce((acc, cur) => {
-    acc.issued += cur.issuedCount   || 0;
-    acc.used   += cur.usedCount     || 0;
-    acc.unused += cur.unusedCount   || 0;
-    acc.autoDel+= cur.autoDeletedCount || 0;
+    acc.issued += cur.issuedCount        || 0;
+    acc.used   += cur.usedCount          || 0;
+    acc.unused += cur.unusedCount        || 0;
+    acc.autoDel+= cur.autoDeletedCount   || 0;
     return acc;
   }, { issued: 0, used: 0, unused: 0, autoDel: 0 });
 
@@ -245,8 +253,8 @@ export default function Participation() {
             <Text strong style={{ display: 'block', marginBottom: 12 }}>
               발급 쿠폰수: {totals.issued.toLocaleString()}개&nbsp;
               (사용 쿠폰수: {totals.used.toLocaleString()}개 /
-              미사용 쿠폰수: {totals.unused.toLocaleString()}개 /
-              자동삭제 수: {totals.autoDel.toLocaleString()}개)
+               미사용 쿠폰수: {totals.unused.toLocaleString()}개 /
+               자동삭제 수: {totals.autoDel.toLocaleString()}개)
             </Text>
           )}
 
