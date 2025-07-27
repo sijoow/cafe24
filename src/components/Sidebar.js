@@ -61,7 +61,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             <Link to="/stats/pageview">페이지뷰 통계</Link>
           </Menu.Item>
           <Menu.Item key="stats:participation" icon={<TeamOutlined />}>
-            <Link to="/stats/participation">이벤트 참여자 현황</Link>
+            <Link to="/stats/participation">쿠폰 다운로드 / 주문 완료 통계</Link>
           </Menu.Item>
           <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
             <Link to="/stats/environment">유입 환경</Link>
