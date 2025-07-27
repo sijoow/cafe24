@@ -36,14 +36,14 @@ export default function Participation() {
     api.get(`/api/${mallId}/events`)
       .then(res => {
         const evs = (res.data || [])
-          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) setSelectedEvent(evs[0]._id);
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) 이벤트 선택 시: 쿠폰번호 + 기간 세팅
+  // 2) 선택된 이벤트에서 쿠폰 번호들 추출
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -55,9 +55,7 @@ export default function Participation() {
         (res.data.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
-              Array.isArray(r.coupon)
-                ? all.push(...r.coupon)
-                : all.push(r.coupon);
+              Array.isArray(r.coupon) ? all.push(...r.coupon) : all.push(r.coupon);
             }
           })
         );
@@ -74,17 +72,17 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // 3) 통계 조회
+  // 3) 쿠폰 통계 조회
   const fetchStats = () => {
-    if (!selectedEvent)      return message.warning('게시판을 선택해주세요.');
-    if (couponNos.length === 0) return message.warning('등록된 쿠폰이 없습니다.');
-    if (dateRange.length !== 2) return message.warning('기간을 선택해주세요.');
+    if (!selectedEvent)            return message.warning('게시판을 선택해주세요.');
+    if (couponNos.length === 0)    return message.warning('등록된 쿠폰이 없습니다.');
+    if (dateRange.length !== 2)    return message.warning('기간을 선택해주세요.');
 
     setLoading(true);
     const [ start, end ] = dateRange;
     const qs = new URLSearchParams({
-      coupon_no:  couponNos.join(','),
-      start_date: start.format('YYYY-MM-DD'),
+      coupon_no:  couponNos.join(','),              // "A,B,C"
+      start_date: start.format('YYYY-MM-DD'),       // (필요 없으면 제거 가능)
       end_date:   end.format('YYYY-MM-DD')
     }).toString();
 
@@ -100,18 +98,8 @@ export default function Participation() {
   const columns = [
     { title: '쿠폰 번호',       dataIndex: 'couponNo',     key: 'couponNo' },
     { title: '쿠폰명',          dataIndex: 'couponName',   key: 'couponName' },
-    {
-      title: '다운로드 수',
-      dataIndex: 'downloadCount',
-      key: 'downloadCount',
-      align: 'right'
-    },
-    {
-      title: '주문 완료 수',
-      dataIndex: 'orderCount',
-      key: 'orderCount',
-      align: 'right'
-    }
+    { title: '다운로드 수',     dataIndex: 'downloadCount',key: 'downloadCount', align: 'right' },
+    { title: '주문 완료 수',    dataIndex: 'orderCount',   key: 'orderCount',    align: 'right' }
   ];
 
   return (
