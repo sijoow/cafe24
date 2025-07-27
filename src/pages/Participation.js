@@ -82,7 +82,7 @@ export default function Participation() {
     const [ start, end ] = dateRange;
     const qs = new URLSearchParams({
       coupon_no:  couponNos.join(','),              // "A,B,C"
-      start_date: start.format('YYYY-MM-DD'),       // (필요 없으면 제거 가능)
+      start_date: start.format('YYYY-MM-DD'),
       end_date:   end.format('YYYY-MM-DD')
     }).toString();
 
@@ -96,14 +96,16 @@ export default function Participation() {
   };
 
   const columns = [
-    { title: '쿠폰 번호',       dataIndex: 'couponNo',     key: 'couponNo' },
-    { title: '쿠폰명',          dataIndex: 'couponName',   key: 'couponName' },
-    { title: '다운로드 수',     dataIndex: 'downloadCount',key: 'downloadCount', align: 'right' },
-    { title: '주문 완료 수',    dataIndex: 'orderCount',   key: 'orderCount',    align: 'right' }
+    { title: '쿠폰 번호',       dataIndex: 'couponNo',         key: 'couponNo' },
+    { title: '쿠폰명',          dataIndex: 'couponName',       key: 'couponName' },
+    { title: '발급 수',         dataIndex: 'issuedCount',      key: 'issuedCount',      align: 'right' },
+    { title: '사용 수',         dataIndex: 'usedCount',        key: 'usedCount',        align: 'right' },
+    { title: '미사용 수',       dataIndex: 'unusedCount',      key: 'unusedCount',      align: 'right' },
+    { title: '자동삭제 수',     dataIndex: 'autoDeletedCount', key: 'autoDeletedCount', align: 'right' }
   ];
 
   return (
-    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
+    <Card title="쿠폰 발급 / 사용 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
       <Space
         direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
@@ -138,16 +140,18 @@ export default function Participation() {
         </Button>
       </Space>
 
-      {loading
-        ? <Spin tip="로딩 중…" />
-        : <Table
-            columns={columns}
-            dataSource={stats}
-            rowKey="couponNo"
-            pagination={false}
-            bordered
-            scroll={{ x: 'max-content' }}
-          />}
+      {loading ? (
+        <Spin tip="로딩 중…" />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={stats}
+          rowKey="couponNo"
+          pagination={false}
+          bordered
+          scroll={{ x: 'max-content' }}
+        />
+      )}
     </Card>
   );
 }
