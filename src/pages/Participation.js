@@ -36,7 +36,7 @@ export default function Participation() {
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // 1) Load events & init date
+  // 1) Load events
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -45,10 +45,9 @@ export default function Participation() {
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) {
-          const first = evs[0];
-          setSelectedEvent(first._id);
-          const start = first.createdAt
-            ? dayjs(first.createdAt)
+          setSelectedEvent(evs[0]._id);
+          const start = evs[0].createdAt
+            ? dayjs(evs[0].createdAt)
             : dayjs().subtract(7, 'day');
           setMinDate(start);
           setRange([ start, dayjs() ]);
@@ -57,7 +56,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) On event change → extract couponNos & reset date
+  // 2) On event change → extract couponNos & reset dateRange
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -90,67 +89,32 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // 3) Fetch stats + individually fetch missing coupon names
-  const fetchStats = useCallback(async () => {
-    if (!selectedEvent)            return message.warning('게시판을 선택해주세요.');
-    if (couponNos.length === 0)    return message.warning('등록된 쿠폰이 없습니다.');
-    if (range.length !== 2)        return message.warning('기간을 선택해주세요.');
+  // 3) Fetch stats
+  const fetchStats = useCallback(() => {
+    if (!selectedEvent)         return message.warning('게시판을 선택해주세요.');
+    if (couponNos.length === 0) return message.warning('등록된 쿠폰이 없습니다.');
+    if (range.length !== 2)     return message.warning('기간을 선택해주세요.');
 
     setLoading(true);
-    try {
-      const [ start, end ] = range;
-      const qs = new URLSearchParams({
-        coupon_no:  couponNos.join(','),
-        start_date: start.format('YYYY-MM-DD'),
-        end_date:   end.format('YYYY-MM-DD'),
-      }).toString();
+    const [ start, end ] = range;
+    const qs = new URLSearchParams({
+      coupon_no:  couponNos.join(','),
+      start_date: start.format('YYYY-MM-DD'),
+      end_date:   end.format('YYYY-MM-DD')
+    }).toString();
 
-      // 3‑1) 기본 통계 요청
-      const statRes = await api.get(
-        `/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`
-      );
-      const data = Array.isArray(statRes.data) ? statRes.data : [];
-
-      // 3‑2) 이름이 없는 항목만 개별 조회
-      await Promise.all(
-        data
-          .filter(item => !item.couponName)
-          .map(async item => {
-            try {
-              const { data: arr } = await api.get(
-                `/api/${mallId}/coupons`,
-                {
-                  params: {
-                    shop_no:    1,
-                    coupon_no:  item.couponNo,
-                    fields:     'coupon_no,coupon_name',
-                    limit:      1
-                  }
-                }
-              );
-              const name = Array.isArray(arr) && arr[0]?.coupon_name
-                ? arr[0].coupon_name
-                : '(이름없음)';
-              item.couponName = name;
-            } catch {
-              item.couponName = '(이름없음)';
-            }
-          })
-      );
-
-      setStats(data);
-    } catch (err) {
-      console.error(err);
-      message.error('쿠폰 통계 조회 실패');
-      setStats([]);
-    } finally {
-      setLoading(false);
-    }
+    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`)
+      .then(res => setStats(res.data))
+      .catch(() => {
+        message.error('쿠폰 통계 조회 실패');
+        setStats([]);
+      })
+      .finally(() => setLoading(false));
   }, [mallId, selectedEvent, couponNos, range]);
 
   // 4) Table columns
   const columns = [
-    { title: '쿠폰 번호',   dataIndex: 'couponNo',       key: 'couponNo' },
+    { title: '쿠폰 번호',       dataIndex: 'couponNo',       key: 'couponNo' },
     {
       title: '쿠폰명',
       dataIndex: 'couponName',
@@ -175,10 +139,10 @@ export default function Participation() {
 
   // 5) Totals for summary
   const totals = stats.reduce((acc, cur) => {
-    acc.issued += cur.issuedCount        || 0;
-    acc.used   += cur.usedCount          || 0;
-    acc.unused += cur.unusedCount        || 0;
-    acc.autoDel+= cur.autoDeletedCount   || 0;
+    acc.issued += cur.issuedCount || 0;
+    acc.used   += cur.usedCount   || 0;
+    acc.unused += cur.unusedCount || 0;
+    acc.autoDel+= cur.autoDeletedCount || 0;
     return acc;
   }, { issued: 0, used: 0, unused: 0, autoDel: 0 });
 
@@ -226,7 +190,7 @@ export default function Participation() {
         ) : (
           <RangePicker
             value={range}
-            onChange={dates => dates?.length === 2 && setRange(dates)}
+            onChange={dates => dates && dates.length === 2 && setRange(dates)}
             disabledDate={d =>
               (minDate && d.isBefore(minDate, 'day')) ||
               d.isAfter(dayjs(), 'day')
@@ -252,9 +216,7 @@ export default function Participation() {
           {stats.length > 0 && (
             <Text strong style={{ display: 'block', marginBottom: 12 }}>
               발급 쿠폰수: {totals.issued.toLocaleString()}개&nbsp;
-              (사용 쿠폰수: {totals.used.toLocaleString()}개 /
-               미사용 쿠폰수: {totals.unused.toLocaleString()}개 /
-               자동삭제 수: {totals.autoDel.toLocaleString()}개)
+              (사용 쿠폰수: {totals.used.toLocaleString()}개 / 미사용 쿠폰수: {totals.unused.toLocaleString()}개 / 자동삭제 수: {totals.autoDel.toLocaleString()}개)
             </Text>
           )}
 
