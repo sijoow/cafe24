@@ -1,3 +1,5 @@
+// src/pages/Participation.jsx
+
 import React, { useEffect, useState } from 'react';
 import {
   Select,
@@ -34,7 +36,7 @@ export default function Participation() {
     api.get(`/api/${mallId}/events`)
       .then(res => {
         const evs = (res.data || [])
-          .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) setSelectedEvent(evs[0]._id);
       })
@@ -47,12 +49,11 @@ export default function Participation() {
       setCouponNos([]);
       return;
     }
-    // 상세에서 regions[].coupon 추출
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         const all = [];
-        (res.data.images||[]).forEach(img =>
-          (img.regions||[]).forEach(r => {
+        (res.data.images || []).forEach(img =>
+          (img.regions || []).forEach(r => {
             if (r.coupon) {
               Array.isArray(r.coupon)
                 ? all.push(...r.coupon)
@@ -61,8 +62,9 @@ export default function Participation() {
           })
         );
         setCouponNos(Array.from(new Set(all)));
+
         // 기본 기간: 생성일 → 오늘
-        const ev = events.find(e=>e._id===selectedEvent);
+        const ev = events.find(e => e._id === selectedEvent);
         const start = ev ? moment(ev.createdAt) : moment();
         setDateRange([ start, moment() ]);
       })
@@ -75,8 +77,8 @@ export default function Participation() {
   // 3) 통계 조회
   const fetchStats = () => {
     if (!selectedEvent)      return message.warning('게시판을 선택해주세요.');
-    if (couponNos.length===0) return message.warning('등록된 쿠폰이 없습니다.');
-    if (dateRange.length!==2) return message.warning('기간을 선택해주세요.');
+    if (couponNos.length === 0) return message.warning('등록된 쿠폰이 없습니다.');
+    if (dateRange.length !== 2) return message.warning('기간을 선택해주세요.');
 
     setLoading(true);
     const [ start, end ] = dateRange;
@@ -96,43 +98,48 @@ export default function Participation() {
   };
 
   const columns = [
-    { title:'쿠폰 번호',        dataIndex:'couponNo',     key:'couponNo' },
-    { title:'쿠폰명',           dataIndex:'couponName',   key:'couponName' },
+    { title: '쿠폰 번호',       dataIndex: 'couponNo',     key: 'couponNo' },
+    { title: '쿠폰명',          dataIndex: 'couponName',   key: 'couponName' },
     {
-      title:'다운로드 수',
-      dataIndex:'downloadCount',
-      key:'downloadCount',
-      align:'right'
+      title: '다운로드 수',
+      dataIndex: 'downloadCount',
+      key: 'downloadCount',
+      align: 'right'
     },
     {
-      title:'주문 완료 수',
-      dataIndex:'orderCount',
-      key:'orderCount',
-      align:'right'
+      title: '주문 완료 수',
+      dataIndex: 'orderCount',
+      key: 'orderCount',
+      align: 'right'
     }
   ];
 
   return (
-    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile?12:24 }}>
+    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
       <Space
-        direction={isMobile?'vertical':'horizontal'}
+        direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
         wrap
-        style={{ marginBottom:16 }}
+        style={{ marginBottom: 16 }}
       >
         <Select
           placeholder="게시판 선택"
-          options={events.map(e=>({ label:e.title||'(제목없음)', value:e._id }))}
+          options={events.map(e => ({
+            label: e.title || '(제목없음)',
+            value: e._id
+          }))}
           value={selectedEvent}
           onChange={setSelectedEvent}
-          style={{ width: isMobile?'100%':240 }}
+          style={{ width: isMobile ? '100%' : 240 }}
         />
+
         <RangePicker
-          style={{ width: isMobile?'100%':280 }}
+          style={{ width: isMobile ? '100%' : 280 }}
           value={dateRange}
           onChange={setDateRange}
           allowClear={false}
         />
+
         <Button
           type="primary"
           onClick={fetchStats}
@@ -151,7 +158,7 @@ export default function Participation() {
             rowKey="couponNo"
             pagination={false}
             bordered
-            scroll={{ x:'max-content' }}
+            scroll={{ x: 'max-content' }}
           />}
     </Card>
   );
