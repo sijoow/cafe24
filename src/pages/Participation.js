@@ -10,13 +10,15 @@ import {
   message,
   Spin,
   Grid,
-  DatePicker
+  DatePicker,
+  Typography
 } from 'antd';
 import moment from 'moment';
 import api from '../axios';
 
 const { useBreakpoint } = Grid;
 const { RangePicker } = DatePicker;
+const { Text } = Typography;
 
 export default function Participation() {
   const screens = useBreakpoint();
@@ -30,7 +32,7 @@ export default function Participation() {
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // 1) 이벤트 목록 로드
+  // 1) Load events
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -43,7 +45,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) 선택된 이벤트에서 쿠폰 번호들 추출
+  // 2) On event change → extract couponNos & reset dateRange
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -55,13 +57,13 @@ export default function Participation() {
         (res.data.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
-              Array.isArray(r.coupon) ? all.push(...r.coupon) : all.push(r.coupon);
+              Array.isArray(r.coupon)
+                ? all.push(...r.coupon)
+                : all.push(r.coupon);
             }
           })
         );
         setCouponNos(Array.from(new Set(all)));
-
-        // 기본 기간: 생성일 → 오늘
         const ev = events.find(e => e._id === selectedEvent);
         const start = ev ? moment(ev.createdAt) : moment();
         setDateRange([ start, moment() ]);
@@ -72,16 +74,16 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // 3) 쿠폰 통계 조회
+  // 3) Fetch stats
   const fetchStats = () => {
-    if (!selectedEvent)            return message.warning('게시판을 선택해주세요.');
-    if (couponNos.length === 0)    return message.warning('등록된 쿠폰이 없습니다.');
-    if (dateRange.length !== 2)    return message.warning('기간을 선택해주세요.');
+    if (!selectedEvent)      return message.warning('게시판을 선택해주세요.');
+    if (couponNos.length === 0) return message.warning('등록된 쿠폰이 없습니다.');
+    if (dateRange.length !== 2) return message.warning('기간을 선택해주세요.');
 
     setLoading(true);
     const [ start, end ] = dateRange;
     const qs = new URLSearchParams({
-      coupon_no:  couponNos.join(','),              // "A,B,C"
+      coupon_no:  couponNos.join(','),
       start_date: start.format('YYYY-MM-DD'),
       end_date:   end.format('YYYY-MM-DD')
     }).toString();
@@ -95,17 +97,37 @@ export default function Participation() {
       .finally(() => setLoading(false));
   };
 
+  // Columns: map issuedCount → downloadCount, usedCount → orderCount
   const columns = [
-    { title: '쿠폰 번호',       dataIndex: 'couponNo',         key: 'couponNo' },
-    { title: '쿠폰명',          dataIndex: 'couponName',       key: 'couponName' },
-    { title: '발급 수',         dataIndex: 'issuedCount',      key: 'issuedCount',      align: 'right' },
-    { title: '사용 수',         dataIndex: 'usedCount',        key: 'usedCount',        align: 'right' },
-    { title: '미사용 수',       dataIndex: 'unusedCount',      key: 'unusedCount',      align: 'right' },
-    { title: '자동삭제 수',     dataIndex: 'autoDeletedCount', key: 'autoDeletedCount', align: 'right' }
+    { title: '쿠폰 번호',       dataIndex: 'couponNo',       key: 'couponNo' },
+    { title: '쿠폰명',          dataIndex: 'couponName',     key: 'couponName' },
+    {
+      title: '다운로드 수',
+      dataIndex: 'issuedCount',
+      key: 'downloadCount',
+      align: 'right',
+      render: v => <Text>{v?.toLocaleString() || 0}</Text>
+    },
+    {
+      title: '주문 완료 수',
+      dataIndex: 'usedCount',
+      key: 'orderCount',
+      align: 'right',
+      render: v => <Text>{v?.toLocaleString() || 0}</Text>
+    }
   ];
 
+  // Aggregate totals for summary
+  const totals = stats.reduce((acc, cur) => {
+    acc.issued   += cur.issuedCount || 0;
+    acc.used     += cur.usedCount   || 0;
+    acc.unused   += cur.unusedCount || 0;
+    acc.autoDel  += cur.autoDeletedCount || 0;
+    return acc;
+  }, { issued: 0, used: 0, unused: 0, autoDel: 0 });
+
   return (
-    <Card title="쿠폰 발급 / 사용 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
+    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
       <Space
         direction={isMobile ? 'vertical' : 'horizontal'}
         size="middle"
@@ -143,14 +165,23 @@ export default function Participation() {
       {loading ? (
         <Spin tip="로딩 중…" />
       ) : (
-        <Table
-          columns={columns}
-          dataSource={stats}
-          rowKey="couponNo"
-          pagination={false}
-          bordered
-          scroll={{ x: 'max-content' }}
-        />
+        <>
+          {stats.length > 0 && (
+            <Text strong style={{ display: 'block', marginBottom: 12 }}>
+              발급 쿠폰수 : {totals.issued}개&nbsp;
+              (사용 쿠폰수 : {totals.used}개 / 미사용 쿠폰수 : {totals.unused}개 / 자동삭제 사용불가 쿠폰수 : {totals.autoDel}개)
+            </Text>
+          )}
+
+          <Table
+            columns={columns}
+            dataSource={stats}
+            rowKey="couponNo"
+            pagination={false}
+            bordered
+            scroll={{ x: 'max-content' }}
+          />
+        </>
       )}
     </Card>
   );
