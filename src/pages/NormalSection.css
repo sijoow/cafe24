@@ -6,6 +6,32 @@
 
   /* 500px 이하일 때만 적용 */
 @media (max-width: 500px) {
+  .ant-layout-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .ant-space {
+    padding: 0 !important;
+  }
+
+  .ant-card-body {
+    padding: 0 !important;
+  }
+  .ant-card-body > .ant-space {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+  }
+  .ant-card-body > .ant-space .ant-statistic {
+    flex: 0 0 50%;
+    text-align: center;
+    margin-bottom: 8px; /* 각 행 사이 간격 */
+  }
+
+  /* 테이블 영역 스크롤 없이 늘리기 */
+  .ant-table-body {
+    overflow: visible !important;
+  }
   /* 전체 콘텐츠 영역 여백/패딩 축소 */
   .ant-layout-content {
     background-color: #f0f2f5;
