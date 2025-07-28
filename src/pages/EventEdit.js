@@ -84,6 +84,12 @@ export default function EventEdit() {
   const [editingForm] = Form.useForm();
   const [editingIndex, setEditingIndex] = useState(null);
 
+   // ── MorePrd(상품 직접등록) 모달 상태 ───────────────────────────
+   const [morePrdVisible, setMorePrdVisible]   = useState(false);
+   const [morePrdTarget, setMorePrdTarget]     = useState('direct');  // 'direct' | 'tab'
+   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
+   const [initialSelected, setInitialSelected] = useState([])
+
   // ── 초기 데이터 로드 ───────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
