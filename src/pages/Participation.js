@@ -33,7 +33,7 @@ export default function Participation() {
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // 1) Load events and initialize date range
+  // 1) Load events & init date
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -52,7 +52,7 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) When selectedEvent changes, extract coupon numbers & reset date range
+  // 2) On event change → extract couponNos & reset date
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
@@ -83,37 +83,75 @@ export default function Participation() {
       });
   }, [mallId, selectedEvent, events]);
 
-  // 3) Fetch coupon stats
-  const fetchStats = () => {
+  // 3) Fetch stats + fetch coupon_status
+  const fetchStats = async () => {
     if (!selectedEvent)         return message.warning('게시판을 선택해주세요.');
     if (couponNos.length === 0) return message.warning('등록된 쿠폰이 없습니다.');
     if (range.length !== 2)     return message.warning('기간을 선택해주세요.');
 
     setLoading(true);
-    const [ start, end ] = range;
-    const qs = new URLSearchParams({
-      coupon_no:  couponNos.join(','),
-      start_date: start.format('YYYY-MM-DD'),
-      end_date:   end.format('YYYY-MM-DD')
-    }).toString();
+    try {
+      const [ start, end ] = range;
+      const qs = new URLSearchParams({
+        coupon_no:  couponNos.join(','),
+        start_date: start.format('YYYY-MM-DD'),
+        end_date:   end.format('YYYY-MM-DD')
+      }).toString();
 
-    api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`)
-      .then(res => setStats(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {
-        message.error('쿠폰 통계 조회 실패');
-        setStats([]);
-      })
-      .finally(() => setLoading(false));
+      // 3‑1) 통계 가져오기
+      const statRes = await api.get(
+        `/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`
+      );
+      let data = Array.isArray(statRes.data) ? statRes.data : [];
+
+      // 3‑2) 상태만 bulk 조회
+      const statusRes = await api.get(
+        `/api/${mallId}/coupons`,
+        {
+          params: {
+            shop_no:   1,
+            coupon_no: couponNos.join(','),
+            fields:    'coupon_no,coupon_status',
+            limit:     couponNos.length
+          }
+        }
+      );
+      const statusArr = statusRes.data.coupons || [];
+      const statusMap = statusArr.reduce((m, c) => {
+        m[c.coupon_no] = c.coupon_status;
+        return m;
+      }, {});
+
+      // 3‑3) data에 couponStatus 머지
+      data = data.map(item => ({
+        ...item,
+        couponStatus: statusMap[item.couponNo] || 'UNKNOWN'
+      }));
+
+      setStats(data);
+    } catch (err) {
+      console.error(err);
+      message.error('쿠폰 통계 조회 실패');
+      setStats([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 4) Table columns//DAta
+  // 4) 테이블 컬럼 정의 (여기에 상태 컬럼 추가)
   const columns = [
     { title: '쿠폰 번호',     dataIndex: 'couponNo',       key: 'couponNo' },
-    {
-      title: '쿠폰명',
-      dataIndex: 'couponName',
-      key: 'couponName',
-      render: name => name || '(이름없음)'
+    { title: '쿠폰명',        dataIndex: 'couponName',     key: 'couponName',
+      render: name => name || '(이름없음)' },
+    { title: '상태',          dataIndex: 'couponStatus',   key: 'couponStatus',
+      render: s => {
+        switch(s) {
+          case 'E': return '발급중';
+          case 'P': return '발급대기';
+          case 'D': return '발급불가';
+          default:  return s;
+        }
+      }
     },
     {
       title: '다운로드 수',
@@ -131,12 +169,12 @@ export default function Participation() {
     }
   ];
 
-  // 5) Calculate totals
+  // 5) 합계 계산
   const totals = stats.reduce((acc, cur) => {
-    acc.issued += cur.issuedCount        || 0;
-    acc.used   += cur.usedCount          || 0;
-    acc.unused += cur.unusedCount        || 0;
-    acc.autoDel+= cur.autoDeletedCount   || 0;
+    acc.issued += cur.issuedCount      || 0;
+    acc.used   += cur.usedCount        || 0;
+    acc.unused += cur.unusedCount      || 0;
+    acc.autoDel+= cur.autoDeletedCount || 0;
     return acc;
   }, { issued: 0, used: 0, unused: 0, autoDel: 0 });
 
