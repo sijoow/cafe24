@@ -46,20 +46,19 @@ export default function Dashboard() {
   const [minDate, setMinDate] = useState(null);
   const [dates, setDates]     = useState([]);
 
-  const [newByDate, setNewByDate]       = useState([]);
-  const [retByDate, setRetByDate]       = useState([]);
-  const [pcByDate, setPcByDate]         = useState([]);
-  const [andByDate, setAndByDate]       = useState([]);
-  const [iosByDate, setIosByDate]       = useState([]);
+  const [newByDate, setNewByDate] = useState([]);
+  const [retByDate, setRetByDate] = useState([]);
+  const [pcByDate, setPcByDate]   = useState([]);
+  const [andByDate, setAndByDate] = useState([]);
+  const [iosByDate, setIosByDate] = useState([]);
 
-  const [eventCount, setEventCount]   = useState(0);
-  const [couponCount, setCouponCount] = useState(0);
-
-  const [prodPerf, setProdPerf] = useState([]);
+  const [eventCount, setEventCount]     = useState(0);
+  const [couponCount, setCouponCount]   = useState(0);
+  const [prodPerf, setProdPerf]         = useState([]);
 
   // 쿠폰 통계용 상태
-  const [couponNos, setCouponNos]     = useState([]);
-  const [couponStats, setCouponStats] = useState([]);
+  const [couponNos, setCouponNos]       = useState([]);
+  const [couponStats, setCouponStats]   = useState([]);
   const [couponTotals, setCouponTotals] = useState({
     issued: 0, used: 0, unused: 0, autoDel: 0
   });
@@ -69,7 +68,6 @@ export default function Dashboard() {
   // ─── 이벤트 목록 & 쿠폰 개수 로드 ──────────────────────────────
   useEffect(() => {
     if (!mallId) return;
-    // 이벤트
     api.get(`/api/${mallId}/events`)
       .then(({ data }) => {
         const evs = (data || []).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -78,7 +76,6 @@ export default function Dashboard() {
         if (evs.length) setSelectedEvent(evs[0]._id);
       })
       .catch(() => message.error('이벤트 목록을 불러오지 못했습니다.'));
-    // 전체 쿠폰 개수
     api.get(`/api/${mallId}/coupons`)
       .then(res => setCouponCount(res.data.length))
       .catch(() => {});
@@ -95,7 +92,6 @@ export default function Dashboard() {
       return;
     }
 
-    // 1) 이벤트 생성일로 날짜 초기화
     const ev = events.find(e => e._id === selectedEvent);
     if (ev?.createdAt) {
       const created = dayjs(ev.createdAt);
@@ -103,7 +99,6 @@ export default function Dashboard() {
       setRange([created, dayjs()]);
     }
 
-    // 2) URL 목록 로드
     api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
         const list = res.data || [];
@@ -112,16 +107,13 @@ export default function Dashboard() {
       })
       .catch(() => message.error('URL 목록을 불러오지 못했습니다.'));
 
-    // 3) 쿠폰 번호 목록 로드 (이미지 영역에서 수집)
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(({ data }) => {
         const all = [];
         (data.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
-              Array.isArray(r.coupon)
-                ? all.push(...r.coupon)
-                : all.push(r.coupon);
+              Array.isArray(r.coupon) ? all.push(...r.coupon) : all.push(r.coupon);
             }
           })
         );
@@ -151,7 +143,7 @@ export default function Dashboard() {
       .catch(() => {});
   }, [mallId, selectedEvent]);
 
-  // ─── 데이터 조회 함수 ────────────────────────────────────────
+  // ─── 데이터 조회 함수 (통합) ─────────────────────────────────
   const fetchData = () => {
     if (!mallId || !selectedEvent || !selectedUrl) return;
     setLoading(true);
@@ -187,9 +179,9 @@ export default function Dashboard() {
 
         // 디바이스
         const dev = Array.isArray(devRes.data) ? devRes.data : [];
-        const pcMap  = new Map(), andMap = new Map(), iosMap = new Map();
+        const pcMap = new Map(), andMap = new Map(), iosMap = new Map();
         dev.forEach(o => {
-          if (o.device === 'PC')        pcMap.set(o.date, o.count);
+          if (o.device === 'PC')          pcMap.set(o.date, o.count);
           else if (o.device === 'Android') andMap.set(o.date, o.count);
           else if (o.device === 'iOS')      iosMap.set(o.date, o.count);
         });
@@ -209,9 +201,7 @@ export default function Dashboard() {
         }, { issued: 0, used: 0, unused: 0, autoDel: 0 });
         setCouponTotals(tot);
       })
-      .catch(() => {
-        message.error('데이터를 불러오지 못했습니다.');
-      })
+      .catch(() => message.error('데이터를 불러오지 못했습니다.'))
       .finally(() => setLoading(false));
   };
 
@@ -243,6 +233,28 @@ export default function Dashboard() {
     ]
   };
 
+  const top5Opt = {
+    // 여기서 다섯 가지 색상을 정의
+    color: ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'],
+    title:  { text: '상품 클릭 Top 5', left: 'center', top: 10 },
+    tooltip:{ trigger: 'axis' },
+    grid:   { left: 60, right: 20, bottom: 60 },
+    xAxis:  {
+      type: 'category',
+      data: prodPerf.slice(0,5).map(o => o.productName),
+      axisLabel: { rotate: 30 }
+    },
+    yAxis: { type: 'value' },
+    series:[
+      {
+        name: '클릭수',
+        type: 'bar',
+        data: prodPerf.slice(0,5).map(o => o.clicks)
+      }
+    ]
+  };
+
+  // ─── 렌더링 ───────────────────────────────────────────────────
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
       {/* 컨트롤 + KPI 섹션 */}
@@ -274,16 +286,10 @@ export default function Dashboard() {
               disabledDate={d => minDate && d.isBefore(minDate,'day')}
             />
           </Col>
-          <Col>
-            <Button type="primary" onClick={fetchData}>조회</Button>
-          </Col>
+          <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
           <Col flex="auto" />
-          <Col>
-            <Statistic title="전체 이벤트 수" value={eventCount} suffix="개" />
-          </Col>
-          <Col>
-            <Statistic title="전체 쿠폰 수"  value={couponCount} suffix="개" style={{ marginLeft: 16 }} />
-          </Col>
+          <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" /></Col>
+          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16 }} /></Col>
         </Row>
       </Card>
 
@@ -299,14 +305,18 @@ export default function Dashboard() {
         <Col xs={24} md={12}>
           <Card
             title="쿠폰 다운로드 / 주문 완료 통계"
-            style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', textAlign: 'center' }}
+            style={{
+              height: 320,
+              overflowY: 'auto',
+              textAlign: 'center'
+            }}
             bodyStyle={{ padding: 16, height: '100%' }}
             loading={loading}
           >
             <Space size="large" style={{ marginBottom: 16, justifyContent: 'center' }}>
-              <Statistic title="발급 쿠폰" value={couponTotals.issued} suffix="개" valueStyle={{ fontSize: 18 }} />
-              <Statistic title="사용 쿠폰" value={couponTotals.used}   suffix="개" valueStyle={{ fontSize: 18 }} />
-              <Statistic title="미사용 쿠폰" value={couponTotals.unused} suffix="개" valueStyle={{ fontSize: 18 }} />
+              <Statistic title="발급 쿠폰"   value={couponTotals.issued}  suffix="개" valueStyle={{ fontSize: 18 }} />
+              <Statistic title="사용 쿠폰"   value={couponTotals.used}    suffix="개" valueStyle={{ fontSize: 18 }} />
+              <Statistic title="미사용 쿠폰" value={couponTotals.unused}  suffix="개" valueStyle={{ fontSize: 18 }} />
             </Space>
             <Table
               size="small"
@@ -333,26 +343,7 @@ export default function Dashboard() {
         </Col>
         <Col xs={24} md={12}>
           <Card bodyStyle={{ height: 320 }}>
-            <ReactECharts
-              option={{
-                color: ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'],
-                title: { text: '상품 클릭 Top 5', left: 'center', top: 10 },
-                tooltip: { trigger: 'axis' },
-                grid: { left: 60, right: 20, bottom: 60 },
-                xAxis: {
-                  type: 'category',
-                  data: prodPerf.slice(0,5).map(o => o.productName),
-                  axisLabel: { rotate: 30 }
-                },
-                yAxis: { type: 'value' },
-                series: [{
-                  name: '클릭수',
-                  type: 'bar',
-                  data: prodPerf.slice(0,5).map(o => o.clicks)
-                }]
-              }}
-              style={{ height: '100%' }}
-            />
+            <ReactECharts option={top5Opt} style={{ height: '100%' }} />
           </Card>
         </Col>
       </Row>
