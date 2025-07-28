@@ -250,7 +250,7 @@ export default function Dashboard() {
       // ↓ 각 막대마다 색을 다르게
       itemStyle: {
         color: ({ dataIndex }) => {
-          const colors = ['##fe6326', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
+          const colors = ['#fe6326', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
           return colors[dataIndex % colors.length];
         }
       }
