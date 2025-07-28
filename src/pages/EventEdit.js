@@ -128,7 +128,14 @@ export default function EventEdit() {
           setSingleRoot(ev.classification.root);
           setSingleSub(ev.classification.sub);
         } else {
-          setTabs(ev.classification.tabs);
+           const incomingTabs = ev.classification.tabs;
+           setTabs(Array.isArray(incomingTabs)
+             ? incomingTabs
+             : [
+                 { title: '', root: null, sub: null },
+                 { title: '', root: null, sub: null },
+               ]
+           );
           setActiveColor(ev.classification.activeColor);
         }
         setImages(
@@ -632,7 +639,7 @@ export default function EventEdit() {
                 </Space>
               )}
 
-              {layoutType === 'tabs' && (
+                {layoutType === 'tabs' && Array.isArray(tabs) && (
                 <>
                   {tabs.map((t,i)=>(
                     <Space key={i} style={{ marginBottom:16 }}>
