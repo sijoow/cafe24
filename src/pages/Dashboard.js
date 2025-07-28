@@ -234,8 +234,6 @@ export default function Dashboard() {
   };
 
   const top5Opt = {
-    // 여기서 다섯 가지 색상을 정의
-    color: ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'],
     title:  { text: '상품 클릭 Top 5', left: 'center', top: 10 },
     tooltip:{ trigger: 'axis' },
     grid:   { left: 60, right: 20, bottom: 60 },
@@ -245,14 +243,20 @@ export default function Dashboard() {
       axisLabel: { rotate: 30 }
     },
     yAxis: { type: 'value' },
-    series:[
-      {
-        name: '클릭수',
-        type: 'bar',
-        data: prodPerf.slice(0,5).map(o => o.clicks)
+    series:[{
+      name: '클릭수',
+      type: 'bar',
+      data: prodPerf.slice(0,5).map(o => o.clicks),
+      // ↓ 각 막대마다 색을 다르게
+      itemStyle: {
+        color: ({ dataIndex }) => {
+          const colors = ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
+          return colors[dataIndex % colors.length];
+        }
       }
-    ]
+    }]
   };
+  
 
   // ─── 렌더링 ───────────────────────────────────────────────────
   return (
