@@ -1,107 +1,110 @@
 .ant-layout-content {
-    margin: 4px !important;
-    padding: 4px !important;
-  }
-  .ant-space{padding:0px!important;}
+  margin: 4px !important;
+  padding: 4px !important;
+  background-color: #f0f2f5;
+}
 
-  /* 500px 이하일 때만 적용 */
+/* 전역 Space padding 제거 */
+.ant-space {
+  padding: 0 !important;
+}
+
+/* 500px 이하에서만 적용 */
 @media (max-width: 500px) {
+
+  .ant-space {
+    overflow: hidden;
+  }
+
+  /* 콘텐츠 영역 여백/패딩 조정 */
   .ant-layout-content {
-    padding: 0 !important;
     margin: 0 !important;
-  }
-  .ant-space {
-    padding: 0 !important;
-    gap:0!important;
-    margin-top:20px!important;
-  }
-
-  .ant-card-body {
-    padding: 0 !important;
-  }
-  .ant-card-body > .ant-space {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-  }
-
-  /* 테이블 영역 스크롤 없이 늘리기 */
-  .ant-table-body {
-    overflow: visible !important;
-  }
-  /* 전체 콘텐츠 영역 여백/패딩 축소 */
-  .ant-layout-content {
-    background-color: #f0f2f5;
-    padding: 24px;      /* 원하는 만큼 여백 */
-  }
-
-  /* Space 컴포넌트 패딩 제거 */
-  .ant-space {
     padding: 0 !important;
   }
 
-  /* 조회 버튼과 컨트롤 영역 세로 정렬 */
-  .ant-card > .ant-card-body > .ant-row {
-    flex-direction: column;
-  }
-  .ant-card .ant-row > .ant-col {
-    width: 100% !important;
-    margin-bottom: 8px;
+  .ant-space-item:nth-child(2) {
+    margin-top: 20px
   }
 
-  /* Select/RangePicker/버튼 전체 너비 적용 */
-  .ant-card .ant-select, 
-  .ant-card .ant-picker, 
-  .ant-card .ant-btn {
-    width: 100% !important;
+  .ant-space-item:nth-child(4) {
+    margin-top: 20px
   }
 
-  /* KPI 영역을 2열 그리드로 변경 */
-  .ant-card .ant-space {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    justify-items: center;
-    
+  .ant-space-item:nth-child(5) {
+    margin-top: 20px
   }
 
-  /* 각 Statistic 컴포넌트의 텍스트 중앙 정렬 */
-  .ant-card .ant-statistic {
-    text-align: center;
-  }
 
+  /* 카드 공통 스타일 */
   .ant-card {
-    background-color: #fff !important;   /* 흰 배경 */
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    background-color: #fff !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     border: none;
-    width:95%;margin:0 auto;
+    width: 95%;
+    margin: 0 auto 16px;
   }
 
   .ant-card-body {
     padding: 16px !important;
   }
-  /* 2) 쿠폰 다운로드/주문 완료 통계 카드에 테이블 가로 스크롤 활성화 */
-  /* react‑table 이나 AntD Table 컨테이너에 overflow-x:auto 추가 */
+
+  /* 조회 영역(Row) 세로 정렬 */
+  .ant-card>.ant-card-body .ant-row {
+    flex-direction: column;
+  }
+
+  .ant-card>.ant-card-body .ant-row>.ant-col {
+    width: 100% !important;
+    margin-bottom: 8px;
+  }
+
+  .ant-card .ant-select,
+  .ant-card .ant-picker,
+  .ant-card .ant-btn {
+    width: 100% !important;
+  }
+
+  /* KPI 영역: 2열 그리드 */
+  .ant-card .ant-space {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    justify-items: center;
+  }
+
+  .ant-statistic {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    justify-items: center;
+  }
+
+  .ant-statistic-title {
+    font-size: 13px;
+  }
+
+  .ant-statistic-content {
+    font-size: 14px;
+
+  }
+
+  .ant-card .ant-statistic {
+    text-align: center;
+  }
+
+  /* 쿠폰 통계 테이블 가로 스크롤 */
   .ant-card .ant-table-container {
     overflow-x: auto !important;
   }
 
-  /* 3) 상품 클릭 Top5 카드에 margin-top 추가 */
-  /* 마지막 행의 오른쪽 카드 (상품 클릭) 에만 적용하려면 더 구체적인 셀렉터를 쓰셔도 좋습니다 */
+  /* 상품 클릭 Top5 카드 상단 여백 */
   .ant-row:last-child .ant-col:last-child .ant-card {
     margin-top: 16px !important;
   }
-  .ant-row > [flex="auto"] {
+
+  /* 빈 flex 컬럼 숨기기 (전체 이벤트/쿠폰 숫자 조정용) */
+  .ant-row>[flex="auto"] {
     display: none !important;
   }
-
-  /* 3) 컬럼 안의 텍스트도 가운데 정렬 */
-  .ant-row > .ant-col .ant-statistic {
-    text-align: center;
-  }
-
 }
-
-
-
