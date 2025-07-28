@@ -111,7 +111,7 @@ export default function EventDetail() {
   const handleShowHtml = () => {
     // 1) 기본 레이아웃 + 이미지 플레이스홀더
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
-    html += `<div id="evt-images">{#images}</div>\n\n`;
+    html += `<div id="evt-images"></div>\n\n`;
   
     // 2) 이미지 매핑 영역에서 사용된 쿠폰 번호 수집
     const couponList = Array.from(new Set(

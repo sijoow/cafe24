@@ -326,58 +326,78 @@ export default function EventEdit() {
       message.error('이미지 삭제 실패');
     }
   };
-  
-  // ── 싱픔 수정데이터 저장 ───────────────────────────────────────────────────────
-   const handleSave = async () => {
-    try {
-      // ① 파일 업로드 (미리보기 → 실제 URL 교체)
-      const uploaded = await Promise.all(
-        images.map(async img => {
-          if (img.file) {
-            const form = new FormData();
-            form.append('file', img.file);
-            const { data } = await api.post(`/api/${mallId}/uploads/image`, form);
-            return { ...img, src: data.url, file: undefined };
-          }
-          return img;
-        })
-      );
+  // ── 이벤트 수정 데이터 저장 ─────────────────────────────────────────
+const handleSave = async () => {
+  try {
+    console.log('▶ handleSave start, images:', images);
 
-      // ② payload 구성 & 전송
-      const payload = {
-        title,
-        content: '',       // 빈 문자열이라도 반드시 포함
-        gridSize,
-        layoutType,
-        classification: {
-          registerMode,
-          ...(registerMode === 'category' && { root: singleRoot, sub: singleSub }),
-          ...(registerMode === 'direct' && layoutType === 'single' && { directProducts }),
-          ...(registerMode === 'direct' && layoutType === 'tabs'  && { tabDirectProducts, tabs, activeColor }),
-        },
-        images: uploaded.map(img => ({
-          _id: img.id,
-          src: img.src,
-          regions: img.regions.map(r => ({
-            _id:    r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon,
-          }))
-        })),
-      };
+    // ① 파일 업로드 (미리보기 → 실제 URL 교체)
+    const uploaded = await Promise.all(
+      images.map(async img => {
+        if (img.file) {
+          const form = new FormData();
+          form.append('file', img.file);
 
-      await api.put(`/api/${mallId}/events/${id}`, payload);
-      message.success('저장 완료');
-      navigate(`/event/detail/${id}`);
-    } catch (err) {
-      console.error(err);
-      message.error('저장에 실패했습니다');
-    }
-  };
+          const { data } = await api.post(
+            `/api/${mallId}/uploads/image`,
+            form,
+            {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            }
+          );
+          console.log('▶ uploaded image URL:', data.url);
+          return { ...img, src: data.url, file: undefined };
+        }
+        return img;
+      })
+    );
+    console.log('▶ all images uploaded:', uploaded);
+
+    // ② payload 구성 & 전송
+    const payload = {
+      title,
+      content: '', // 빈 문자열이라도 포함
+      gridSize,
+      layoutType,
+      classification: {
+        registerMode,
+        ...(registerMode === 'category' && { root: singleRoot, sub: singleSub }),
+        ...(registerMode === 'direct' && layoutType === 'single' && { directProducts }),
+        ...(registerMode === 'direct' && layoutType === 'tabs' && { tabDirectProducts, tabs, activeColor }),
+      },
+      images: uploaded.map(img => ({
+        _id: img.id,
+        src: img.src,
+        regions: img.regions.map(r => ({
+          _id:    r.id,
+          xRatio: r.xRatio,
+          yRatio: r.yRatio,
+          wRatio: r.wRatio,
+          hRatio: r.hRatio,
+          href:   r.href,
+          coupon: r.coupon,
+        }))
+      })),
+    };
+    console.log('▶ PUT payload:', payload);
+
+    const res = await api.put(`/api/${mallId}/events/${id}`, payload);
+    console.log('▶ PUT success:', res.data);
+
+    message.success('저장 완료');
+    navigate(`/event/detail/${id}`);
+  } catch (err) {
+    console.error(
+      '▶ handleSave ERROR:',
+      err.response?.status,
+      err.response?.data || err.message
+    );
+    message.error(
+      `저장 실패: ${err.response?.data?.error || err.message}`
+    );
+  }
+};
+
 
   return (
     <Card

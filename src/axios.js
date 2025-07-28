@@ -8,7 +8,7 @@ const api = axios.create({
     'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app',
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    // 기본 JSON 헤더는 Accept만 남깁니다.
     Accept: 'application/json',
   },
 })
@@ -22,6 +22,11 @@ api.interceptors.request.use(
     if (mallId) config.headers['X-Mall-Id'] = mallId
     if (userId) config.headers['X-User-Id'] = userId
 
+    // FormData 업로드 시 기본 Content-Type 삭제 → axios가 올바른 multipart 헤더를 세팅
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
+
     return config
   },
   error => Promise.reject(error)
@@ -33,7 +38,6 @@ api.interceptors.response.use(
   error => {
     const status = error.response?.status
     if (status === 401) {
-      // 예시: 세션 만료 시 로그인 페이지로 리다이렉트
       window.location.href = '/login'
     }
     return Promise.reject(error)
