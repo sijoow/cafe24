@@ -54,10 +54,11 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) When selectedEvent changes, extract coupon numbers & reset date range
+  // 2) When selectedEvent changes, extract coupon numbers & reset date range & clear stats
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
+      setStats([]);
       return;
     }
     api.get(`/api/${mallId}/events/${selectedEvent}`)
@@ -72,7 +73,9 @@ export default function Participation() {
             }
           })
         );
-        setCouponNos(Array.from(new Set(all)));
+        const newNos = Array.from(new Set(all));
+        setCouponNos(newNos);
+        setStats([]);  // clear previous stats when switching events
 
         const ev = events.find(e => e._id === selectedEvent);
         const start = ev?.createdAt
@@ -84,6 +87,7 @@ export default function Participation() {
       .catch(() => {
         message.error('이벤트 상세 로드 실패');
         setCouponNos([]);
+        setStats([]);
       });
   }, [mallId, selectedEvent, events]);
 
