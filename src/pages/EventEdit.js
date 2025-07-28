@@ -125,8 +125,14 @@ export default function EventEdit() {
           }
         }
         if (ev.layoutType === 'single') {
-          setSingleRoot(ev.classification.root);
-          setSingleSub(ev.classification.sub);
+            setSingleRoot(ev.classification.root != null
+                ? String(ev.classification.root)
+                : null
+              );
+              setSingleSub(ev.classification.sub != null
+                ? String(ev.classification.sub)
+                : null
+              );
         } else {
            const incomingTabs = ev.classification.tabs;
            setTabs(Array.isArray(incomingTabs)
