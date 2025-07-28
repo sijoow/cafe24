@@ -62,7 +62,7 @@
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     justify-items: center;
-    background:#fff;
+    
   }
 
   /* 각 Statistic 컴포넌트의 텍스트 중앙 정렬 */
@@ -95,7 +95,6 @@
   .ant-row > [flex="auto"] {
     display: none !important;
   }
-
 
   /* 3) 컬럼 안의 텍스트도 가운데 정렬 */
   .ant-row > .ant-col .ant-statistic {
