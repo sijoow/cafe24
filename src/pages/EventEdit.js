@@ -33,6 +33,7 @@ const { Step } = Steps;
 const { Option } = Select;
 
 export default function EventEdit() {
+  // mallId & eventId
   const params       = new URLSearchParams(window.location.search);
   const paramMallId  = params.get('mall_id') || params.get('state');
   const storedMallId = localStorage.getItem('mallId');
@@ -40,23 +41,26 @@ export default function EventEdit() {
   const { id }       = useParams();
   const navigate     = useNavigate();
 
+  // refs
   const imgRef = useRef(null);
+
+  // ─── Steps 상태 ─────────────────────────────────────────
   const [current, setCurrent] = useState(0);
 
-  // ── 폼 상태 ─────────────────────────────────────
+  // ─── 공통 폼 상태 ───────────────────────────────────────
   const [docId, setDocId]             = useState(null);
   const [title, setTitle]             = useState('');
   const [images, setImages]           = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
-  // ── 상품등록 방식 ─────────────────────────────────
-  const [registerMode, setRegisterMode]         = useState('category');
-  const [directProducts, setDirectProducts]     = useState([]);
+  // ── 상품등록 방식 ────────────────────────────────────────
+  const [registerMode, setRegisterMode]     = useState('category'); // category | direct | none
+  const [directProducts, setDirectProducts] = useState([]);
   const [tabDirectProducts, setTabDirectProducts] = useState({});
 
-  // ── 그리드/레이아웃 ───────────────────────────────
+  // ── 카테고리/레이아웃 ────────────────────────────────────
   const [gridSize, setGridSize]       = useState(2);
-  const [layoutType, setLayoutType]   = useState('single');
+  const [layoutType, setLayoutType]   = useState('single'); // single | tabs
   const [allCats, setAllCats]         = useState([]);
   const [singleRoot, setSingleRoot]   = useState(null);
   const [singleSub, setSingleSub]     = useState(null);
@@ -66,7 +70,7 @@ export default function EventEdit() {
   ]);
   const [activeColor, setActiveColor] = useState('#1890ff');
 
-  // ── URL/쿠폰 매핑 ─────────────────────────────────
+  // ── URL/Coupon 영역 매핑 ─────────────────────────────────
   const [addingMode, setAddingMode]       = useState(false);
   const [addType, setAddType]             = useState(null);
   const [dragStart, setDragStart]         = useState(null);
@@ -76,42 +80,44 @@ export default function EventEdit() {
   const [urlModalVisible, setUrlModalVisible]     = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
 
-  // ── 쿠폰 옵션 & 편집 ───────────────────────────────
+  // ── 쿠폰 옵션 & 편집 ───────────────────────────────────
   const [couponOptions, setCouponOptions] = useState([]);
   const [editingForm]    = Form.useForm();
   const [editingIndex, setEditingIndex] = useState(null);
 
-  // ── MorePrd 모달 ───────────────────────────────────
+  // ── MorePrd 모달 ───────────────────────────────────────
   const [morePrdVisible,  setMorePrdVisible]  = useState(false);
-  const [morePrdTarget,   setMorePrdTarget]   = useState('direct');
+  const [morePrdTarget,   setMorePrdTarget]   = useState('direct');  // 'direct' | 'tab'
   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
   const [initialSelected, setInitialSelected] = useState([]);
 
-  // ── 초기 데이터 로드 ─────────────────────────────────
+  // ── 초기 데이터 로드 ───────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
 
-    // allCats
+    // 카테고리 전체
     api.get(`/api/${mallId}/categories/all`)
       .then(r => setAllCats(r.data))
       .catch(() => message.error('카테고리 로드 실패'));
 
-    // couponOptions
+    // 쿠폰 옵션
     api.get(`/api/${mallId}/coupons`)
       .then(r => setCouponOptions(
         r.data.map(c => ({
           value: c.coupon_no,
-          label:  `${c.coupon_name} (${c.benefit_percentage}%)`
+          label: `${c.coupon_name} (${c.benefit_percentage}%)`
         }))
       ))
       .catch(() => message.error('쿠폰 로드 실패'));
 
-    // 이벤트 상세
+    // 이벤트 상세 가져오기
     api.get(`/api/${mallId}/events/${id}`)
       .then(({ data: ev }) => {
-        // 공통
+        // 공통 필드
         setDocId(ev._id);
         setTitle(ev.title);
+
+        // 그리드 & 레이아웃 & 모드
         setGridSize(ev.gridSize);
         setLayoutType(ev.layoutType);
         setRegisterMode(ev.classification.registerMode || 'category');
@@ -125,7 +131,7 @@ export default function EventEdit() {
           }
         }
 
-        // 단품 vs 탭 분기
+        // 단품 vs 탭: 단품이면 대/소분류, 탭이면 탭배열 + 활성색
         if (ev.layoutType === 'single') {
           setSingleRoot(ev.classification.root != null
             ? String(ev.classification.root)
@@ -141,8 +147,8 @@ export default function EventEdit() {
             Array.isArray(incomingTabs)
               ? incomingTabs.map(t => ({
                   title: String(t.title || ''),
-                  root:  t.root != null ? String(t.root) : null,
-                  sub:   t.sub  != null ? String(t.sub)  : null,
+                  root:  t.root  != null ? String(t.root) : null,
+                  sub:   t.sub   != null ? String(t.sub)  : null,
                 }))
               : [
                   { title: '', root: null, sub: null },
@@ -152,7 +158,7 @@ export default function EventEdit() {
           setActiveColor(ev.classification.activeColor || '#1890ff');
         }
 
-        // 이미지 & 영역
+        // 이미지 + 매핑 영역
         setImages(
           (ev.images || []).map(img => ({
             id:      img._id,
@@ -167,7 +173,7 @@ export default function EventEdit() {
       });
   }, [mallId, id, navigate]);
 
-  // ── 이미지 교체 ───────────────────────────────────
+  // ── 이미지 교체 ─────────────────────────────────────
   const replaceImage = (idx, file, onSuccess) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -183,7 +189,7 @@ export default function EventEdit() {
     reader.readAsDataURL(file);
   };
 
-  // ── 매핑 드래그 핸들러 ───────────────────────────────
+  // ── 매핑 드래그 핸들러 ──────────────────────────────
   const onMouseDown = e => {
     if (!addingMode || !imgRef.current) return;
     const { left, top } = imgRef.current.getBoundingClientRect();
@@ -236,7 +242,7 @@ export default function EventEdit() {
     message.success(addType === 'url' ? 'URL 추가됨' : '쿠폰 추가됨');
   };
 
-  // ── 영역 편집 / 삭제 ─────────────────────────────────
+  // ── 영역 편집/삭제 ───────────────────────────────────
   const onEditRegion = idx => {
     setEditingIndex(idx);
     editingForm.setFieldsValue(images[selectedIdx].regions[idx]);
@@ -260,7 +266,7 @@ export default function EventEdit() {
     message.success('영역 삭제됨');
   };
 
-  // ── 썸네일 드래그 ───────────────────────────────────
+  // ── 썸네일 순서 변경 ───────────────────────────────────
   const onDragEnd = result => {
     if (!result.destination) return;
     const a = Array.from(images);
@@ -373,7 +379,7 @@ export default function EventEdit() {
       {/* Step 2 */}
       {current === 1 && (
         <>
-          {/* 썸네일 변경 */}
+          {/* 썸네일 순서 변경 */}
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="thumbs" direction="horizontal">
               {prov => (
@@ -395,7 +401,7 @@ export default function EventEdit() {
                             borderRadius:4,
                             ...p.draggableProps.style
                           }}
-                          onClick={()=>setSelectedIdx(idx)}
+                          onClick={() => setSelectedIdx(idx)}
                         >
                           <img
                             src={img.src}
@@ -406,7 +412,7 @@ export default function EventEdit() {
                             <Upload
                               accept="image/*"
                               showUploadList={false}
-                              customRequest={({file,onSuccess})=>replaceImage(idx,file,onSuccess)}
+                              customRequest={({ file, onSuccess }) => replaceImage(idx, file, onSuccess)}
                             >
                               <Button size="small" icon={<UploadOutlined />} />
                             </Upload>
@@ -414,7 +420,7 @@ export default function EventEdit() {
                               size="small"
                               danger
                               icon={<DeleteOutlined />}
-                              onClick={()=>deleteImage(idx)}
+                              onClick={() => deleteImage(idx)}
                             />
                           </div>
                         </div>
@@ -433,11 +439,11 @@ export default function EventEdit() {
                     <Upload
                       accept="image/*"
                       showUploadList={false}
-                      customRequest={({file,onSuccess,onError})=>{
+                      customRequest={({ file, onSuccess, onError }) => {
                         const reader = new FileReader();
-                        reader.onload = e=>{
+                        reader.onload = e => {
                           const dataUrl = e.target.result;
-                          setImages(prev=>[
+                          setImages(prev => [
                             ...prev,
                             { id:Date.now().toString(), src:dataUrl, file, regions:[] }
                           ]);
@@ -460,11 +466,13 @@ export default function EventEdit() {
 
           {/* 매핑 모드 */}
           <Space style={{ margin:'8px 0' }}>
-            <Button icon={<LinkOutlined />}
+            <Button
+              icon={<LinkOutlined />}
               type={addingMode&&addType==='url'?'primary':'default'}
               onClick={()=>{setAddingMode(true);setAddType('url');}}
             >URL 추가</Button>
-            <Button icon={<TagOutlined />}
+            <Button
+              icon={<TagOutlined />}
               type={addingMode&&addType==='coupon'?'primary':'default'}
               onClick={()=>{setAddingMode(true);setAddType('coupon');setNewValue(null);}}
             >쿠폰 추가</Button>
@@ -585,10 +593,10 @@ export default function EventEdit() {
             style={{ marginBottom:24 }}
           />
 
-          {/* 카테고리 */}
+          {/* ── 카테고리 모드 ───────────────────── */}
           {registerMode === 'category' && (
             <>
-              <h4>그리드 사이즈</h4>
+              <h4>1) 그리드 사이즈</h4>
               <Space>
                 {[2,3,4].map(n=>(
                   <Button
@@ -599,11 +607,11 @@ export default function EventEdit() {
                 ))}
               </Space>
 
-              <h4 style={{ margin:'16px 0'}}>노출 방식</h4>
+              <h4 style={{ margin:'16px 0'}}>2) 노출 방식</h4>
               <Segmented
                 options={[
-                  { label:'단품', value:'single' },
-                  { label:'탭',   value:'tabs'   }
+                  { label:'단품상품', value:'single' },
+                  { label:'탭상품',   value:'tabs'   }
                 ]}
                 value={layoutType}
                 onChange={setLayoutType}
@@ -650,19 +658,14 @@ export default function EventEdit() {
                         style={{ width:120 }}
                         value={t.title}
                         onChange={e=>{
-                          const a=[...tabs];
-                          a[i].title=e.target.value;
-                          setTabs(a);
+                          const a=[...tabs]; a[i].title=e.target.value; setTabs(a);
                         }}
                       />
                       <Select
-                        placeholder="대분류"
-                        style={{ width:140 }}
+                        placeholder="대분류" style={{ width:140 }}
                         value={t.root}
                         onChange={v=>{
-                          const a=[...tabs];
-                          a[i].root=v; a[i].sub=null;
-                          setTabs(a);
+                          const a=[...tabs]; a[i].root=v; a[i].sub=null; setTabs(a);
                         }}
                       >
                         {allCats.filter(c=>c.category_depth===1).map(r=>(
@@ -672,13 +675,10 @@ export default function EventEdit() {
                         ))}
                       </Select>
                       <Select
-                        placeholder="소분류"
-                        style={{ width:140 }}
+                        placeholder="소분류" style={{ width:140 }}
                         value={t.sub}
                         onChange={v=>{
-                          const a=[...tabs];
-                          a[i].sub=v;
-                          setTabs(a);
+                          const a=[...tabs]; a[i].sub=v; setTabs(a);
                         }}
                       >
                         {allCats
@@ -712,26 +712,98 @@ export default function EventEdit() {
             </>
           )}
 
-          {/* 직접등록 */}
+          {/* ── 직접 등록 모드 ───────────────────── */}
           {registerMode === 'direct' && (
             <>
-              <h4>상품 직접 등록</h4>
-              <Button
-                type={directProducts.length?'primary':'default'}
-                onClick={()=>{
-                  setInitialSelected(directProducts.map(p=>p.product_no));
-                  setMorePrdTarget('direct');
-                  setMorePrdVisible(true);
-                }}
-              >
-                {directProducts.length
-                  ? `상품 ${directProducts.length}개 등록됨`
-                  : '상품 직접 등록'}
-              </Button>
+              <h4>1) 그리드 사이즈</h4>
+              <Space>
+                {[2,3,4].map(n=>(
+                  <Button
+                    key={n}
+                    type={gridSize===n?'primary':'default'}
+                    onClick={()=>setGridSize(n)}
+                  >{n}×{n}</Button>
+                ))}
+              </Space>
+
+              <h4 style={{ margin:'16px 0'}}>2) 노출 방식</h4>
+              <Segmented
+                options={[
+                  { label:'단품상품', value:'single' },
+                  { label:'탭상품',   value:'tabs'   }
+                ]}
+                value={layoutType}
+                onChange={setLayoutType}
+                block
+              />
+
+              {layoutType === 'single' && (
+                <Button
+                  type={directProducts.length?'primary':'default'}
+                  style={{ marginTop:16, width:'100%' }}
+                  onClick={()=>{
+                    setInitialSelected(directProducts.map(p=>p.product_no));
+                    setMorePrdTarget('direct');
+                    setMorePrdVisible(true);
+                  }}
+                >
+                  {directProducts.length
+                    ? `상품 ${directProducts.length}개 등록됨`
+                    : '상품 직접 등록'}
+                </Button>
+              )}
+
+              {layoutType === 'tabs' && (
+                <>
+                  {tabs.map((t,i)=>(  
+                    <Space key={i} size="middle" style={{ marginTop:16 }}>
+                      <Input
+                        placeholder={`탭 ${i+1}`}
+                        style={{ width:120 }}
+                        value={t.title}
+                        onChange={e=>{
+                          const a=[...tabs]; a[i].title=e.target.value; setTabs(a);
+                        }}
+                      />
+                      <Button
+                        type={ (tabDirectProducts[i]||[]).length?'primary':'default'}
+                        onClick={()=>{
+                          setInitialSelected(
+                            (tabDirectProducts[i]||[]).map(p=>p.product_no)
+                          );
+                          setMorePrdTarget('tab');
+                          setMorePrdTabIndex(i);
+                          setMorePrdVisible(true);
+                        }}
+                      >
+                        { (tabDirectProducts[i]||[]).length
+                          ? `상품 ${(tabDirectProducts[i]||[]).length}개 등록됨`
+                          : '상품 직접 등록'}
+                      </Button>
+                    </Space>
+                  ))}
+
+                  <Button
+                    type="dashed"
+                    style={{ display:'inline-block', width:'100%', marginTop:10 }}
+                    onClick={()=>setTabs(ts=>[...ts,{title:'',root:null,sub:null}])}
+                  >+ 탭 추가</Button>
+
+                  <Space style={{ marginTop:12, alignItems:'center' }}>
+                    <span>활성 탭 색:</span>
+                    <Input
+                      type="color"
+                      value={activeColor}
+                      onChange={e=>setActiveColor(e.target.value)}
+                      style={{ width:32, height:32, padding:0, border:'none' }}
+                    />
+                  </Space>
+                </>
+              )}
             </>
           )}
 
-          {/* 노출안함 */}
+          {/* ── 노출안함 ─────────────────────────────── */}
           {registerMode === 'none' && (
             <div style={{ textAlign:'center', color:'#999', padding:'32px 0' }}>
               상품을 노출하지 않습니다.
@@ -748,16 +820,17 @@ export default function EventEdit() {
           tabIndex={morePrdTabIndex}
           initialSelected={initialSelected}
           onOk={selected => {
-            if (morePrdTarget==='direct') {
+            if (morePrdTarget === 'direct') {
               setDirectProducts(selected);
             } else {
-              setTabDirectProducts(prev=>({
-                ...prev, [morePrdTabIndex]: selected
+              setTabDirectProducts(prev => ({
+                ...prev,
+                [morePrdTabIndex]: selected
               }));
             }
             setMorePrdVisible(false);
           }}
-          onCancel={()=>setMorePrdVisible(false)}
+          onCancel={() => setMorePrdVisible(false)}
         />
       )}
 
@@ -765,16 +838,16 @@ export default function EventEdit() {
       <Modal
         title="URL 추가"
         open={urlModalVisible}
-        onCancel={()=>{
+        onCancel={() => {
           setPendingBox(null); setAddType(null); setAddingMode(false);
           setUrlModalVisible(false);
         }}
         footer={[
-          <Button key="cancel" onClick={()=>{
+          <Button key="cancel" onClick={() => {
             setPendingBox(null); setAddType(null); setAddingMode(false);
             setUrlModalVisible(false);
           }}>취소</Button>,
-          <Button key="add" type="primary" onClick={()=>{
+          <Button key="add" type="primary" onClick={() => {
             addRegion(newValue);
             setUrlModalVisible(false);
           }}>등록</Button>
@@ -783,7 +856,7 @@ export default function EventEdit() {
         <Input
           placeholder="https://example.com"
           value={newValue}
-          onChange={e=>setNewValue(e.target.value)}
+          onChange={e => setNewValue(e.target.value)}
         />
       </Modal>
 
@@ -791,20 +864,20 @@ export default function EventEdit() {
       <Modal
         title="쿠폰 추가"
         open={couponModalVisible}
-        onCancel={()=>{
+        onCancel={() => {
           setPendingBox(null); setAddType(null); setAddingMode(false);
           setCouponModalVisible(false);
         }}
         footer={[
-          <Button key="cancel" onClick={()=>{
+          <Button key="cancel" onClick={() => {
             setPendingBox(null); setAddType(null); setAddingMode(false);
             setCouponModalVisible(false);
           }}>취소</Button>,
-          <Button key="delete" danger onClick={()=>{
+          <Button key="delete" danger onClick={() => {
             setPendingBox(null); setAddType(null); setAddingMode(false);
             setCouponModalVisible(false);
           }}>삭제</Button>,
-          <Button key="apply" type="primary" onClick={()=>{
+          <Button key="apply" type="primary" onClick={() => {
             addRegion(newValue);
             setCouponModalVisible(false);
           }}>적용</Button>
@@ -814,10 +887,10 @@ export default function EventEdit() {
           mode="tags"
           tokenSeparators={[',']}
           options={couponOptions}
-          placeholder="쿠폰을 선택하거나 번호를 입력하세요 (쉼표로 구분)"
+          placeholder="쿠폰 선택 또는 번호 입력 (쉼표로 구분)"
           value={newValue || []}
-          onChange={v=>setNewValue(v)}
-          style={{ width:'100%' }}
+          onChange={v => setNewValue(v)}
+          style={{ width: '100%' }}
         />
       </Modal>
     </Card>
