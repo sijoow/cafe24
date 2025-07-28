@@ -24,11 +24,7 @@ const API_BASE =
   'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
 
 export default function EventDetail() {
-  const params        = new URLSearchParams(window.location.search);
-  const paramMallId   = params.get('mall_id') || params.get('state');
-  const storedMallId  = localStorage.getItem('mallId');
-  const mallId        = paramMallId || storedMallId;
-  const { id }        = useParams();  
+  const { mallId, id } = useParams();  
   const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
@@ -55,9 +51,9 @@ export default function EventDetail() {
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
-        navigate(`/${mallId}/event/list`);
+        navigate('/event/list');
       });
-  }, [mallId, id, navigate]);
+  }, [id, navigate]);
 
   if (!event) return null;
 
@@ -111,7 +107,7 @@ export default function EventDetail() {
   const handleShowHtml = () => {
     // 1) 기본 레이아웃 + 이미지 플레이스홀더
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
-    html += `<div id="evt-images"></div>\n\n`;
+    html += `<div id="evt-images">{#images}</div>\n\n`;
   
     // 2) 이미지 매핑 영역에서 사용된 쿠폰 번호 수집
     const couponList = Array.from(new Set(
@@ -174,13 +170,12 @@ export default function EventDetail() {
       html += `</div>\n\n`;
   
     } else {
-      html += ``;
+      html += `<p>상품을 노출하지 않습니다.</p>\n\n`;
     }
   
     // 4) widget.js 스크립트 태그 (쿠폰만 전역으로)
     const scriptAttrs = [
-      `src="${API_BASE}/widget.js"`,
-       `data-mall-id="${mallId}"`,    
+      `src="${API_BASE}/api/${mallId}/widget.js"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${tabs.length}"`,
@@ -211,12 +206,12 @@ export default function EventDetail() {
         style={{ '--active-color': activeColor }}
         extra={
           <Space>
-          <Button
-            icon={<UnorderedListOutlined />}
-            onClick={() => navigate(`/event/list`)}
-          >
-            목록
-          </Button>
+            <Button
+              icon={<UnorderedListOutlined />}
+              onClick={() => navigate('/event/list')}
+            >
+              목록
+            </Button>
             <Button icon={<CodeOutlined />} onClick={handleShowHtml}>
               HTML
             </Button>
@@ -261,34 +256,14 @@ export default function EventDetail() {
                   : 'rgba(24,144,255,0.2)',
               };
               if (r.coupon) {
-                // r.coupon이 [‘쿠폰A’, ‘쿠폰B’] 같은 배열일 수도 있다고 가정
-                const coupons = Array.isArray(r.coupon) ? r.coupon : [r.coupon];
                 return (
                   <button
                     key={r.id}
                     style={style}
-                    onClick={() => {
-                      // 1) 쿠폰 다운로드
-                      coupons.forEach(cpn => downloadCoupon(cpn));
-                      // 2) 트래킹 API 호출 (각 쿠폰별로)
-                      coupons.forEach(cpn => {
-                        fetch(`/api/${mallId}/track`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            pageId: id,
-                            visitorId: sessionStorage.getItem('visitorId'),
-                            type: 'click',
-                            element: 'coupon',
-                            timestamp: new Date().toISOString(),
-                            productNo: cpn
-                          })
-                        });
-                      });
-                    }}
+                    onClick={() => downloadCoupon(r.coupon)}
                   />
                 );
-              }  else {
+              } else {
                 let hrefVal = r.href;
                 if (!/^https?:\/\//.test(hrefVal)) {
                   hrefVal = 'https://' + hrefVal;
