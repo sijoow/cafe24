@@ -33,12 +33,39 @@
     width: 100% !important;
   }
 
-  /* KPI 스탯은 중앙 정렬 & 약간 줄여서 표시 */
+  /* KPI 영역을 2열 그리드로 변경 */
+  .ant-card .ant-space {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    justify-items: center;
+  }
+
+  /* 각 Statistic 컴포넌트의 텍스트 중앙 정렬 */
   .ant-card .ant-statistic {
     text-align: center;
-    margin-top: 8px;
   }
-  .ant-card .ant-statistic-content {
-    font-size: 16px !important;
+
+  .ant-card {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
   }
+
+  /* 2) 쿠폰 다운로드/주문 완료 통계 카드에 테이블 가로 스크롤 활성화 */
+  /* react‑table 이나 AntD Table 컨테이너에 overflow-x:auto 추가 */
+  .ant-card .ant-table-container {
+    overflow-x: auto !important;
+  }
+
+  /* 3) 상품 클릭 Top5 카드에 margin-top 추가 */
+  /* 마지막 행의 오른쪽 카드 (상품 클릭) 에만 적용하려면 더 구체적인 셀렉터를 쓰셔도 좋습니다 */
+  .ant-row:last-child .ant-col:last-child .ant-card {
+    margin-top: 16px !important;
+  }
+
+  
 }
+
+
+
