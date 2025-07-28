@@ -642,7 +642,7 @@ export default function EventEdit() {
                 {layoutType === 'tabs' && Array.isArray(tabs) && (
                 <>
                   {tabs.map((t,i)=>(
-                    <Space key={i} style={{ marginBottom:16 }}>
+                    <Space key={i} size="middle"  style={{ marginBottom:16 ,marginTop:16}}>
                       <Input
                         placeholder={`탭 ${i+1}`}
                         style={{ width:120 }}
@@ -684,7 +684,7 @@ export default function EventEdit() {
                     </Space>
                   ))}
                   <Button
-                    type="dashed"
+                    type="dashed" style={{display:'inline-block',width:'100%'}}
                     onClick={()=>setTabs(ts=>[...ts,{title:'',root:null,sub:null}])}
                   >
                     + 탭 추가
