@@ -116,7 +116,7 @@ export default function PrdData() {
           </Button>
         </Space>
       )}
-      style={{ width: '100%', maxWidth: 1600, margin: '0 auto' }}
+      style={{ width: '100%', maxWidth: 1800, margin: '0 auto' }}
       bodyStyle={{ padding: isMobile ? 12 : 24 }}
     >
       <Table
