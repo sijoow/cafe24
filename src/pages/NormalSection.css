@@ -79,20 +79,18 @@
     margin-top: 0px !important;
   }
 
-
-     .kpi-row {
-       display: flex;
-       /* 보통은 Row 컴포넌트가 이미 flex 이지만, 확실히 해주셔도 OK */
-       flex-wrap: wrap;
-     }
-  
-     /* Col 에 붙인 kpi-col */
-     .kpi-col {
-       /* flex-basis 50%, 늘어나지도 줄어들지도 않게 고정 */
-       flex: 0 0 50% !important;
-       max-width: 50% !important;
-       box-sizing: border-box;
-     }
+    .kpi-row {
+      display: flex !important;
+      /* AntD Row 가 이미 flex 이지만, 확실히 */
+      flex-wrap: wrap !important;
+    }
+    .kpi-col {
+      flex: 0 0 50% !important;
+      max-width: 50% !important;
+      box-sizing: border-box;
+      text-align: center;
+      /* 가운데 정렬 */
+    }
 
     /* 각 Statistic 텍스트 중앙 정렬 */
     .ant-row:nth-of-type(2)>.ant-col:nth-of-type(2) .ant-statistic {
