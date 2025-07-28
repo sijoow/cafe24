@@ -347,13 +347,216 @@ export default function EventEdit() {
           onChange={e => setTitle(e.target.value)}
         />
       )}
-
       {/* Step 2: 이미지 매핑 */}
       {current === 1 && (
         <>
-          {/* ...이미지 매핑 UI (생략) */}
+          {/* 1) 썸네일 순서 변경 */}
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="thumbs" direction="horizontal">
+              {(prov) => (
+                <div
+                  ref={prov.innerRef}
+                  {...prov.droppableProps}
+                  style={{ display:'flex', gap:8, overflowX:'auto', padding:'8px 0' }}
+                >
+                  {images.map((img, idx) => (
+                    <Draggable key={img.id} draggableId={img.id} index={idx}>
+                      {(p) => (
+                        <div
+                          ref={p.innerRef}
+                          {...p.draggableProps}
+                          {...p.dragHandleProps}
+                          style={{
+                            position:'relative',
+                            border: idx===selectedIdx ? `2px solid ${activeColor}` : '1px solid #ddd',
+                            borderRadius:4,
+                            ...p.draggableProps.style
+                          }}
+                          onClick={()=>setSelectedIdx(idx)}
+                        >
+                          <img
+                            src={img.src}
+                            alt=""
+                            style={{ width:100, height:60, objectFit:'cover', cursor:'pointer' }}
+                          />
+                          <div style={{ position:'absolute', top:4, right:4, display:'flex', gap:4 }}>
+                            <Upload
+                              accept="image/*"
+                              showUploadList={false}
+                              customRequest={({file,onSuccess})=>replaceImage(idx,file,onSuccess)}
+                            >
+                              <Button size="small" icon={<UploadOutlined />} />
+                            </Upload>
+                            <Button
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={()=>deleteImage(idx)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {/* 새 이미지 추가 버튼 */}
+                  <div
+                    style={{
+                      width:100, height:60,
+                      border:'1px dashed #ccc',
+                      borderRadius:4,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      cursor:'pointer'
+                    }}
+                  >
+                    <Upload
+                      accept="image/*"
+                      showUploadList={false}
+                      customRequest={({file,onSuccess,onError})=>{
+                        const reader = new FileReader();
+                        reader.onload = e=>{
+                          const dataUrl = e.target.result;
+                          setImages(prev=>[
+                            ...prev,
+                            { id:Date.now().toString(), src:dataUrl, file, regions:[] }
+                          ]);
+                          setSelectedIdx(images.length);
+                          onSuccess();
+                          message.success('미리보기 등록 완료');
+                        };
+                        reader.onerror=onError;
+                        reader.readAsDataURL(file);
+                      }}
+                    >
+                      <PlusOutlined style={{ fontSize:24, color:'#888' }} />
+                    </Upload>
+                  </div>
+                  {prov.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+
+          {/* 2) URL / 쿠폰 매핑 모드 버튼 */}
+          <Space style={{ margin:'8px 0' }}>
+            <Button
+              icon={<LinkOutlined />}
+              type={addingMode && addType==='url' ? 'primary':'default'}
+              onClick={()=>{ setAddingMode(true); setAddType('url'); }}
+            >
+              URL 추가
+            </Button>
+            <Button
+              icon={<TagOutlined />}
+              type={addingMode && addType==='coupon' ? 'primary':'default'}
+              onClick={()=>{ setAddingMode(true); setAddType('coupon'); setNewValue([]); }}
+            >
+              쿠폰 추가
+            </Button>
+          </Space>
+
+          {/* 3) 매핑 컨테이너 */}
+          <div
+            className="mapping-container"
+            ref={imgRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            style={{
+              position:'relative',
+              width:'100%',
+              maxWidth:800,
+              margin:'16px auto',
+              cursor:addingMode ? 'crosshair':'default'
+            }}
+          >
+            <img
+              src={images[selectedIdx]?.src}
+              alt=""
+              style={{ width:'100%', height:'auto', objectFit:'contain', userSelect:'none' }}
+              draggable={false}
+            />
+
+            {/* 드래그 박스 표시 */}
+            {dragBox && (
+              <div
+                style={{
+                  position:'absolute',
+                  left:dragBox.x,
+                  top:dragBox.y,
+                  width:dragBox.w,
+                  height:dragBox.h,
+                  border:'2px dashed #1890ff'
+                }}
+              />
+            )}
+
+            {/* 기존 매핑 영역들 */}
+            {images[selectedIdx]?.regions.map((r,i)=>(
+              <Popover
+                key={r.id}
+                trigger="click"
+                placement="topLeft"
+                getPopupContainer={trigger=>trigger.parentNode}
+                open={editingIndex===i}
+                onOpenChange={open=>open?onEditRegion(i):setEditingIndex(null)}
+                content={
+                  <Form
+                    form={editingForm}
+                    initialValues={r}
+                    onFinish={vals=>saveRegion(i,vals)}
+                    layout="vertical"
+                    style={{ width:500 }}
+                  >
+                    {r.coupon ? (
+                      <Form.Item
+                        name="coupon"
+                        label="쿠폰 선택"
+                        rules={[{ required:true, message:'쿠폰을 선택하세요' }]}
+                      >
+                        <Select mode="multiple" options={couponOptions} />
+                      </Form.Item>
+                    ) : (
+                      <Form.Item
+                        name="href"
+                        label="URL 입력"
+                        rules={[{ required:true, message:'URL을 입력하세요' }]}
+                      >
+                        <Input placeholder="https://example.com" />
+                      </Form.Item>
+                    )}
+                    <Form.Item>
+                      <Space style={{ justifyContent:'flex-end', width:'100%' }}>
+                        <Button onClick={()=>setEditingIndex(null)}>취소</Button>
+                        <Button danger onClick={()=>deleteRegion(i)}>삭제</Button>
+                        <Button type="primary" htmlType="submit">적용</Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
+                }
+              >
+                <div
+                  style={{
+                    position:'absolute',
+                    left:`${(r.xRatio*100).toFixed(2)}%`,
+                    top:`${(r.yRatio*100).toFixed(2)}%`,
+                    width:`${(r.wRatio*100).toFixed(2)}%`,
+                    height:`${(r.hRatio*100).toFixed(2)}%`,
+                    border: r.coupon
+                      ? '2px dashed rgba(255,99,71,0.7)'
+                      : '2px dashed rgba(24,144,255,0.7)',
+                    background: r.coupon
+                      ? 'rgba(255,99,71,0.2)'
+                      : 'rgba(24,144,255,0.2)',
+                    cursor:'pointer'
+                  }}
+                  onClick={e=>{ e.stopPropagation(); onEditRegion(i); }}
+                />
+              </Popover>
+            ))}
+          </div>
         </>
       )}
+
 
       {/* Step 3: 상품등록 방식 설정 */}
       {current === 2 && (
