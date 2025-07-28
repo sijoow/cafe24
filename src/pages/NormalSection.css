@@ -21,20 +21,20 @@
   .ant-layout-content {
     margin: 0 !important;
     padding: 0 !important;
-  }
+}
 
 
-  .ant-space-item:nth-child(1) {
-    margin-top: 20px
-  }
+.dashbord .ant-space-item:nth-child(1) {
+  margin-top: 20px
+}
 
-  .ant-space-item:nth-child(4) {
-    margin-top: 20px
-  }
+  .dashbord .ant-space-item:nth-child(4) {
+  margin-top: 20px
+}
 
-  .ant-space-item:nth-child(5) {
-    margin-top: 20px
-  }
+  .dashbord.ant-space-item:nth-child(5) {
+  margin-top: 20px
+}
 
 
   /* 카드 공통 스타일 */

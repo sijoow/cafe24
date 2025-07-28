@@ -260,7 +260,7 @@ export default function Dashboard() {
 
   // ─── 렌더링 ───────────────────────────────────────────────────
   return (
-    <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
+    <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }} className="dashbord">
       {/* 컨트롤 + KPI 섹션 */}
       <Card>
         <Row gutter={16} align="middle">
