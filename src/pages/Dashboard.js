@@ -294,8 +294,13 @@ export default function Dashboard() {
 
         {/* 2열: 쿠폰 다운로드/주문 완료 통계 */}
         <Col xs={24} md={12}>
-          <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: 16, height: 320 }} loading={loading}>
-            <Space size="large" style={{ marginBottom: 16 }}>
+               <Card
+                title="쿠폰 다운로드 / 주문 완료 통계"
+                style={{ height: 320 ,overflow:'scroll',overflowX:'hidden'}}                     // 전체 카드 높이 고정
+                bodyStyle={{ padding: 16, height: '100%' }} // 본문은 카드 높이 전부 사용
+                loading={loading}
+              >
+            <Space size="large" style={{ marginBottom: 16}}>
               <Statistic title="발급 쿠폰" value={couponTotals.issued} suffix="개" />
               <Statistic title="사용 쿠폰" value={couponTotals.used}   suffix="개" />
               <Statistic title="미사용 쿠폰" value={couponTotals.unused} suffix="개" />
