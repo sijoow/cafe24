@@ -110,38 +110,30 @@ export default function EventEdit() {
       .catch(() => message.error('쿠폰 로드 실패'));
 
     // 이벤트 상세
-    api.get(`/api/${mallId}/events/${id}`)
+      api.get(`/api/${mallId}/events/${id}`)
       .then(({ data: ev }) => {
-        setDocId(ev._id);
-        setTitle(ev.title);
-        setGridSize(ev.gridSize);
-        setLayoutType(ev.layoutType);
-        setRegisterMode(ev.classification.registerMode || 'category');
-        if (ev.classification.registerMode === 'direct') {
-          if (ev.layoutType === 'single') {
-            setDirectProducts(ev.classification.directProducts || []);
-          } else {
-            setTabDirectProducts(ev.classification.tabDirectProducts || {});
-          }
-        }
+        // … (직접등록 설정, single 설정 등)
+    
+        // single vs tabs 분기
         if (ev.layoutType === 'single') {
-            setSingleRoot(ev.classification.root != null
-                ? String(ev.classification.root)
-                : null
-              );
-              setSingleSub(ev.classification.sub != null
-                ? String(ev.classification.sub)
-                : null
-              );
+          // single 모드일 때 처리
+          setSingleRoot( String(ev.classification.root) );
+          setSingleSub(  String(ev.classification.sub)  );
         } else {
-           const incomingTabs = ev.classification.tabs;
-           setTabs(Array.isArray(incomingTabs)
-             ? incomingTabs
-             : [
-                 { title: '', root: null, sub: null },
-                 { title: '', root: null, sub: null },
-               ]
-           );
+          // ← 여기서 layoutType === 'tabs' 일 때 탭 설정을 해줍니다.
+          const incomingTabs = ev.classification.tabs;
+          setTabs(
+            Array.isArray(incomingTabs)
+              ? incomingTabs.map(t => ({
+                  title: String(t.title),
+                  root:  t.root != null ? String(t.root) : null,
+                  sub:   t.sub  != null ? String(t.sub)  : null,
+                }))
+              : [
+                  { title: '', root: null, sub: null },
+                  { title: '', root: null, sub: null },
+                ]
+          );
           setActiveColor(ev.classification.activeColor);
         }
         setImages(
