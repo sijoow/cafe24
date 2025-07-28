@@ -942,14 +942,16 @@ export default function EventCreate() {
           ) : (
             <Form.Item
               name="coupon"
-              label="쿠폰 선택"
-              rules={[{ required:true, message:'쿠폰을 선택해주세요.' }]}
+              label="쿠폰 선택 혹은 번호 입력"
+              rules={[{ required:true, message:'쿠폰을 하나 이상 선택하거나 번호를 입력하세요.' }]}
             >
               <Select
-                mode="multiple"
+                mode="tags"
                 options={couponOptions}
+                tokenSeparators={[',']}
                 tagRender={tagRender}
-                placeholder="쿠폰을 선택하세요"
+                placeholder="쿠폰을 선택하거나 번호를 입력하세요 (쉼표로 구분)"
+                style={{ width: '100%' }}
               />
             </Form.Item>
           )}
