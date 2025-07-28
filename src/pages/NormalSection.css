@@ -67,14 +67,18 @@
     width: 100% !important;
   }
 
-  .couponTxtList .ant-space-item {
+  .couponTxtList{
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 8px !important;
     justify-items: center;
     margin-top:0px!important;
+    background:#fff;
   }
-  .kpi-row .ant-space-item {
+  .couponTxtList .ant-space-item{
+    margin-top: 0px !important;
+  }
+  .kpi-row{
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 8px !important;
