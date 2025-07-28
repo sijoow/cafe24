@@ -315,7 +315,7 @@ export default function EventEdit() {
       };
       await api.put(`/api/${mallId}/events/${id}`, payload);
       message.success('저장 완료');
-      navigate(`/${mallId}/event/detail/${id}`);
+      navigate(`/detail/${id}`);
     } catch (err) {
       console.error(err);
       message.error('저장 실패');
