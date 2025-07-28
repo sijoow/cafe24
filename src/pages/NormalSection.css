@@ -94,7 +94,20 @@
   .ant-row:last-child .ant-col:last-child .ant-card {
     margin-top: 16px !important;
   }
+  .ant-row > [flex="auto"] {
+    display: none !important;
+  }
 
+  /* 2) 남은 컬럼(Statistic) 두 개를 각각 50% 폭으로 */
+  .ant-row > .ant-col:not([flex="auto"]) {
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+  }
+
+  /* 3) 컬럼 안의 텍스트도 가운데 정렬 */
+  .ant-row > .ant-col .ant-statistic {
+    text-align: center;
+  }
 
 }
 
