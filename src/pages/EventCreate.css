@@ -2,7 +2,6 @@
 
 /* 카드 레이아웃 */
 .event-create-card {
-  max-width: 1600px;
   margin: 0 auto;
   min-height: 80vh;
 }
