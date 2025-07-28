@@ -112,7 +112,7 @@ export default function Dashboard() {
       })
       .catch(() => message.error('URL 목록을 불러오지 못했습니다.'));
 
-    // 3) 쿠폰 번호 목록 로드 (게시판별)
+    // 3) 쿠폰 번호 목록 로드 (이미지 영역에서 수집)
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(({ data }) => {
         const all = [];
@@ -151,7 +151,7 @@ export default function Dashboard() {
       .catch(() => {});
   }, [mallId, selectedEvent]);
 
-  // ─── 데이터 조회 함수 (통합) ─────────────────────────────────
+  // ─── 데이터 조회 함수 ────────────────────────────────────────
   const fetchData = () => {
     if (!mallId || !selectedEvent || !selectedUrl) return;
     setLoading(true);
@@ -166,8 +166,6 @@ export default function Dashboard() {
     const visReq   = api.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
     const clickReq = api.get(`/api/${mallId}/analytics/${selectedEvent}/clicks-by-date`,     { params });
     const devReq   = api.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
-
-    // 쿠폰 통계 요청 (couponNos 가 있으면, 없으면 빈 배열)
     const couponReq = couponNos.length
       ? api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats`, {
           params: {
@@ -180,17 +178,14 @@ export default function Dashboard() {
 
     Promise.all([visReq, clickReq, devReq, couponReq])
       .then(([visRes, clkRes, devRes, cpnRes]) => {
-        // --- 방문자 데이터
+        // 방문자
         const vis = Array.isArray(visRes.data) ? visRes.data : [];
         const newMap = new Map(vis.map(o => [o.date, o.newVisitors   || 0]));
         const retMap = new Map(vis.map(o => [o.date, o.returningVisitors || 0]));
         setNewByDate(dates.map(d => newMap.get(d) || 0));
         setRetByDate(dates.map(d => retMap.get(d) || 0));
 
-        // --- URL / 쿠폰 클릭 (이전 clickLineOpt 용)
-        // (지우셔도 무방)
-
-        // --- 디바이스별 유입
+        // 디바이스
         const dev = Array.isArray(devRes.data) ? devRes.data : [];
         const pcMap  = new Map(), andMap = new Map(), iosMap = new Map();
         dev.forEach(o => {
@@ -202,10 +197,9 @@ export default function Dashboard() {
         setAndByDate(dates.map(d => andMap.get(d) || 0));
         setIosByDate(dates.map(d => iosMap.get(d) || 0));
 
-        // --- 쿠폰 통계
+        // 쿠폰 통계
         const cstats = Array.isArray(cpnRes.data) ? cpnRes.data : [];
         setCouponStats(cstats);
-        // 합계 계산
         const tot = cstats.reduce((acc, cur) => {
           acc.issued += cur.issuedCount      || 0;
           acc.used   += cur.usedCount        || 0;
@@ -221,7 +215,6 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   };
 
-  // 자동 조회: selectedUrl 또는 range 변경 시
   useEffect(fetchData, [selectedUrl, range, couponNos]);
 
   // ─── 차트 옵션 ────────────────────────────────────────────────
@@ -250,37 +243,47 @@ export default function Dashboard() {
     ]
   };
 
-  // ─── 렌더링 ───────────────────────────────────────────────────
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }}>
-
       {/* 컨트롤 + KPI 섹션 */}
       <Card>
         <Row gutter={16} align="middle">
-          <Col><Select
-            placeholder="이벤트 선택"
-            options={events.map(e => ({ label: e.title||'(제목없음)', value: e._id }))}
-            value={selectedEvent}
-            onChange={setSelectedEvent}
-            style={{ width: 200 }}
-          /></Col>
-          <Col><Select
-            placeholder="페이지 선택"
-            options={urls.map(u => ({ label: u, value: u }))}
-            value={selectedUrl}
-            onChange={setSelectedUrl}
-            style={{ width: 240 }}
-          /></Col>
-          <Col><RangePicker
-            value={range}
-            format="YYYY-MM-DD"
-            onChange={vals => vals && setRange(vals)}
-            disabledDate={d => minDate && d.isBefore(minDate,'day')}
-          /></Col>
-          <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
+          <Col>
+            <Select
+              placeholder="이벤트 선택"
+              options={events.map(e => ({ label: e.title||'(제목없음)', value: e._id }))}
+              value={selectedEvent}
+              onChange={setSelectedEvent}
+              style={{ width: 200 }}
+            />
+          </Col>
+          <Col>
+            <Select
+              placeholder="페이지 선택"
+              options={urls.map(u => ({ label: u, value: u }))}
+              value={selectedUrl}
+              onChange={setSelectedUrl}
+              style={{ width: 240 }}
+            />
+          </Col>
+          <Col>
+            <RangePicker
+              value={range}
+              format="YYYY-MM-DD"
+              onChange={vals => vals && setRange(vals)}
+              disabledDate={d => minDate && d.isBefore(minDate,'day')}
+            />
+          </Col>
+          <Col>
+            <Button type="primary" onClick={fetchData}>조회</Button>
+          </Col>
           <Col flex="auto" />
-          <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" /></Col>
-          <Col><Statistic title="전체 쿠폰 수"  value={couponCount} suffix="개" style={{ marginLeft: 16 }} /></Col>
+          <Col>
+            <Statistic title="전체 이벤트 수" value={eventCount} suffix="개" />
+          </Col>
+          <Col>
+            <Statistic title="전체 쿠폰 수"  value={couponCount} suffix="개" style={{ marginLeft: 16 }} />
+          </Col>
         </Row>
       </Card>
 
@@ -294,16 +297,16 @@ export default function Dashboard() {
 
         {/* 2열: 쿠폰 다운로드/주문 완료 통계 */}
         <Col xs={24} md={12}>
-               <Card
-                title="쿠폰 다운로드 / 주문 완료 통계"
-                style={{ height: 320 ,overflow:'scroll',overflowX:'hidden',textAlign:'center'}}                     // 전체 카드 높이 고정
-                bodyStyle={{ padding: 16, height: '100%' }} // 본문은 카드 높이 전부 사용
-                loading={loading}
-              >
-            <Space size="large" style={{ marginBottom: 16,justifyContent: 'center'  }}>
-              <Statistic title="발급 쿠폰" value={couponTotals.issued} suffix="개"  valueStyle={{ fontSize: 18 }} />
-              <Statistic title="사용 쿠폰" value={couponTotals.used}   suffix="개"  valueStyle={{ fontSize: 18 }}  />
-              <Statistic title="미사용 쿠폰" value={couponTotals.unused} suffix="개"  valueStyle={{ fontSize: 18 }} />
+          <Card
+            title="쿠폰 다운로드 / 주문 완료 통계"
+            style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', textAlign: 'center' }}
+            bodyStyle={{ padding: 16, height: '100%' }}
+            loading={loading}
+          >
+            <Space size="large" style={{ marginBottom: 16, justifyContent: 'center' }}>
+              <Statistic title="발급 쿠폰" value={couponTotals.issued} suffix="개" valueStyle={{ fontSize: 18 }} />
+              <Statistic title="사용 쿠폰" value={couponTotals.used}   suffix="개" valueStyle={{ fontSize: 18 }} />
+              <Statistic title="미사용 쿠폰" value={couponTotals.unused} suffix="개" valueStyle={{ fontSize: 18 }} />
             </Space>
             <Table
               size="small"
@@ -332,19 +335,20 @@ export default function Dashboard() {
           <Card bodyStyle={{ height: 320 }}>
             <ReactECharts
               option={{
+                color: ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'],
                 title: { text: '상품 클릭 Top 5', left: 'center', top: 10 },
                 tooltip: { trigger: 'axis' },
                 grid: { left: 60, right: 20, bottom: 60 },
                 xAxis: {
                   type: 'category',
-                  data: prodPerf.slice(0,5).map(o=>o.productName),
+                  data: prodPerf.slice(0,5).map(o => o.productName),
                   axisLabel: { rotate: 30 }
                 },
                 yAxis: { type: 'value' },
                 series: [{
                   name: '클릭수',
                   type: 'bar',
-                  data: prodPerf.slice(0,5).map(o=>o.clicks)
+                  data: prodPerf.slice(0,5).map(o => o.clicks)
                 }]
               }}
               style={{ height: '100%' }}
