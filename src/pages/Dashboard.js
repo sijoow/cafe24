@@ -293,7 +293,7 @@ export default function Dashboard() {
           <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
           <Col flex="auto" />
           <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }}  style={{textAlign:'center'}}/></Col>
-          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16 }}  valueStyle={{ fontSize: 18 }} style={{textAlign:'center'}} /></Col>
+          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16,textAlign:'center' }}  valueStyle={{ fontSize: 18 }}/></Col>
         </Row>
       </Card>
 
