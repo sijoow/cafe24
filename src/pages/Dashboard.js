@@ -250,7 +250,7 @@ export default function Dashboard() {
       // ↓ 각 막대마다 색을 다르게
       itemStyle: {
         color: ({ dataIndex }) => {
-          const colors = ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
+          const colors = ['##fe6326', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
           return colors[dataIndex % colors.length];
         }
       }
@@ -292,8 +292,8 @@ export default function Dashboard() {
           </Col>
           <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
           <Col flex="auto" />
-          <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" /></Col>
-          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16 }} /></Col>
+          <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }} /></Col>
+          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16 }}  valueStyle={{ fontSize: 18 }} /></Col>
         </Row>
       </Card>
 
