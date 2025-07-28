@@ -67,21 +67,24 @@
     width: 100% !important;
   }
 
-  /* KPI 영역: 2열 그리드 */
-  .ant-card .ant-space {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    justify-items: center;
+  .couponTxtList .ant-space {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+  justify-items: center;
+  margin-top:0px!important;
   }
 
-    .ant-row:nth-of-type(2)>.ant-col:nth-of-type(2) .ant-space {
-      display: grid !important;
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 8px !important;
-      justify-items: center;
-    }
-  
+  .kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .kpi-col {
+    width: 50% !important;
+    box-sizing: border-box;
+  }
+
     /* 각 Statistic 텍스트 중앙 정렬 */
     .ant-row:nth-of-type(2)>.ant-col:nth-of-type(2) .ant-statistic {
       text-align: center;

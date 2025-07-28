@@ -292,8 +292,8 @@ export default function Dashboard() {
           </Col>
           <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
           <Col flex="auto" />
-          <Col><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }}  style={{textAlign:'center'}}/></Col>
-          <Col><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16,textAlign:'center' }}  valueStyle={{ fontSize: 18 }}/></Col>
+          <Col className="kpi-col"><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }}  style={{textAlign:'center'}}/></Col>
+          <Col  className="kpi-col" ><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16,textAlign:'center' }}  valueStyle={{ fontSize: 18 }}/></Col>
         </Row>
       </Card>
 
@@ -317,7 +317,7 @@ export default function Dashboard() {
             bodyStyle={{ padding: 16, height: '100%' }}
             loading={loading}
           >
-            <Space size="large" style={{ marginBottom: 16, justifyContent: 'center' }}>
+            <Space size="large" style={{ marginBottom: 16, justifyContent: 'center' }} className="couponTxtList">
               <Statistic title="발급 쿠폰"   value={couponTotals.issued}  suffix="개" valueStyle={{ fontSize: 18 }} />
               <Statistic title="사용 쿠폰"   value={couponTotals.used}    suffix="개" valueStyle={{ fontSize: 18 }} />
               <Statistic title="미사용 쿠폰" value={couponTotals.unused}  suffix="개" valueStyle={{ fontSize: 18 }} />
