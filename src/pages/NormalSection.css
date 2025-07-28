@@ -4,4 +4,41 @@
   }
   .ant-space{padding:0px!important;}
 
-  
+  /* 500px 이하일 때만 적용 */
+@media (max-width: 500px) {
+  /* 전체 콘텐츠 영역 여백/패딩 축소 */
+  .ant-layout-content {
+    margin: 4px !important;
+    padding: 4px !important;
+  }
+
+  /* Space 컴포넌트 패딩 제거 */
+  .ant-space {
+    padding: 0 !important;
+  }
+
+  /* 조회 버튼과 컨트롤 영역 세로 정렬 */
+  .ant-card > .ant-card-body > .ant-row {
+    flex-direction: column;
+  }
+  .ant-card .ant-row > .ant-col {
+    width: 100% !important;
+    margin-bottom: 8px;
+  }
+
+  /* Select/RangePicker/버튼 전체 너비 적용 */
+  .ant-card .ant-select, 
+  .ant-card .ant-picker, 
+  .ant-card .ant-btn {
+    width: 100% !important;
+  }
+
+  /* KPI 스탯은 중앙 정렬 & 약간 줄여서 표시 */
+  .ant-card .ant-statistic {
+    text-align: center;
+    margin-top: 8px;
+  }
+  .ant-card .ant-statistic-content {
+    font-size: 16px !important;
+  }
+}
