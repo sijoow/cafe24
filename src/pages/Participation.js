@@ -33,7 +33,7 @@ export default function Participation() {
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // 1) Load events and initialize date range
+  // 1) 이벤트 목록 로드 & 초기 날짜 설정
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -54,13 +54,14 @@ export default function Participation() {
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) When selectedEvent changes, extract coupon numbers & reset date range & clear stats
+  // 2) selectedEvent 변경 시: 쿠폰 목록 + stats 초기화 + 날짜 리셋
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setCouponNos([]);
-      setStats([]);
+      setStats([]);                // ← 이전 stats 지우기
       return;
     }
+    // API 호출
     api.get(`/api/${mallId}/events/${selectedEvent}`)
       .then(res => {
         const all = [];
@@ -75,8 +76,9 @@ export default function Participation() {
         );
         const newNos = Array.from(new Set(all));
         setCouponNos(newNos);
-        setStats([]);  // clear previous stats when switching events
+        setStats([]);              // ← 쿠폰 변경 시에도 stats 초기화
 
+        // 날짜 리셋
         const ev = events.find(e => e._id === selectedEvent);
         const start = ev?.createdAt
           ? dayjs(ev.createdAt)
@@ -87,15 +89,16 @@ export default function Participation() {
       .catch(() => {
         message.error('이벤트 상세 로드 실패');
         setCouponNos([]);
-        setStats([]);
+        setStats([]);              // ← 실패 시에도 초기화
       });
   }, [mallId, selectedEvent, events]);
 
-  // 3) Fetch coupon stats (wrapped in useCallback)
+  // 3) 쿠폰 통계 조회
   const fetchStats = useCallback(() => {
-    if (!selectedEvent)         return;
-    if (couponNos.length === 0) return;
-    if (range.length !== 2)     return;
+    if (!selectedEvent || couponNos.length === 0 || range.length !== 2) {
+      setStats([]);               // 조건 미충족 시도 초기화
+      return;
+    }
 
     setLoading(true);
     const [ start, end ] = range;
@@ -114,16 +117,14 @@ export default function Participation() {
       .finally(() => setLoading(false));
   }, [mallId, selectedEvent, couponNos, range]);
 
-  // 4) Automatically fetch whenever coupon list changes
+  // 4) couponNos 변경 시 자동 호출
   useEffect(() => {
-    if (couponNos.length > 0) {
-      fetchStats();
-    }
+    fetchStats();
   }, [couponNos, fetchStats]);
 
-  // 5) Table columns
+  // 5) 테이블 컬럼
   const columns = [
-    { title: '쿠폰 번호',   dataIndex: 'couponNo',     key: 'couponNo' },
+    { title: '쿠폰 번호',   dataIndex: 'couponNo',   key: 'couponNo' },
     {
       title: '쿠폰명',
       dataIndex: 'couponName',
@@ -146,7 +147,7 @@ export default function Participation() {
     }
   ];
 
-  // 6) Calculate totals
+  // 6) 합계 계산
   const totals = stats.reduce((acc, cur) => {
     acc.issued += cur.issuedCount      || 0;
     acc.used   += cur.usedCount        || 0;
