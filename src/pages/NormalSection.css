@@ -24,11 +24,6 @@
     flex-wrap: wrap;
     justify-content: space-around;
   }
-  .ant-card-body > .ant-space .ant-statistic {
-    flex: 0 0 50%;
-    text-align: center;
-    margin-bottom: 8px; /* 각 행 사이 간격 */
-  }
 
   /* 테이블 영역 스크롤 없이 늘리기 */
   .ant-table-body {
