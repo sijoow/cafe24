@@ -727,7 +727,6 @@ export default function EventEdit() {
       {/* MorePrd 모달 */}
       {morePrdVisible && (
         <MorePrd
-          key={`${morePrdTarget}-${morePrdTabIndex}`}
           visible={morePrdVisible}
           target={morePrdTarget}
           tabIndex={morePrdTabIndex}
