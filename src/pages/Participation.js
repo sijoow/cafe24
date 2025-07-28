@@ -28,43 +28,42 @@ export default function Participation() {
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [couponNos, setCouponNos]         = useState([]);
-  const [range, setRange]                 = useState([ dayjs().subtract(7, 'day'), dayjs() ]);
+  const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
   const [minDate, setMinDate]             = useState(null);
   const [stats, setStats]                 = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // 1) Load events & set initial date range
+  // 1) Load events & init date
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
-      .then(res => {
-        const evs = (res.data || [])
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      .then(({ data }) => {
+        const evs = (data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setEvents(evs);
         if (evs.length) {
           const first = evs[0];
           setSelectedEvent(first._id);
-          const start = first.createdAt
-            ? dayjs(first.createdAt)
-            : dayjs().subtract(7, 'day');
+          const start = first.createdAt ? dayjs(first.createdAt) : dayjs().subtract(7, 'day');
           setMinDate(start);
-          setRange([ start, dayjs() ]);
+          setRange([start, dayjs()]);
         }
       })
       .catch(() => message.error('이벤트 목록 로드 실패'));
   }, [mallId]);
 
-  // 2) When selectedEvent changes: clear stats, load coupons, reset date
+  // 2) On event change: clear stats + load coupons + reset date
   useEffect(() => {
-    setStats([]);  // clear previous stats immediately
-    if (!mallId || !selectedEvent) {
-      setCouponNos([]);
-      return;
-    }
+    // immediately clear old stats
+    setStats([]);
+    setCouponNos([]);
+
+    if (!mallId || !selectedEvent) return;
+
     api.get(`/api/${mallId}/events/${selectedEvent}`)
-      .then(res => {
+      .then(({ data }) => {
+        // extract couponNos
         const all = [];
-        (res.data.images || []).forEach(img =>
+        (data.images || []).forEach(img =>
           (img.regions || []).forEach(r => {
             if (r.coupon) {
               Array.isArray(r.coupon) ? all.push(...r.coupon) : all.push(r.coupon);
@@ -73,29 +72,26 @@ export default function Participation() {
         );
         setCouponNos(Array.from(new Set(all)));
 
-        // reset date range based on event createdAt
+        // reset date range from event.createdAt
         const ev = events.find(e => e._id === selectedEvent);
-        const start = ev?.createdAt
-          ? dayjs(ev.createdAt)
-          : dayjs().subtract(7, 'day');
+        const start = ev?.createdAt ? dayjs(ev.createdAt) : dayjs().subtract(7, 'day');
         setMinDate(start);
-        setRange([ start, dayjs() ]);
+        setRange([start, dayjs()]);
       })
-      .catch(() => {
-        message.error('이벤트 상세 로드 실패');
-        setCouponNos([]);
-      });
+      .catch(() => message.error('이벤트 상세 로드 실패'));
   }, [mallId, selectedEvent, events]);
 
-  // 3) Fetch coupon stats
+  // 3) fetchStats definition
   const fetchStats = useCallback(() => {
-    // clear stats immediately on fetch start
+    // clear stats as soon as fetch starts
     setStats([]);
+
     if (!selectedEvent || couponNos.length === 0 || range.length !== 2) {
       return;
     }
+
     setLoading(true);
-    const [ start, end ] = range;
+    const [start, end] = range;
     const qs = new URLSearchParams({
       coupon_no:  couponNos.join(','),
       start_date: start.format('YYYY-MM-DD'),
@@ -103,7 +99,9 @@ export default function Participation() {
     }).toString();
 
     api.get(`/api/${mallId}/analytics/${selectedEvent}/coupon-stats?${qs}`)
-      .then(res => setStats(Array.isArray(res.data) ? res.data : []))
+      .then(({ data }) => {
+        setStats(Array.isArray(data) ? data : []);
+      })
       .catch(() => {
         message.error('쿠폰 통계 조회 실패');
         setStats([]);
@@ -111,7 +109,7 @@ export default function Participation() {
       .finally(() => setLoading(false));
   }, [mallId, selectedEvent, couponNos, range]);
 
-  // 4) Auto-fetch whenever couponNos or date range change
+  // 4) Auto-fetch when couponNos or date range change
   useEffect(() => {
     if (couponNos.length > 0 && range.length === 2) {
       fetchStats();
@@ -162,10 +160,7 @@ export default function Participation() {
       >
         <Select
           placeholder="게시판 선택"
-          options={events.map(e => ({
-            label: e.title || '(제목없음)',
-            value: e._id
-          }))}
+          options={events.map(e => ({ label: e.title || '(제목없음)', value: e._id }))}
           value={selectedEvent}
           onChange={setSelectedEvent}
           style={{ width: isMobile ? '100%' : 240 }}
@@ -177,19 +172,13 @@ export default function Participation() {
             <DatePicker
               value={range[0]}
               onChange={d => d && setRange([d, range[1]])}
-              disabledDate={d =>
-                (minDate && d.isBefore(minDate, 'day')) ||
-                d.isAfter(dayjs(), 'day')
-              }
+              disabledDate={d => (minDate && d.isBefore(minDate,'day')) || d.isAfter(dayjs(),'day')}
               style={{ width: '100%' }}
             />
             <DatePicker
               value={range[1]}
               onChange={d => d && setRange([range[0], d])}
-              disabledDate={d =>
-                (minDate && d.isBefore(minDate, 'day')) ||
-                d.isAfter(dayjs(), 'day')
-              }
+              disabledDate={d => (minDate && d.isBefore(minDate,'day')) || d.isAfter(dayjs(),'day')}
               style={{ width: '100%' }}
             />
           </Space>
@@ -197,10 +186,7 @@ export default function Participation() {
           <RangePicker
             value={range}
             onChange={dates => dates?.length === 2 && setRange(dates)}
-            disabledDate={d =>
-              (minDate && d.isBefore(minDate, 'day')) ||
-              d.isAfter(dayjs(), 'day')
-            }
+            disabledDate={d => (minDate && d.isBefore(minDate,'day')) || d.isAfter(dayjs(),'day')}
             style={{ width: 280 }}
             format="YYYY-MM-DD"
             separator=" → "
