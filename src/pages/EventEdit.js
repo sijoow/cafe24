@@ -23,6 +23,7 @@ import {
   SaveOutlined,
   LinkOutlined,
   TagOutlined,
+  BlockOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -709,7 +710,6 @@ export default function EventEdit() {
                       </Select>
                     </Space>
                   ))}
-
                   <Button
                     type="dashed"
                     style={{ display:'inline-block', width:'100%', marginTop:10 }}
@@ -717,7 +717,6 @@ export default function EventEdit() {
                   >
                     + 탭 추가
                   </Button>
-
                   <Space style={{ marginTop:12, alignItems:'center' }}>
                     <span>활성 탭 색:</span>
                     <Input
@@ -755,15 +754,15 @@ export default function EventEdit() {
                 value={layoutType}
                 onChange={val => {
                   setLayoutType(val);
-                  setTabs([
-                    { title: '', root: null, sub: null },
-                    { title: '', root: null, sub: null },
-                  ]);
+                  // 탭 모드로 전환 시, tabs 배열 초기화(필요 시)
+                  if (val === 'tabs' && tabs.length < 1) {
+                    setTabs([{ title:'', root:null, sub:null }]);
+                  }
                 }}
                 block
               />
 
-              {/* 단품상품 */}
+              {/* 단품상품: 직접등록 */}
               {layoutType === 'single' && (
                 <Button
                   type={directProducts.length ? 'primary' : 'default'}
@@ -780,13 +779,13 @@ export default function EventEdit() {
                 </Button>
               )}
 
-              {/* 탭상품 */}
+              {/* 탭상품: 각 탭별 직접등록 */}
               {layoutType === 'tabs' && (
                 <>
                   {tabs.map((t,i) => (
                     <Space key={i} size="middle" style={{ marginTop:16 }}>
                       <Input
-                        placeholder={`탭 ${i+1}`}
+                        placeholder={`탭 ${i+1} 제목`}
                         style={{ width:120 }}
                         value={t.title}
                         onChange={e => {
@@ -794,23 +793,20 @@ export default function EventEdit() {
                         }}
                       />
                       <Button
-                        type={(tabDirectProducts[i]||[]).length ? 'primary' : 'default'}
+                        type={(tabDirectProducts[i] || []).length ? 'primary' : 'default'}
                         onClick={() => {
-                          setInitialSelected(
-                            (tabDirectProducts[i]||[]).map(p => p.product_no)
-                          );
+                          setInitialSelected((tabDirectProducts[i]||[]).map(p => p.product_no));
                           setMorePrdTarget('tab');
                           setMorePrdTabIndex(i);
                           setMorePrdVisible(true);
                         }}
                       >
-                        {(tabDirectProducts[i]||[]).length
-                          ? `상품 ${(tabDirectProducts[i]||[]).length}개 등록됨`
+                        {(tabDirectProducts[i] || []).length
+                          ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨`
                           : '상품 직접 등록'}
                       </Button>
                     </Space>
                   ))}
-
                   <Button
                     type="dashed"
                     style={{ display:'inline-block', width:'100%', marginTop:10 }}
@@ -818,7 +814,6 @@ export default function EventEdit() {
                   >
                     + 탭 추가
                   </Button>
-
                   <Space style={{ marginTop:12, alignItems:'center' }}>
                     <span>활성 탭 색:</span>
                     <Input
