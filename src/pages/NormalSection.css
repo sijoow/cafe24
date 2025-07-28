@@ -67,23 +67,22 @@
     width: 100% !important;
   }
 
-  .couponTxtList .ant-space {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 8px !important;
-  justify-items: center;
-  margin-top:0px!important;
+  .couponTxtList .ant-space-item {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    justify-items: center;
+    margin-top:0px!important;
+  }
+  .kpi-row .ant-space-item {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    justify-items: center;
+    margin-top: 0px !important;
   }
 
-  .kpi-row {
-    display: flex;
-    flex-wrap: wrap;
-  }
 
-  .kpi-col {
-    width: 50% !important;
-    box-sizing: border-box;
-  }
 
     /* 각 Statistic 텍스트 중앙 정렬 */
     .ant-row:nth-of-type(2)>.ant-col:nth-of-type(2) .ant-statistic {
