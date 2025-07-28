@@ -296,7 +296,7 @@ export default function Dashboard() {
         <Col xs={24} md={12}>
                <Card
                 title="쿠폰 다운로드 / 주문 완료 통계"
-                style={{ height: 320 ,overflow:'scroll',overflowX:'hidden'}}                     // 전체 카드 높이 고정
+                style={{ height: 320 ,overflow:'scroll',overflowX:'hidden',textAlign:'center'}}                     // 전체 카드 높이 고정
                 bodyStyle={{ padding: 16, height: '100%' }} // 본문은 카드 높이 전부 사용
                 loading={loading}
               >
