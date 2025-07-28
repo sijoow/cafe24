@@ -84,11 +84,11 @@ export default function EventEdit() {
   const [editingForm] = Form.useForm();
   const [editingIndex, setEditingIndex] = useState(null);
 
-   // ── MorePrd(상품 직접등록) 모달 상태 ───────────────────────────
-   const [morePrdVisible, setMorePrdVisible]   = useState(false);
-   const [morePrdTarget, setMorePrdTarget]     = useState('direct');  // 'direct' | 'tab'
-   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
-   const [initialSelected, setInitialSelected] = useState([])
+   // ── MorePrd(상품 직접등록) 모달 상태 ─────────────────────
+   const [morePrdVisible,   setMorePrdVisible]   = useState(false);
+   const [morePrdTarget,    setMorePrdTarget]    = useState('direct');  // 'direct' | 'tab'
+   const [morePrdTabIndex,  setMorePrdTabIndex]  = useState(0);
+   const [initialSelected,  setInitialSelected]  = useState([]);
 
   // ── 초기 데이터 로드 ───────────────────────────────────
   useEffect(() => {
@@ -695,14 +695,25 @@ export default function EventEdit() {
               )}
             </>
           )}
-
-          {/* 직접 등록 */}
-          {registerMode === 'direct' && (
-            <>
-              <h4>상품 직접 등록</h4>
-              <Button onClick={()=>{/* MorePrd 열기 로직 */}}>상품 선택</Button>
-            </>
-          )}
+        {registerMode === 'direct' && (
+          <>
+          <h4>상품 직접 등록</h4>
+          <Button onClick={()=>{/* MorePrd 열기 로직 */}}>상품 선택</Button>
+          <Button
+            type={morePrdVisible ? 'primary' : 'default'}
+            onClick={() => {
+              // prepare initial selection (so the modal can highlight already‑chosen items)
+              setInitialSelected(directProducts.map(p => p.product_no));
+              setMorePrdTarget('direct');
+              setMorePrdVisible(true);
+            }}
+          >
+            {directProducts.length
+              ? `상품 ${directProducts.length}개 등록됨`
+              : '상품 직접 등록'}
+          </Button>
+          </>
+        )}
 
           {/* 노출안함 */}
           {registerMode === 'none' && (
