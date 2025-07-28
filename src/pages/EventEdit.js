@@ -520,7 +520,12 @@ export default function EventEdit() {
                         label="쿠폰 선택"
                         rules={[{ required:true, message:'쿠폰을 선택하세요' }]}
                       >
-                        <Select mode="multiple" options={couponOptions} />
+                      <Select
+                        mode="tags"
+                        tokenSeparators={[',']}
+                        options={couponOptions}
+                        placeholder="쿠폰을 선택하거나 번호를 입력하세요 (쉼표로 구분)"
+                      />
                       </Form.Item>
                     ) : (
                       <Form.Item
@@ -825,14 +830,15 @@ export default function EventEdit() {
           </Button>
         ]}
       >
-        <Select
-          mode="multiple"
-          options={couponOptions}
-          placeholder="쿠폰 선택"
-          value={newValue || []}
-          onChange={v => setNewValue(v)}
-          style={{ width:'100%' }}
-        />
+     <Select
+       mode="tags"
+       tokenSeparators={[',']}
+       options={couponOptions}
+       placeholder="쿠폰을 선택하거나 번호를 입력하세요 (쉼표로 구분)"
+       value={newValue || []}
+       onChange={v => setNewValue(v)}
+       style={{ width:'100%' }}
+     />
       </Modal>
     </Card>
   );
