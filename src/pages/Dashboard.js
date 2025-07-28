@@ -300,7 +300,14 @@ export default function Dashboard() {
                 bodyStyle={{ padding: 16, height: '100%' }} // 본문은 카드 높이 전부 사용
                 loading={loading}
               >
-            <Space size="large" style={{ marginBottom: 16}}>
+            <Space size="large" 
+              style={{ 
+                marginBottom: 16, 
+                justifyContent: 'center',  // centers the items in the flex container
+                textAlign: 'center',       // ensures any text children are centered
+                fontSize: 16               // sets the font size
+              }}
+            >
               <Statistic title="발급 쿠폰" value={couponTotals.issued} suffix="개" />
               <Statistic title="사용 쿠폰" value={couponTotals.used}   suffix="개" />
               <Statistic title="미사용 쿠폰" value={couponTotals.unused} suffix="개" />
