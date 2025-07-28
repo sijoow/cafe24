@@ -83,17 +83,8 @@
     margin-top: 0px !important;
   }
 
-    .kpi-row {
-      display: flex !important;
-      /* AntD Row 가 이미 flex 이지만, 확실히 */
-      flex-wrap: wrap !important;
-    }
     .kpi-col {
-      flex: 0 0 50% !important;
-      max-width: 50% !important;
-      box-sizing: border-box;
-      text-align: center;
-      /* 가운데 정렬 */
+        display:none;
     }
 
     /* 각 Statistic 텍스트 중앙 정렬 */
