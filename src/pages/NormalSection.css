@@ -11,19 +11,23 @@
 
 /* 500px 이하에서만 적용 */
 @media (max-width: 500px) {
-
   .ant-space {
+      overflow: hidden;
+      background: #f0f2f5;
+    }
+  
+    /* 콘텐츠 영역 여백/패딩 조정 */
+    .ant-layout-content {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  .parthcipation .ant-space{width:100%!important;}
+     .parthcipation .ant-card{margin-top:10px;}
+  .pageView .ant-space{
+    background: #ffffff;
     overflow: hidden;
-    background:#f0f2f5;
+    padding-block: 10px !important;
   }
-
-  /* 콘텐츠 영역 여백/패딩 조정 */
-  .ant-layout-content {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-
 .dashbord .ant-space-item:nth-child(1) {
   margin-top: 20px
 }

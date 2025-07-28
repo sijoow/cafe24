@@ -564,7 +564,7 @@ export default function EventCreate() {
                   <img
                     src={selectedImage?.src}
                     alt=""
-                    style={{ maxWidth:'800px',margin:'0 auto', userSelect:'none' }}
+                    style={{ maxWidth:'800px',margin:'0 auto', userSelect:'none' ,width:'100%'}}
                     draggable={false}
                   />
 
