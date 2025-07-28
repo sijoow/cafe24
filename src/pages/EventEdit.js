@@ -642,7 +642,7 @@ export default function EventEdit() {
                 {layoutType === 'tabs' && Array.isArray(tabs) && (
                 <>
                   {tabs.map((t,i)=>(
-                    <Space key={i} size="middle"  style={{ marginBottom:16 ,marginTop:16}}>
+                    <Space key={i} size="middle"  style={{marginTop:16}}>
                       <Input
                         placeholder={`탭 ${i+1}`}
                         style={{ width:120 }}
