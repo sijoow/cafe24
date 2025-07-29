@@ -129,4 +129,8 @@
     margin:0 auto!important;
     margin-top:20px!important;
   }
+  .tabPlusCategory .ant-space .ant-space-item {
+    width:95%!important;
+    margin:0 auto!important;
+  }
 }
