@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Select, Button, Table, Space, message, Grid } from 'antd';
 import dayjs from 'dayjs';
 import api from '../axios';
-
+import './NormalSection.css'
 
 const { useBreakpoint } = Grid;
 

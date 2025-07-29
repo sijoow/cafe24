@@ -11,6 +11,14 @@
 
 /* 500px 이하에서만 적용 */
 @media (max-width: 500px) {
+.prddata{
+width:95%!important;
+margin:0 auto!important;
+margin-top:20px!important;
+}
+
+
+
   .ant-space {
       overflow: hidden;
       background: #f0f2f5;
@@ -21,7 +29,9 @@
       margin: 0 !important;
       padding: 0 !important;
     }
-  .participation .ant-space{width:100%!important;}
+  .participation .ant-space{width:100%!important;background:#fff!important;}
+
+  
   .participation{width:95%;margin:0 auto!important;margin-top:20px!important;}
   .participation .ant-card{margin-top:10px;}
 
@@ -36,7 +46,9 @@
     overflow: hidden;
     padding-block: 10px !important;
   }
-.pageView{width:95%;margin:0 auto!important;;margin-top:20px;}
+.pageView{width:95%!important;margin:0 auto!important;;margin-top:20px!important;}
+.pageView .ant-space-item {width:100%;}
+
 
 .dashbord .ant-space-item:nth-child(1) {
   margin-top: 20px

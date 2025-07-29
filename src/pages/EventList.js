@@ -15,6 +15,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import api from '../axios'
 import dayjs from 'dayjs'
+import './EventList.css'
 
 const { useBreakpoint } = Grid
 
