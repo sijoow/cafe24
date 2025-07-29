@@ -12,10 +12,10 @@
 /* 500px 이하에서만 적용 */
 @media (max-width: 500px) {
 .prddata{
-width:95%!important;
-margin:0 auto!important;
-margin-top:20px!important;
-}
+  width:95%!important;
+  margin:0 auto!important;
+  margin-top:20px!important;
+  }
 
 
 
