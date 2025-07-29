@@ -121,3 +121,12 @@
 .preview-tabs .ant-btn {
   flex: 1;
 }
+
+@media (max-width: 500px) {
+  
+  .event-create-card  {
+    width:95%;
+    margin:0 auto;
+    margin-top:20px;
+  }
+}

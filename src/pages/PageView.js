@@ -188,6 +188,7 @@ export default function StatEventVisitors() {
 
   return (
     <Card
+      className="pageView"
       title="이벤트 방문자 통계 (일별)"
       extra={(
         <Space wrap size={isMobile ? 'small' : 'middle'} style={isMobile ? { width:'100%' } : undefined}>

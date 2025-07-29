@@ -156,7 +156,7 @@ export default function Participation() {
   }, {issued:0, used:0, unused:0, autoDel:0});
 
   return (
-    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile?12:24 }}>
+    <Card title="쿠폰 다운로드 / 주문 완료 통계" bodyStyle={{ padding: isMobile?12:24 }} className="parthcipation">
       <Space
         direction={isMobile?'vertical':'horizontal'}
         size="middle" wrap style={{ marginBottom:16 }}
