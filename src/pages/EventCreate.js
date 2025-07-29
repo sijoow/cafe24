@@ -29,6 +29,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../axios'
 import dayjs from 'dayjs'
 import './EventCreate.css'
+import sha256 from 'crypto-js/sha256'
+import encHex from 'crypto-js/enc-hex'
 
 const { Step }         = Steps
 const { useBreakpoint } = Grid
@@ -95,27 +97,43 @@ export default function EventCreate() {
   const [images, setImages]         = useState([]) // { id, src, file?, regions: [] }
   const [selectedId, setSelectedId] = useState(null)
   const imgRef                     = useRef(null)
-
   const uploadProps = {
-    name: 'file',
     accept: 'image/*',
-    multiple: false,
+    multiple: true,
     showUploadList: false,
-    customRequest: ({ file, onSuccess }) => {
-      const reader = new FileReader()
-      reader.onload = e => {
-        const src = e.target.result
-        const id  = Date.now().toString() + Math.random()
-        setImages(imgs => {
-          const next = [...imgs, { id, src, file, regions: [] }]
-          setSelectedId(id)
-          return next
-        })
-        onSuccess('ok')
+    beforeUpload: file => {
+      const maxSizeMB = 10;
+      const isTooLarge = file.size / 1024 / 1024 > maxSizeMB;
+      if (isTooLarge) {
+        msgApi.error(`이미지 크기는 ${maxSizeMB}MB 이하여야 합니다.`);
+        return Upload.LIST_IGNORE; // 업로드 자체 무시
       }
-      reader.readAsDataURL(file)
+      return true;
+    },
+    customRequest: ({ file, onSuccess }) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const src = e.target.result;
+
+        const hash = sha256(src).toString(encHex);
+        const alreadyExists = images.some(img => img.hash === hash);
+        if (alreadyExists) {
+          msgApi.warning('같은 이미지는 한 번만 업로드할 수 있습니다.');
+          return;
+        }
+
+        const id = Date.now().toString() + Math.random();
+        setImages(imgs => {
+          const next = [...imgs, { id, src, file, hash, regions: [] }];
+          setSelectedId(id);
+          return next;
+        });
+
+        onSuccess('ok');
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const onDragEnd = result => {
     if (!result.destination) return
