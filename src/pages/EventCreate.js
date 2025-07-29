@@ -491,7 +491,7 @@ export default function EventCreate() {
                 </div>
 
                 <DragDropContext onDragEnd={onDragEnd}>
-                  <Droppable droppableId="thumbs" direction="horizontal">
+                  <Droppable droppableId="thumbs" direction="horizontal" className="sumTumb">
                     {prov => (
                         <div
                           ref={prov.innerRef}

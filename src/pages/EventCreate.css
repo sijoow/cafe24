@@ -132,7 +132,11 @@
   .tabPlusCategory .ant-space .ant-space-item {
     width:95%!important;
     margin:0 auto!important;
+    text-align:center;
   }
+  
+  .tabPlusCategory .ant-btn{max-width:150px;}
+  
   .tabPlusCategory .ant-space{background:#fff;}
 
   /*상품등록 직접상품등록 버튼*/
@@ -140,5 +144,12 @@
 
   .tabListPlus .ant-space-item{
     width:100%;
+    background:#fff;
   }
+  .tabListPlus  .ant-space{padding-block:10px!important;}
+  
+  /*썸네일*/
+  .sumTumb{flex-direction: row!important;}
 }
+
+
