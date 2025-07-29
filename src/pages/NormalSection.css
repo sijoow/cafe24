@@ -23,11 +23,15 @@
     }
   .parthcipation .ant-space{width:100%!important;}
      .parthcipation .ant-card{margin-top:10px;}
+
+
   .pageView .ant-space{
     background: #ffffff;
     overflow: hidden;
     padding-block: 10px !important;
   }
+.pageView{width:95%;margin:0 auto!important;;margin-top:20px;}
+
 .dashbord .ant-space-item:nth-child(1) {
   margin-top: 20px
 }

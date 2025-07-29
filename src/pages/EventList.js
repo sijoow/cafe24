@@ -220,6 +220,7 @@ export default function EventList() {
 
   return (
     <Card
+     className="eventList"
       title="나의 이벤트 목록"
       extra={
         <Button
