@@ -110,90 +110,23 @@ export default function EventDetail() {
   }
 
   // HTML 생성 & 모달 열기
-  const handleShowHtml = () => {
-    // 1) 기본 레이아웃 + 이미지 플레이스홀더
-    let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`
-    html += `<div id="evt-images">{#images}</div>\n\n`
-
-    // 2) 사용된 쿠폰 번호 수집
-    const couponList = Array.from(new Set(
-      images.flatMap(img =>
-        (img.regions || [])
-          .filter(r => r.coupon)
-          .map(r => r.coupon)
+  const handleShowHtml = async () => {
+    if (!event.designBlockId) {
+      return messageApi.error('디자인블럭 ID가 없습니다.')
+    }
+    try {
+      // /api/:mallId/designblocks/:blockId 프록시 호출
+      const { data } = await api.get(
+        `/designblocks/${event.designBlockId}`
       )
-    ))
-    const couponAttr = couponList.length
-      ? ` data-coupon-nos="${couponList.join(',')}"`
-      : ''
-
-    // 3) 탭 / 싱글 레이아웃 HTML
-    if (layoutType === 'tabs') {
-      html += `<div class="tabs_${id}">\n`
-      tabs.forEach((t, i) => {
-        html += `  <button class="${i === 0 ? 'active' : ''}"
-      onclick="showTab('tab-${i}',this)"
-    >${t.title || `탭${i+1}`}</button>\n`
-      })
-      html += `</div>\n\n`
-
-      tabs.forEach((t, i) => {
-        const disp = i === 0 ? 'block' : 'none'
-        const cate = t.sub || t.root
-
-        const tabDirect = (classification.tabDirectProducts || {})[i] || []
-        const tabIds    = tabDirect
-          .map(p => typeof p === 'object' ? p.product_no : p)
-          .filter(Boolean)
-          .join(',')
-        const directAttrForTab = tabIds ? ` data-direct-nos="${tabIds}"` : ''
-
-        html += `<div id="tab-${i}" class="tab-content_${id}" style="display:${disp}">\n`
-        html += `  <ul class="main_Grid_${id}"
-          data-cate="${cate}"
-          data-grid-size="${gridSize}"${directAttrForTab}
-        ></ul>\n`
-        html += `</div>\n\n`
-      })
+      // 서버가 { html: "<div>…</div>" } 으로 내리줍니다.
+      setHtmlCode(data.html)
+      setHtmlModalVisible(true)
+    } catch (err) {
+      console.error(err)
+      messageApi.error('HTML 로드에 실패했습니다.')
     }
-    else if (layoutType === 'single') {
-      const cate = singleSub || singleRoot
-
-      const singleIds = directProducts
-        .map(p => typeof p === 'object' ? p.product_no : p)
-        .filter(Boolean)
-        .join(',')
-      const directAttrForSingle = singleIds
-        ? ` data-direct-nos="${singleIds}"`
-        : ''
-
-      html += `<div class="product_list_widget">\n`
-      html += `  <ul class="main_Grid_${id}"
-        data-cate="${cate}"
-        data-grid-size="${gridSize}"${directAttrForSingle}
-      ></ul>\n`
-      html += `</div>\n\n`
-    }
-    else {
-      html += `<p>상품을 노출하지 않습니다.</p>\n\n`
-    }
-
-    // 4) widget.js 스크립트 태그
-    const scriptAttrs = [
-      `src="${API_BASE}/widget.js"`,
-      `data-page-id="${id}"`,
-      `data-api-base="${API_BASE}"`,
-      `data-tab-count="${tabs.length}"`,
-      `data-active-color="${activeColor}"`,
-      couponAttr
-    ].filter(Boolean).join(' ')
-
-    html += `<script ${scriptAttrs}></script>\n`
-
-    setHtmlCode(html)
-    setHtmlModalVisible(true)
   }
-
   // HTML 복사
   const handleCopy = async () => {
     await navigator.clipboard.writeText(htmlCode)
