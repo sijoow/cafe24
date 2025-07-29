@@ -137,4 +137,8 @@
 
   /*상품등록 직접상품등록 버튼*/
   .goodsSingleButton{margin-top:10px!important;}
+
+  .tabListPlus .ant-space-item{
+    width:100%;
+  }
 }
