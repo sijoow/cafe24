@@ -404,7 +404,7 @@ export default function EventCreate() {
         title="이벤트 만들기 & 영역 매핑"
         className="event-create-card"
         style={{
-          width: isMobile ? '100%' : 1600,
+          width: isMobile ? '100%' : 1800,
           margin: '0 auto',
           padding: isMobile ? 8 : 24
         }}
