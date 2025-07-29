@@ -30,15 +30,12 @@
   color: #fff;
   cursor: pointer;
 }
+.ant-menu{background:#000;}
 
 .ant-layout-sider-trigger,
 .ant-layout-sider-zero-width-trigger {
   display: none !important;
 }
-
-
-
-
 
 /* Sidebar.css (기존 스타일 + 오버레이 레이아웃 스타일) */
 
