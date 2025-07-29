@@ -149,6 +149,7 @@
   .tabListPlus  .ant-space{padding-block:10px!important;}
   .tabListPlus .ant-space-gap-row-small{background:#fff;}
   /*썸네일*/
+  .thumb-list{flex-direction: row!important;}
   .sumTumb{flex-direction: row!important;}
 }
 
