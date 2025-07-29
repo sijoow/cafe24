@@ -794,7 +794,7 @@ export default function EventCreate() {
                 )}
 
                 {layoutType==='tabs' && (
-                  <div style={{ marginTop:24 }}>
+                  <div style={{ marginTop:24 }} className="tabListPlus">
                     {tabs.map((t,i)=>(
                       <Space
                         key={i}
