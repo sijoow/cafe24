@@ -127,7 +127,7 @@ export default function EventDetail() {
       messageApi.error('HTML 로드에 실패했습니다.')
     }
   }
-  // HTML 복사
+  // HTML 복사3
   const handleCopy = async () => {
     await navigator.clipboard.writeText(htmlCode)
     message.success('코드 복사 완료')
