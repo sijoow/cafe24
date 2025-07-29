@@ -21,9 +21,15 @@
       margin: 0 !important;
       padding: 0 !important;
     }
-  .parthcipation .ant-space{width:100%!important;}
-     .parthcipation .ant-card{margin-top:10px;}
+  .participation .ant-space{width:100%!important;}
+  .participation{width:95%;margin:0 auto!important;margin-top:20px!important;}
+  .participation .ant-card{margin-top:10px;}
 
+
+  .InflowEnvironment{
+    width:95%;margin:0 auto!important;margin-top:20px!important;
+  }
+  .InflowEnvironment .ant-space {background:#ffff;}
 
   .pageView .ant-space{
     background: #ffffff;

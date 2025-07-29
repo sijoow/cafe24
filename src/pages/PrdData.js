@@ -5,6 +5,7 @@ import { Card, Select, Button, Table, Space, message, Grid } from 'antd';
 import dayjs from 'dayjs';
 import api from '../axios';
 
+
 const { useBreakpoint } = Grid;
 
 export default function PrdData() {
@@ -89,6 +90,7 @@ export default function PrdData() {
   // ─── 렌더링 ────────────────────────────────────────────────
   return (
     <Card
+     className="prddata"
       title={title}
       extra={(
         <Space

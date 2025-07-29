@@ -199,7 +199,7 @@ export default function InflowEnvironment() {
 
   // ─── 렌더링 ───────────────────────────────────────────────────
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space direction="vertical" style={{ width: '100%' }} className="InflowEnvironment">
       <Card size={isMobile ? 'small' : 'default'}>
         <Space
           wrap
