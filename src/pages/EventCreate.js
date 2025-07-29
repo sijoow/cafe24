@@ -769,7 +769,6 @@ export default function EventCreate() {
 
                 <h4 style={{ marginBottom:16 }}>2) 노출 방식</h4>
                 <Segmented
-                 className="directRe"
                   options={[
                     { label:'단품상품', value:'single' },
                     { label:'탭상품',   value:'tabs'   }
@@ -784,6 +783,7 @@ export default function EventCreate() {
 
                 {layoutType==='single' && (
                   <Button
+                   className="goodsSingleButton"
                     block={isMobile}
                     type={directProducts.length>0?'primary':'dashed'}
                     onClick={()=>openMorePrd('direct')}
