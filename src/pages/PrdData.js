@@ -75,7 +75,7 @@ export default function PrdData() {
       setData(sorted);
     } catch (err) {
       console.error('[PRODUCT PERFORMANCE ERROR]', err);
-      message.error('상품 퍼포먼스 조회 실패');
+      //message.error('상품 퍼포먼스 조회 실패');
       setData([]);
     } finally {
       setLoading(false);

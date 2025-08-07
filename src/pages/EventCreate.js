@@ -249,7 +249,7 @@ export default function EventCreate() {
   const [allCats, setAllCats] = useState([])
     useEffect(() => {
       if (!mallId) {
-        msgApi.error('mallId가 없습니다. 다시 로그인해 주세요.')
+        //msgApi.error('mallId가 없습니다. 다시 로그인해 주세요.')
         return
       }
       api.get(`/api/${mallId}/categories/all`)
@@ -547,7 +547,7 @@ export default function EventCreate() {
                               src={img.src}
                               alt="썸네일"
                               style={{
-                                width: 100,
+                                width: '100%',
                                 objectFit: 'cover',
                                 borderRadius: 4
                               }}

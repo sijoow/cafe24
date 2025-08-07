@@ -42,7 +42,7 @@ export default function EventList() {
   // 이벤트 목록 불러오기
   const fetchEvents = async () => {
     if (!mallId) {
-      message.error('mallId가 없습니다. 다시 로그인해 주세요.')
+      //message.error('mallId가 없습니다. 다시 로그인해 주세요.')
       return
     }
     setLoading(true)
