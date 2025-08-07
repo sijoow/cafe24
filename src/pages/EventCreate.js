@@ -344,78 +344,83 @@ export default function EventCreate() {
       {String(label).length > 6 ? String(label).slice(0, 6) + '…' : label}
     </Tag>
   )
+// 8) 이벤트 등록
+const [submitting, setSubmitting] = useState(false);
+const handleSubmit = async () => {
+  if (submitting) return;
+  setSubmitting(true);
 
-  // 8) 이벤트 등록
-  const [submitting, setSubmitting] = useState(false);
-  const handleSubmit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-    try {
-      // 이미지 업로드
-      const uploaded = await Promise.all(images.map(async img => {
-        if (img.file) {
-          const form = new FormData();
-          form.append('file', img.file);
-          const { data } = await api.post(
-            `/api/${mallId}/uploads/image`,
-            form,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
-          );
-          return { ...img, src: data.url, file: undefined };
+  try {
+    // 이미지 업로드
+    const uploaded = await Promise.all(images.map(async img => {
+      if (img.file) {
+        const form = new FormData();
+        form.append('file', img.file);
+        const { data } = await api.post(
+          `/api/${mallId}/uploads/image`,
+          form,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+        return { ...img, src: data.url, file: undefined };
+      }
+      return img;
+    }));
+
+    // payload 생성
+    const payload = {
+      title,
+      content: {
+        images: uploaded.map(img => img.src),
+        gridSize,
+        layoutType,
+        classification: {
+          registerMode,
         }
-        return img;
-      }));
+      },
+      images: uploaded.map(img => ({
+        _id: img.id,
+        src: img.src,
+        regions: img.regions.map(r => ({
+          _id:    r.id,
+          xRatio: r.xRatio,
+          yRatio: r.yRatio,
+          wRatio: r.wRatio,
+          hRatio: r.hRatio,
+          href:   r.href,
+          coupon: r.coupon
+        }))
+      })),
+      gridSize,
+      layoutType,
+      classification: {
+        ...(layoutType === 'single'
+          ? { root: singleRoot, sub: singleSub }
+          : { tabs, activeColor }),
+        registerMode,
+        ...(registerMode === 'direct'
+          ? { directProducts, tabDirectProducts }
+          : {})
+      }
+    };
 
-          
-      // payload 생성부
+    // 이벤트 생성 API 호출
+    const res = await api.post(`/api/${mallId}/events`, payload);
+    const eventId = res.data?._id;
 
-          // payload 생성부 (content는 객체 그대로)
-          const payload = {
-            title,
-            content: {
-              images: uploaded.map(img => img.src),
-              gridSize,
-              layoutType,
-              classification: {
-                registerMode,
-                /* 필요하다면 더 넣으세요 */
-              }
-            },
-            images: uploaded.map(img => ({
-              _id: img.id,
-              src: img.src,
-              regions: img.regions.map(r => ({
-                _id:    r.id,
-                xRatio: r.xRatio,
-                yRatio: r.yRatio,
-                wRatio: r.wRatio,
-                hRatio: r.hRatio,
-                href:   r.href,
-                coupon: r.coupon
-              }))
-            })),
-            gridSize,
-            layoutType,
-            classification: {
-              ...(layoutType === 'single'
-                ? { root: singleRoot, sub: singleSub }
-                : { tabs, activeColor }),
-              registerMode,
-              ...(registerMode === 'direct'
-                ? { directProducts, tabDirectProducts }
-                : {})
-            }
-          };
-      
-      // 이벤트 생성 API 호출
-      await api.post(`/api/${mallId}/events`, payload)
+    if (eventId) {
       msgApi.success('이벤트 생성 완료');
-      navigate('/event/list')
-    } catch (e) {
-      console.error(e)
-      msgApi.error('게시판 생성 갯수 초과 최대 10개 까지의 게시판물만 등록이 가능합니다.')
+      navigate(`/event/detail/${eventId}`); // ✅ 상세 페이지로 이동
+    } else {
+      msgApi.error('이벤트 ID를 찾을 수 없습니다.');
     }
+  } catch (e) {
+    console.error(e);
+    msgApi.error('게시판 생성 갯수 초과 최대 10개까지의 게시판물만 등록이 가능합니다.');
+  } finally {
+    setSubmitting(false);
   }
+};
+
 
   // ─── JSX 렌더링 (기존 코드 그대로) ───────────────────────────
   return (
