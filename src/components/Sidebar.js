@@ -13,7 +13,7 @@ import {
   BarChartOutlined,
   TeamOutlined,
   ShareAltOutlined,
-  ShoppingCartOutlined,    
+  ShoppingCartOutlined,    // 👈 여기 추가
 } from '@ant-design/icons';
 import './Sidebar.css';
 
@@ -23,7 +23,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* ─── 로고 + 토글 ─── */}
       <div className="sidebar-header">
         <img
-          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png"
+          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon2.png"
           alt="몬몬 로고"
           className="sidebar-logo"
         />
