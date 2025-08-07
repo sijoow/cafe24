@@ -413,7 +413,7 @@ export default function EventCreate() {
       navigate('/event/list')
     } catch (e) {
       console.error(e)
-      msgApi.error('이벤트 등록 실패')
+      msgApi.error('게시판의 경우 최대 10개 까지의 게시판만 등록이 가능합니다.')
     }
   }
 
