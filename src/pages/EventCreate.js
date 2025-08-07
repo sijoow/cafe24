@@ -346,7 +346,10 @@ export default function EventCreate() {
   )
 
   // 8) 이벤트 등록
+  const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       // 이미지 업로드
       const uploaded = await Promise.all(images.map(async img => {
@@ -901,7 +904,14 @@ export default function EventCreate() {
             )}
 
             <div style={{ textAlign:'center', marginTop:32 }}>
-              <Button type="primary" size="large" onClick={handleSubmit} block={isMobile}>
+             <Button
+                type="primary"
+                size="large"
+                onClick={handleSubmit}
+                block={isMobile}
+                loading={submitting}
+                disabled={submitting}
+              >
                 이벤트 등록
               </Button>
             </div>
