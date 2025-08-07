@@ -321,7 +321,7 @@ export default function EventCreate() {
   const [couponOptions, setCouponOptions] = useState([])
   useEffect(() => {
       if (!mallId) {
-        msgApi.error('mallId가 없습니다. 다시 로그인해 .')
+        //msgApi.error('mallId가 없습니다. 다시 로그인해 .')
         return
       }
       api.get(`/api/${mallId}/coupons`)
