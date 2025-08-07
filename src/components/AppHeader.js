@@ -13,7 +13,7 @@ export default function AppHeader({ collapsed, onToggle }) {
           {label}
         </span>
         <img
-          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon.png"
+          src="https://pub-25b16c9ef8e146749bc48d4a80b1ad5e.r2.dev/main_icon2.png"
           alt="회원 아바타"
           className="membership-avatar"
         />
