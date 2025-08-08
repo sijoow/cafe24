@@ -212,7 +212,7 @@ export default function EventDetail() {
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
 
     // 1) 렌더 스냅샷 (server blocks 우선)
-    const blocksForHtml = (event.blocks && event.blocks.length
+    const allBlocks = (event.blocks && event.blocks.length
       ? event.blocks
       : (event.images || []).map(img => ({
           id: img.id || img._id,
@@ -229,7 +229,7 @@ export default function EventDetail() {
           youtubeId: b.youtubeId || parseYouTubeId(b.src),
           ratio: b.ratio || { w:16, h:9 }
         };
-      }
+        }
       if (t === 'text') {
         return {
           id: b.id || b._id,
@@ -251,9 +251,12 @@ export default function EventDetail() {
       };
     });
 
-    // 2) 텍스트 블록을 HTML에 직접 포함 (inline)
-    const textHtml = blocksForHtml
-      .filter(b => b.type === 'text' && String(b.text || '').trim())
+    const textBlocks  = allBlocks.filter(b => b.type === 'text');
+    const mediaBlocks = allBlocks.filter(b => b.type === 'image' || b.type === 'video');
+
+    // 2) 텍스트 블록을 별도 컨테이너(#evt-text)에 직접 포함 (widget이 #evt-images만 건드리도록 분리)
+    const textHtml = textBlocks
+      .filter(b => String(b.text || '').trim())
       .map(b => {
         const st = b.style || {};
         const align = st.align || 'center';
@@ -267,12 +270,12 @@ export default function EventDetail() {
       })
       .join('\n');
 
-    // 컨테이너 + 텍스트 선렌더링
-    html += `<div id="evt-images">\n${textHtml}\n</div>\n\n`;
+    html += `<div id="evt-text">\n${textHtml}\n</div>\n\n`;
+    html += `<div id="evt-images"></div>\n\n`;
 
     // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
     const couponList = Array.from(new Set(
-      blocksForHtml
+      mediaBlocks
         .filter(b => b.type === 'image')
         .flatMap(b => (b.regions || [])
           .filter(r => r.coupon)
@@ -285,12 +288,12 @@ export default function EventDetail() {
     // 4) 탭/싱글 레이아웃 HTML (상품 영역 자리)
     if (layoutType === 'tabs') {
       html += `<div class="tabs_${id}">\n`;
-      tabs.forEach((t, i) => {
+      (classification.tabs || []).forEach((t, i) => {
         html += `  <button class="${i === 0 ? 'active' : ''}" onclick="showTab('tab-${i}',this)">${t.title || `탭${i+1}`}</button>\n`;
       });
       html += `</div>\n\n`;
 
-      tabs.forEach((t, i) => {
+      (classification.tabs || []).forEach((t, i) => {
         const disp = i === 0 ? 'block' : 'none';
         const cate = t.sub || t.root;
         const tabDirect = (classification.tabDirectProducts || {})[i] || [];
@@ -320,15 +323,16 @@ export default function EventDetail() {
       html += ``;
     }
 
-    // 5) widget.js 태그 (DB에서 page-id로 블록을 가져가므로 inline JSON/blocksScriptId 제거)
+    // 5) widget.js 태그 (DB에서 page-id로 블록을 가져가므로 inline JSON 제거)
+    //    참고: data-ignore-text은 나중에 widget.js에서 텍스트 블록 스킵하도록 쓰면 좋음(선택)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
       `data-mall-id="${mallId || ''}"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
-      `data-tab-count="${tabs.length}"`,
-      `data-active-color="${activeColor}"`,
-      // ❌ data-inline-blocks 제거
+      `data-tab-count="${(classification.tabs || []).length}"`,
+      `data-active-color="${classification.activeColor || '#1890ff'}"`,
+      `data-ignore-text="1"`,
       couponAttr
     ].filter(Boolean).join(' ');
 
