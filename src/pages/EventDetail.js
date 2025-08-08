@@ -270,7 +270,7 @@ export default function EventDetail() {
       })
       .join('\n');
 
-    html += `<div id="evt-text">\n${textHtml}\n</div>\n\n`;
+    // html += `<div id="evt-text">\n${textHtml}\n</div>\n\n`;
     html += `<div id="evt-images"></div>\n\n`;
 
     // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
