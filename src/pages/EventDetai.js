@@ -284,7 +284,7 @@ export default function EventDetail() {
       html += `</div>\n\n`
     }
     else {
-      html += `<p>상품을 노출하지 않습니다.</p>\n\n`
+      // html += `<p>상품을 노출하지 않습니다.</p>\n\n`
     }
 
     // 4) widget.js 스크립트 태그
