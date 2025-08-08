@@ -643,7 +643,7 @@ export default function EventEdit() {
     >
       <Steps current={current} onChange={setCurrent} style={{ marginBottom: 24 }}>
         <Step title="제목 입력" />
-        <Step title="미디어(이미지/영상/텍스트) & 매핑" />
+        <Step title="이미지/영상 & 매핑" />
         <Step title="상품등록 방식 설정" />
       </Steps>
 
@@ -812,7 +812,7 @@ export default function EventEdit() {
                   </div>
 
                   {/* 텍스트 블록 추가 */}
-                  <div
+                  {/* <div
                     onClick={openCreateText}
                     style={{
                       width:140, height:78,
@@ -824,7 +824,7 @@ export default function EventEdit() {
                     title="텍스트 블록 추가"
                   >
                     <FontSizeOutlined style={{ fontSize:24, color:'#888' }} />
-                  </div>
+                  </div> */}
 
                   {prov.placeholder}
                 </div>

@@ -838,17 +838,33 @@ export default function EventCreate() {
         {current === 2 && (
           <div style={{ maxWidth: 400 }}>
             <h4>상품 등록 방식</h4>
-            <Segmented
-              options={[
-                { label: '카테고리 상품 등록', value: 'category' },
-                { label: '직접 상품 등록', value: 'direct' },
-                { label: '노출안함', value: 'none' },
-              ]}
-              value={registerMode}
-              onChange={setRegisterMode}
-              block
-              style={{ marginBottom: 24 }}
-            />
+             <Segmented
+               options={[
+                 { label: '카테고리 상품 등록', value: 'category' },
+                 { label: '직접 상품 등록', value: 'direct' },
+                 { label: '노출안함', value: 'none' },
+               ]}
+               value={registerMode}
+               onChange={val => {
+                 setRegisterMode(val);
+                 if (val === 'none') {
+                   // 노출안함 선택 시 관련 상태 초기화
+                   setGridSize(2);
+                   setLayoutType(null);
+                   setSingleRoot(null);
+                   setSingleSub(null);
+                   setDirectProducts([]);
+                   setTabDirectProducts({});
+                   setTabs([
+                     { title: '', root: null, sub: null },
+                     { title: '', root: null, sub: null },
+                   ]);
+                   setActiveColor('#fe6326');
+                 }
+               }}
+               block
+               style={{ marginBottom: 24 }}
+             />
 
             {/* 카테고리 */}
             {registerMode === 'category' && (
