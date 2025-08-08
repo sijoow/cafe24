@@ -1,4 +1,5 @@
 // src/pages/EventDetail.jsx
+
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -36,14 +37,14 @@ export default function EventDetail() {
   const [activeTab, setActiveTab] = useState('0');
   const [messageApi, contextHolder] = message.useMessage();
 
-  // escape & \n -> <br/>
+  // ── helper: escape for text -> <br/>
   const escapeHtml = (s = '') =>
     String(s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-  // YouTube ID 파서
+  // ── YouTube ID 파서 (URL/ID/iframe src 모두 대응)
   function parseYouTubeId(input) {
     if (!input) return null;
     if (/^[\w-]{11}$/.test(input)) return input;
@@ -62,7 +63,7 @@ export default function EventDetail() {
     return null;
   }
 
-  // 상세보기 화면용 미리보기
+  // 반응형 YouTube 임베드 (상세 페이지 화면용)
   function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
     if (!id) {
       return (
@@ -94,12 +95,13 @@ export default function EventDetail() {
     );
   }
 
-  // 데이터 로드
+  // 1) 이벤트 데이터 로드 (+ blocks 정규화)
   useEffect(() => {
     axios.get(`${API_BASE}/api/${mallId}/events/${id}`)
       .then(res => {
         const ev = res.data;
 
+        // images/regions id 매핑 (하위호환)
         ev.images = (ev.images || []).map(img => ({
           ...img,
           id: img._id || img.id,
@@ -109,6 +111,7 @@ export default function EventDetail() {
           })),
         }));
 
+        // content.blocks가 있으면 우선 사용, 없으면 images → image blocks로 변환
         const rawBlocks = Array.isArray(ev?.content?.blocks)
           ? ev.content.blocks
           : (ev.images || []).map(img => ({
@@ -118,18 +121,34 @@ export default function EventDetail() {
               regions: img.regions || []
             }));
 
+        // 블록 정규화 (image / video / text)
         ev.blocks = rawBlocks.map(b => {
-          const base = { id: b._id || b.id, type: b.type || 'image' };
-          if (base.type === 'video') {
-            return { ...base, youtubeId: b.youtubeId || parseYouTubeId(b.src), ratio: b.ratio || { w:16, h:9 } };
+          const base = {
+            id: b._id || b.id,
+            type: b.type || 'image',
+          };
+          if ((b.type || 'image') === 'video') {
+            return {
+              ...base,
+              youtubeId: b.youtubeId || parseYouTubeId(b.src),
+              ratio: b.ratio || { w:16, h:9 },
+            };
           }
-          if (base.type === 'text') {
-            return { ...base, text: b.text || '', style: b.style || {} };
+          if (b.type === 'text') {
+            return {
+              ...base,
+              text: b.text || '',
+              style: b.style || {}, // {align,fontSize,fontWeight,color,mt,mb}
+            };
           }
+          // image
           return {
             ...base,
             src: b.src,
-            regions: (b.regions || []).map(r => ({ ...r, id: r._id || r.id })),
+            regions: (b.regions || []).map(r => ({
+              ...r,
+              id: r._id || r.id,
+            })),
           };
         });
 
@@ -181,9 +200,18 @@ export default function EventDetail() {
     </div>
   );
 
-  // 복사용 HTML 생성: 블록 순서 그대로 직렬 출력(텍스트/이미지/영상 섞임)
+  // 쿠폰 다운로드
+  const downloadCoupon = couponNo => {
+    const couponUrl = `/exec/front/newcoupon/IssueDownload?coupon_no=${couponNo}`;
+    window.location.href = couponUrl +
+      `&opener_url=${encodeURIComponent(window.location.href)}`;
+  };
+
+  // HTML 생성 & 모달 열기
   const handleShowHtml = () => {
-    // 1) blocks 스냅샷
+    let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
+
+    // 1) 렌더 스냅샷 (server blocks 우선)
     const allBlocks = (event.blocks && event.blocks.length
       ? event.blocks
       : (event.images || []).map(img => ({
@@ -201,10 +229,16 @@ export default function EventDetail() {
           youtubeId: b.youtubeId || parseYouTubeId(b.src),
           ratio: b.ratio || { w:16, h:9 }
         };
-      }
+        }
       if (t === 'text') {
-        return { id: b.id || b._id, type: 'text', text: b.text || '', style: b.style || {} };
+        return {
+          id: b.id || b._id,
+          type: 'text',
+          text: b.text || '',
+          style: b.style || {}
+        };
       }
+      // image
       return {
         id: b.id || b._id,
         type: 'image',
@@ -217,74 +251,41 @@ export default function EventDetail() {
       };
     });
 
-    // 2) 블록 HTML(순서 유지)
-    const blocksHtml = allBlocks.map(b => {
-      if (b.type === 'text') {
+    const textBlocks  = allBlocks.filter(b => b.type === 'text');
+    const mediaBlocks = allBlocks.filter(b => b.type === 'image' || b.type === 'video');
+
+    // 2) 텍스트 블록을 별도 컨테이너(#evt-text)에 직접 포함 (widget이 #evt-images만 건드리도록 분리)
+    const textHtml = textBlocks
+      .filter(b => String(b.text || '').trim())
+      .map(b => {
         const st = b.style || {};
-        const body = escapeHtml(b.text || '').replace(/\n/g, '<br/>');
         const align = st.align || 'center';
         const mt = st.mt ?? 16;
         const mb = st.mb ?? 16;
         const fontSize = st.fontSize || 18;
         const fontWeight = st.fontWeight || 'normal';
         const color = st.color || '#333';
-        return (
-`<div style="text-align:${align};margin-top:${mt}px;margin-bottom:${mb}px;">
-  <div style="font-size:${fontSize}px;font-weight:${fontWeight};color:${color};">${body}</div>
-</div>`);
-      }
+        const body = escapeHtml(b.text).replace(/\n/g, '<br/>');
+        return `<div style="text-align:${align};margin-top:${mt}px;margin-bottom:${mb}px;"><div style="font-size:${fontSize}px;font-weight:${fontWeight};color:${color};">${body}</div></div>`;
+      })
+      .join('\n');
 
-      if (b.type === 'video') {
-        const yid = b.youtubeId;
-        const rw = b.ratio?.w || 16;
-        const rh = b.ratio?.h || 9;
-        const paddingTop = (rh / rw) * 100;
-        return (
-`<div style="width:100%;max-width:800px;margin:0 auto;">
-  <div style="position:relative;width:100%;padding-top:${paddingTop}%;aspect-ratio:${rw} / ${rh};">
-    <iframe src="https://www.youtube.com/embed/${yid}" title="YouTube video"
-      style="position:absolute;inset:0;width:100%;height:100%;border:0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
-    </iframe>
-  </div>
-</div>`);
-      }
+    html += `<div id="evt-text">\n${textHtml}\n</div>\n\n`;
+    html += `<div id="evt-images"></div>\n\n`;
 
-      // image
-      const regions = b.regions || [];
-      const regionHtml = regions.map(r => {
-        const l = (r.xRatio * 100).toFixed(2);
-        const t = (r.yRatio * 100).toFixed(2);
-        const w = (r.wRatio * 100).toFixed(2);
-        const h = (r.hRatio * 100).toFixed(2);
+    // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
+    const couponList = Array.from(new Set(
+      mediaBlocks
+        .filter(b => b.type === 'image')
+        .flatMap(b => (b.regions || [])
+          .filter(r => r.coupon)
+          .map(r => r.coupon))
+    ));
+    const couponAttr = couponList.length
+      ? ` data-coupon-nos="${couponList.join(',')}"`
+      : '';
 
-        if (r.coupon) {
-          const coupons = Array.isArray(r.coupon) ? r.coupon : String(r.coupon).split(',').map(s=>s.trim()).filter(Boolean);
-          const onclick = coupons.map(c => `evtdl('${c}')`).join(';');
-          return (
-`  <button type="button" style="position:absolute;left:${l}%;top:${t}%;width:${w}%;height:${h}%;cursor:pointer;background:transparent;border:0;padding:0;"
-    onclick="${onclick}"></button>`);
-        } else if (r.href) {
-          const href = /^https?:\/\//.test(r.href) ? r.href : `https://${r.href}`;
-          return (
-`  <a href="${href}" target="_blank" rel="noreferrer"
-     style="position:absolute;left:${l}%;top:${t}%;width:${w}%;height:${h}%;display:block;"></a>`);
-        }
-        return '';
-      }).join('\n');
-
-      return (
-`<div style="position:relative;margin:0 auto;width:100%;max-width:800px;">
-  <img src="${b.src}" style="max-width:100%;height:auto;display:block;margin:0 auto;" alt="">
-${regionHtml}
-</div>`);
-    }).join('\n\n');
-
-    // 3) 상단 레이아웃 + 블록 + 상품 그리드 + 스크립트
-    let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
-    html += `<div id="evt-blocks">\n${blocksHtml}\n</div>\n\n`;
-
+    // 4) 탭/싱글 레이아웃 HTML (상품 영역 자리)
     if (layoutType === 'tabs') {
       html += `<div class="tabs_${id}">\n`;
       (classification.tabs || []).forEach((t, i) => {
@@ -306,6 +307,7 @@ ${regionHtml}
         html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForTab}></ul>\n`;
         html += `</div>\n\n`;
       });
+
     } else if (layoutType === 'single') {
       const cate = singleSub || singleRoot;
       const singleIds = directProducts
@@ -313,27 +315,26 @@ ${regionHtml}
         .filter(Boolean)
         .join(',');
       const directAttrForSingle = singleIds ? ` data-direct-nos="${singleIds}"` : '';
+
       html += `<div class="product_list_widget">\n`;
       html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForSingle}></ul>\n`;
       html += `</div>\n\n`;
+    } else {
+      html += ``;
     }
 
-    // 쿠폰 함수 + 위젯 (상품만 담당)
-    html += `<script>
-function evtdl(c){
-  var u='/exec/front/newcoupon/IssueDownload?coupon_no='+c+'&opener_url='+encodeURIComponent(location.href);
-  location.href=u;
-}
-</script>\n`;
-
+    // 5) widget.js 태그 (DB에서 page-id로 블록을 가져가므로 inline JSON 제거)
+    //    참고: data-ignore-text은 나중에 widget.js에서 텍스트 블록 스킵하도록 쓰면 좋음(선택)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
       `data-mall-id="${mallId || ''}"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${(classification.tabs || []).length}"`,
-      `data-active-color="${classification.activeColor || '#1890ff'}"`
-    ].join(' ');
+      `data-active-color="${classification.activeColor || '#1890ff'}"`,
+      `data-ignore-text="1"`,
+      couponAttr
+    ].filter(Boolean).join(' ');
 
     html += `<script ${scriptAttrs}></script>\n`;
 
@@ -341,6 +342,7 @@ function evtdl(c){
     setHtmlModalVisible(true);
   };
 
+  // HTML 복사
   const handleCopy = async () => {
     await navigator.clipboard.writeText(htmlCode);
     message.success('코드 복사 완료');
@@ -356,12 +358,19 @@ function evtdl(c){
         style={{ '--active-color': activeColor }}
         extra={
           <Space>
-            <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/event/list`)}>목록</Button>
-            <Button icon={<CodeOutlined />} onClick={handleShowHtml}>HTML</Button>
+            <Button
+              icon={<UnorderedListOutlined />}
+              onClick={() => navigate(`/event/list`)}>
+              목록
+            </Button>
+            <Button icon={<CodeOutlined />} onClick={handleShowHtml}>
+              HTML
+            </Button>
           </Space>
         }
       >
-        {/* 관리자 상세 미리보기 */}
+
+        {/* 1) 블록(이미지/영상/텍스트) 렌더링 (관리자 상세 화면용 미리보기) */}
         <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
           {(event.blocks || []).map((block, idx) => {
             if (block.type === 'video') {
@@ -423,17 +432,20 @@ function evtdl(c){
                       <button
                         key={r.id}
                         style={style}
-                        onClick={() => coupons.forEach(cpn => {
-                          const u = `/exec/front/newcoupon/IssueDownload?coupon_no=${cpn}&opener_url=${encodeURIComponent(window.location.href)}`;
-                          window.location.href = u;
-                        })}
+                        onClick={() => coupons.forEach(cpn => downloadCoupon(cpn))}
                       />
                     );
                   } else {
                     let hrefVal = r.href;
                     if (!/^https?:\/\//.test(hrefVal)) hrefVal = 'https://' + hrefVal;
                     return (
-                      <a key={r.id} href={hrefVal} target="_blank" rel="noreferrer" style={style} />
+                      <a
+                        key={r.id}
+                        href={hrefVal}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={style}
+                      />
                     );
                   }
                 })}
@@ -442,7 +454,12 @@ function evtdl(c){
           })}
         </div>
 
-        {/* 상품 자리표시 */}
+        {/* 2) 상품 그리드 (자리표시) */}
+        {layoutType === 'none' && (
+          <p style={{ textAlign:'center', marginTop:24 }}>
+            {/* 상품을 노출하지 않습니다. */}
+          </p>
+        )}
         {layoutType === 'single' && renderGrid(gridSize)}
         {layoutType === 'tabs' && (
           <>
@@ -472,6 +489,7 @@ function evtdl(c){
             {renderGrid(gridSize)}
           </>
         )}
+
       </Card>
 
       {/* HTML 모달 */}
@@ -479,8 +497,12 @@ function evtdl(c){
         title="전체 HTML 코드"
         open={htmlModalVisible}
         footer={[
-          <Button key="copy" icon={<CopyOutlined />} onClick={handleCopy}>복사</Button>,
-          <Button key="close" onClick={() => setHtmlModalVisible(false)}>닫기</Button>,
+          <Button key="copy" icon={<CopyOutlined />} onClick={handleCopy}>
+            복사
+          </Button>,
+          <Button key="close" onClick={() => setHtmlModalVisible(false)}>
+            닫기
+          </Button>,
         ]}
         onCancel={() => setHtmlModalVisible(false)}
         width={800}
