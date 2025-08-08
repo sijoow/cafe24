@@ -422,9 +422,7 @@ export default function EventDetail() {
 
       {/* 2) 상품 그리드 (자리표시) */}
       {layoutType === 'none' && (
-        <p style={{ textAlign: 'center', marginTop: 24 }}>
-          상품을 노출하지 않습니다.
-        </p>
+        <p style={{ textAlign: 'center', marginTop: 24 }}></p>
       )}
       {layoutType === 'single' && renderGrid(gridSize)}
       {layoutType === 'tabs' && (
