@@ -186,7 +186,7 @@ export default function EventDetail() {
   const handleShowHtml = () => {
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
     html += `<div id="evt-images"></div>\n\n`;
-
+  
     // blocks 데이터 (없으면 images→image blocks), youtubeId 보강
     const blocksForHtml = (event.blocks && event.blocks.length
       ? event.blocks
@@ -208,12 +208,12 @@ export default function EventDetail() {
         href: r.href, coupon: r.coupon
       }))
     }));
-
+  
     // 인라인 JSON 삽입
     const blocksJson = JSON.stringify(blocksForHtml).replace(/</g, '\\u003c');
     const blocksScriptId = `evt-blocks-${id}`;
     html += `<script id="${blocksScriptId}" type="application/json">${blocksJson}</script>\n\n`;
-
+  
     // 이미지 블록들의 쿠폰 수집
     const couponList = Array.from(new Set(
       blocksForHtml
@@ -225,7 +225,7 @@ export default function EventDetail() {
     const couponAttr = couponList.length
       ? ` data-coupon-nos="${couponList.join(',')}"`
       : '';
-
+  
     // 탭/싱글 레이아웃 HTML
     if (layoutType === 'tabs') {
       html += `<div class="tabs_${id}">\n`;
@@ -233,7 +233,7 @@ export default function EventDetail() {
         html += `  <button class="${i === 0 ? 'active' : ''}" onclick="showTab('tab-${i}',this)">${t.title || `탭${i+1}`}</button>\n`;
       });
       html += `</div>\n\n`;
-
+  
       tabs.forEach((t, i) => {
         const disp = i === 0 ? 'block' : 'none';
         const cate = t.sub || t.root;
@@ -243,12 +243,12 @@ export default function EventDetail() {
           .filter(Boolean)
           .join(',');
         const directAttrForTab = tabIds ? ` data-direct-nos="${tabIds}"` : '';
-
+  
         html += `<div id="tab-${i}" class="tab-content_${id}" style="display:${disp}">\n`;
         html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForTab}></ul>\n`;
         html += `</div>\n\n`;
       });
-
+  
     } else if (layoutType === 'single') {
       const cate = singleSub || singleRoot;
       const singleIds = directProducts
@@ -256,14 +256,14 @@ export default function EventDetail() {
         .filter(Boolean)
         .join(',');
       const directAttrForSingle = singleIds ? ` data-direct-nos="${singleIds}"` : '';
-
+  
       html += `<div class="product_list_widget">\n`;
       html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForSingle}></ul>\n`;
       html += `</div>\n\n`;
     } else {
       html += ``;
     }
-
+  
     // widget.js 태그 (mall-id + inline-blocks 필수)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
@@ -275,12 +275,13 @@ export default function EventDetail() {
       `data-inline-blocks="${blocksScriptId}"`,
       couponAttr
     ].filter(Boolean).join(' ');
-
+  
     html += `<script ${scriptAttrs}></script>\n`;
-
+  
     setHtmlCode(html);
     setHtmlModalVisible(true);
   };
+  
 
   // HTML 복사
   const handleCopy = async () => {
@@ -373,7 +374,7 @@ export default function EventDetail() {
         {/* 2) 상품 그리드 (자리표시) */}
         {layoutType === 'none' && (
           <p style={{ textAlign:'center', marginTop:24 }}>
-            상품을 노출하지 않습니다.
+            {/* 상품을 노출하지 않습니다. */}
           </p>
         )}
         {layoutType === 'single' && renderGrid(gridSize)}
