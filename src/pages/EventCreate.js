@@ -14,7 +14,8 @@ import {
   Select,
   message,
   Tag,
-  Grid
+  Grid,
+  Alert,
 } from 'antd'
 import {
   InboxOutlined,
@@ -22,7 +23,8 @@ import {
   PlusOutlined,
   LinkOutlined,
   TagOutlined,
-  BlockOutlined
+  BlockOutlined,
+  YoutubeOutlined
 } from '@ant-design/icons'
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -42,10 +44,31 @@ export default function EventCreate() {
    const storedMallId = localStorage.getItem('mallId')
    const mallId       = paramMallId || storedMallId
   const [msgApi, msgCtx] = message.useMessage()
-
+  const [videoModalVisible, setVideoModalVisible] = useState(false)
+  const [videoForm] = Form.useForm()
   // 반응형
   const screens  = useBreakpoint()
   const isMobile = !screens.sm
+
+  function getYouTubeId(input) {
+    if (!input) return null
+    // 이미 ID만 들어오면 (11자, 대소문자/숫자/ - _)
+    if (/^[\w-]{11}$/.test(input)) return input
+  
+    try {
+      const url = new URL(input.trim())
+      const host = url.hostname.replace('www.', '')
+      if (host === 'youtu.be') return url.pathname.slice(1)
+      if (host === 'youtube.com' || host === 'm.youtube.com') {
+        if (url.searchParams.get('v')) return url.searchParams.get('v')
+        const path = url.pathname
+        // /embed/<id> 또는 /shorts/<id>
+        const m = path.match(/\/(embed|shorts)\/([\w-]{11})/)
+        if (m) return m[2]
+      }
+    } catch (_) {}
+    return null
+  }
 
   const API_BASE =
   process.env.REACT_APP_API_BASE_URL ||
@@ -124,7 +147,7 @@ export default function EventCreate() {
 
         const id = Date.now().toString() + Math.random();
         setImages(imgs => {
-          const next = [...imgs, { id, src, file, hash, regions: [] }];
+          const next = [...imgs, { id, type:'image', src, file, hash, regions: [] }];
           setSelectedId(id);
           return next;
         });
@@ -353,7 +376,7 @@ const handleSubmit = async () => {
   try {
     // 이미지 업로드
     const uploaded = await Promise.all(images.map(async img => {
-      if (img.file) {
+      if (img.type === 'image' && img.file) {
         const form = new FormData();
         form.append('file', img.file);
         const { data } = await api.post(
@@ -365,30 +388,46 @@ const handleSubmit = async () => {
       }
       return img;
     }));
+      // NEW: blocks(이미지/비디오 혼합) + 순수 이미지 배열(하위 호환)
+      const blocks = uploaded.map(b => {
+        if (b.type === 'video') {
+          return {
+            _id: b.id,
+            type: 'video',
+            youtubeId: b.youtubeId,
+            ratio: b.ratio || { w:16, h:9 }
+          }
+        }
+        return {
+          _id: b.id,
+          type: 'image',
+          src: b.src,
+          regions: (b.regions||[]).map(r => ({
+            _id: r.id,
+            xRatio: r.xRatio, yRatio: r.yRatio, wRatio: r.wRatio, hRatio: r.hRatio,
+            href: r.href, coupon: r.coupon
+          }))
+        }
+      })
+      const imageOnly = blocks.filter(b => b.type==='image')
+
 
     // payload 생성
     const payload = {
       title,
       content: {
-        images: uploaded.map(img => img.src),
+        images: imageOnly.map(i => i.src),
+        blocks, 
         gridSize,
         layoutType,
         classification: {
           registerMode,
         }
       },
-      images: uploaded.map(img => ({
-        _id: img.id,
-        src: img.src,
-        regions: img.regions.map(r => ({
-          _id:    r.id,
-          xRatio: r.xRatio,
-          yRatio: r.yRatio,
-          wRatio: r.wRatio,
-          hRatio: r.hRatio,
-          href:   r.href,
-          coupon: r.coupon
-        }))
+    images: imageOnly.map(i => ({                 // 기존 필드도 유지
+        _id: i._id,
+        src: i.src,
+        regions: i.regions
       })),
       gridSize,
       layoutType,
@@ -477,6 +516,7 @@ const handleSubmit = async () => {
                 icon={<LinkOutlined />}
                 type={addingMode && addType==='link' ? 'primary' : 'default'}
                 onClick={() => {
+                  if (selectedImage?.type === 'video') return msgApi.info('영상에는 영역 매핑을 사용할 수 없습니다.')
                   if (!selectedImage) return msgApi.warning('이미지를 선택하세요.')
                   setAddType('link'); setAddingMode(true)
                 }}
@@ -485,10 +525,17 @@ const handleSubmit = async () => {
                 icon={<TagOutlined />}
                 type={addingMode && addType==='coupon' ? 'primary' : 'default'}
                 onClick={() => {
+                  if (selectedImage?.type === 'video') return msgApi.info('영상에는 영역 매핑을 사용할 수 없습니다.')
                   if (!selectedImage) return msgApi.warning('이미지를 선택하세요.')
                   setAddType('coupon'); setAddingMode(true)
                 }}
               >쿠폰 추가</Button>
+            <Button
+              icon={<YoutubeOutlined />}
+              onClick={() => setVideoModalVisible(true)}
+            >
+              YouTube 추가
+            </Button>             
             </Space>
 
             {images.length > 0 && (
@@ -549,8 +596,9 @@ const handleSubmit = async () => {
                                   onClick={() => setSelectedId(img.id)}
                                 >
                             <img
-                              src={img.src}
-                              alt="썸네일"
+                              src={img.type==='video'
+                                ? `https://img.youtube.com/vi/${img.youtubeId}/hqdefault.jpg`
+                                : img.src}
                               style={{
                                 width: '100%',
                                 objectFit: 'cover',
@@ -573,27 +621,26 @@ const handleSubmit = async () => {
                     )}
                   </Droppable>
                 </DragDropContext>
-
-                <div
-                  ref={imgRef}
-                  onMouseDown={addingMode ? onMouseDown : undefined}
-                  onMouseMove={addingMode ? onMouseMove : undefined}
-                  onMouseUp={addingMode ? onMouseUp : undefined}
-                  style={{
-                    position: 'relative',
-                    textAlign:'center',
-                    width: '100%',
-                    marginTop: 16,
-                    cursor: addingMode ? 'crosshair' : 'default'
-                  }}
-                >
-                  <img
-                    src={selectedImage?.src}
-                    alt=""
-                    style={{ maxWidth:'800px',margin:'0 auto', userSelect:'none' ,width:'100%'}}
-                    draggable={false}
-                  />
-
+              <div style={{ width:'100%', marginTop:16, textAlign:'center' }}>
+                  {selectedImage?.type !== 'video' ? (
+                    <div
+                      ref={imgRef}
+                      onMouseDown={addingMode ? onMouseDown : undefined}
+                      onMouseMove={addingMode ? onMouseMove : undefined}
+                      onMouseUp={addingMode ? onMouseUp : undefined}
+                      style={{
+                        position:'relative',
+                        display:'inline-block',
+                        maxWidth:800, width:'100%',
+                        cursor: addingMode ? 'crosshair' : 'default'
+                      }}
+                    >
+                      <img
+                        src={selectedImage?.src}
+                        alt=""
+                        style={{ width:'100%', userSelect:'none' }}
+                        draggable={false}
+                      />
                   {dragStartPos && dragCurrent && (
                     <div
                       style={{
@@ -626,6 +673,26 @@ const handleSubmit = async () => {
                       : <a key={r.id} style={style} onClick={e => { e.preventDefault(); e.stopPropagation(); editRegion(r) }} />
                   })}
                 </div>
+               ) : (
+                 // NEW: Responsive YouTube embed (width:100%, 이미지처럼 비율 유지)
+                 <div style={{ maxWidth:800, width:'100%', margin:'0 auto' }}>
+                   <div style={{ position:'relative', width:'100%', aspectRatio: `${(selectedImage?.ratio?.w||16)} / ${(selectedImage?.ratio?.h||9)}` }}>
+                     <iframe
+                       src={`https://www.youtube.com/embed/${selectedImage.youtubeId}`}
+                       title="YouTube video"
+                       style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                       allowFullScreen
+                     />
+                   </div>
+                   {addingMode && (
+                     <div style={{ marginTop:8 }}>
+                       <Alert type="info" message="영상에는 매핑을 적용할 수 없습니다." showIcon />
+                     </div>
+                   )}
+                 </div>
+               )}
+             </div>
               </>
             )}
           </>
@@ -882,8 +949,22 @@ const handleSubmit = async () => {
           <div style={{ marginTop:24 }}>
             <h4>미리보기</h4>
             <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
-              {images.map(img=>(
-                <img key={img.id} src={img.src} alt="미리보기" style={{ width:'100%' }} />
+                          {images.map(block => (
+                block.type === 'video' ? (
+                  <div key={block.id} style={{ width:'100%' }}>
+                    <div style={{ position:'relative', width:'100%', aspectRatio:`${(block.ratio?.w||16)} / ${(block.ratio?.h||9)}` }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${block.youtubeId}`}
+                        title="YouTube preview"
+                        style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <img key={block.id} src={block.src} alt="미리보기" style={{ width:'100%' }} />
+                )
               ))}
             </div>
 
@@ -989,6 +1070,49 @@ const handleSubmit = async () => {
               />
             </Form.Item>
           )}
+        </Form>
+      </Modal>
+      {/* NEW: YouTube 추가 모달 */}
+      <Modal
+        open={videoModalVisible}
+        title="YouTube 영상 추가"
+        onCancel={() => { setVideoModalVisible(false); videoForm.resetFields() }}
+        onOk={() => {
+          const { urlOrId, aspectW = 16, aspectH = 9 } = videoForm.getFieldsValue()
+          const vid = getYouTubeId(urlOrId)
+          if (!vid) return msgApi.error('유효한 YouTube 링크/ID가 아닙니다.')
+
+          const id = Date.now().toString() + Math.random()
+          setImages(prev => [...prev, {
+            id,
+            type: 'video',
+            youtubeId: vid,
+            ratio: { w: Number(aspectW)||16, h: Number(aspectH)||9 }
+          }])
+          setSelectedId(id)
+          setVideoModalVisible(false)
+          videoForm.resetFields()
+        }}
+        width={isMobile ? '90%' : 520}
+      >
+        <Form form={videoForm} layout="vertical" initialValues={{ aspectW:16, aspectH:9 }}>
+          <Form.Item
+            name="urlOrId"
+            label="YouTube 링크 또는 영상 ID"
+            rules={[{ required:true, message:'YouTube 링크/ID를 입력하세요.' }]}
+          >
+            <Input placeholder="예: https://youtu.be/XXXXXXXXXXX 또는 영상 ID" />
+          </Form.Item>
+          <Space>
+            <Form.Item name="aspectW" label="비율 W" style={{ marginBottom:0 }}>
+              <Input type="number" min={1} step="1" style={{ width:100 }} />
+            </Form.Item>
+            <div style={{ alignSelf:'end', padding:'0 6px 8px' }}>/</div>
+            <Form.Item name="aspectH" label="비율 H" style={{ marginBottom:0 }}>
+              <Input type="number" min={1} step="1" style={{ width:100 }} />
+            </Form.Item>
+            <div style={{ alignSelf:'end', padding:'0 0 8px' }}> (예: 16 / 9)</div>
+          </Space>
         </Form>
       </Modal>
 
