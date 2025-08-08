@@ -48,6 +48,25 @@ export default function EventDetail() {
             id: r._id || r.id,
           })),
         }))
+        const rawBlocks = Array.isArray(ev?.content?.blocks)
+          ? ev.content.blocks
+          : (ev.images || []).map(img => ({
+              _id: img.id,
+              type: 'image',
+              src: img.src,
+              regions: img.regions || []
+            }));
+        ev.blocks = rawBlocks.map(b => ({
+          id: b._id || b.id,
+          type: b.type || 'image',
+          src: b.src,
+          youtubeId: b.youtubeId,
+          ratio: b.ratio || { w:16, h:9 },
+          regions: (b.regions || []).map(r => ({
+            ...r,
+            id: r._id || r.id,
+          })),
+        }));
         setEvent(ev)
       })
       .catch(() => {
@@ -71,6 +90,23 @@ export default function EventDetail() {
   const tabs           = classification.tabs          || []
   const singleRoot     = classification.root
   const singleSub      = classification.sub
+
+  // NEW: 반응형 YouTube 임베드
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
+    const src = `https://www.youtube.com/embed/${id}`;
+    return (
+      <div style={{ position:'relative', width:'100%', aspectRatio: `${ratioW} / ${ratioH}` }}>
+        <iframe
+          src={src}
+          title={title}
+          style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
 
   // 그리드 자리 표시 헬퍼
   const renderGrid = cols => (
@@ -113,15 +149,16 @@ export default function EventDetail() {
   const handleShowHtml = () => {
     // 1) 기본 레이아웃 + 이미지 플레이스홀더
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`
-    html += `<div id="evt-images">{#images}</div>\n\n`
+    html += `<div id="evt-images">{#blocks}</div>\n\n`
 
     // 2) 사용된 쿠폰 번호 수집
+    const mediaBlocks = event.blocks || []
     const couponList = Array.from(new Set(
-      images.flatMap(img =>
-        (img.regions || [])
+      mediaBlocks
+        .filter(b => b.type === 'image')
+        .flatMap(b => (b.regions || [])
           .filter(r => r.coupon)
-          .map(r => r.coupon)
-      )
+          .map(r => r.coupon))
     ))
     const couponAttr = couponList.length
       ? ` data-coupon-nos="${couponList.join(',')}"`
@@ -219,7 +256,7 @@ export default function EventDetail() {
         </Space>
       }
     >
-      {/* 1) 이미지 + regions 렌더링 (Grid 레이아웃) */}
+      {/* 1) 미디어 블록(이미지/영상) 렌더링 */}
       <div
         style={{
           display: 'grid',
@@ -228,22 +265,35 @@ export default function EventDetail() {
           margin: '0 auto',
         }}
       >
-        {images.map((img, idx) => (
+      {(event.blocks || []).map((block, idx) => {
+        if (block.type === 'video') {
+          // NEW: YouTube 영상
+          return (
+            <div key={block.id} style={{ width:'100%' }}>
+              <YouTubeEmbed
+                id={block.youtubeId}
+                ratioW={block.ratio?.w || 16}
+                ratioH={block.ratio?.h || 9}
+                title={`youtube-${block.youtubeId}`}
+              />
+            </div>
+          )
+        }
+        // 이미지 + 영역
+        return (
           <div
-            key={img.id}
-            style={{
-              position: 'relative',
-              width: '100%',
-              fontSize: 0,
-            }}
+            key={block.id}
+            style={{ position:'relative', width:'100%', fontSize:0 }}
           >
             <img
-              src={img.src}
+              src={block.src}
               alt={`img-${idx}`}
-              style={{ width: '100%' }}
+              style={{ width:'100%' }}
               draggable={false}
             />
-            {img.regions.map(r => {
+            {(block.regions || []).map(r => {
+
+
               const l = (r.xRatio * 100).toFixed(2)
               const t = (r.yRatio * 100).toFixed(2)
               const w = (r.wRatio * 100).toFixed(2)
@@ -290,9 +340,10 @@ export default function EventDetail() {
                   />
                 )
               }
-            })}
-          </div>
-        ))}
+              })}
+            </div>
+          )
+        })}
       </div>
 
       {/* 2) 상품 그리드 (자리표시) */}
