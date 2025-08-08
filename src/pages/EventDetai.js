@@ -26,6 +26,7 @@ const API_BASE =
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation() 
   const params        = new URLSearchParams(window.location.search)
   const paramMallId   = params.get('mall_id') || params.get('state')
   const storedMallId  = localStorage.getItem('mallId')
