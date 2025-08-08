@@ -15,10 +15,9 @@ import {
   CopyOutlined,
   BlockOutlined,
 } from '@ant-design/icons'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import api from '../axios'
 import './EventDetail.css'
-
 // widget.js 로딩에만 사용하는 base URL
 const API_BASE =
   process.env.REACT_APP_API_BASE_URL ||
@@ -27,6 +26,10 @@ const API_BASE =
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const params        = new URLSearchParams(window.location.search)
+  const paramMallId   = params.get('mall_id') || params.get('state')
+  const storedMallId  = localStorage.getItem('mallId')
+  const mallId        = paramMallId || storedMallId
 
   const [event, setEvent]                       = useState(null)
   const [htmlModalVisible, setHtmlModalVisible] = useState(false)
@@ -39,6 +42,7 @@ export default function EventDetail() {
     api.get(`/api/events/${id}`)
       .then(res => {
         const ev = res.data
+        const stateBlocks = location.state?.blocks
         // images, regions에 id 매핑
         ev.images = (ev.images || []).map(img => ({
           ...img,
@@ -48,7 +52,9 @@ export default function EventDetail() {
             id: r._id || r.id,
           })),
         }))
-        const rawBlocks = Array.isArray(ev?.content?.blocks)
+      const rawBlocks = Array.isArray(stateBlocks)
+        ? stateBlocks                                   // ★ 생성 직후엔 이걸 우선
+        : Array.isArray(ev?.content?.blocks)
           ? ev.content.blocks
           : (ev.images || []).map(img => ({
               _id: img.id,
@@ -60,7 +66,7 @@ export default function EventDetail() {
           id: b._id || b.id,
           type: b.type || 'image',
           src: b.src,
-          youtubeId: b.youtubeId,
+          youtubeId: b.youtubeId || parseYouTubeId(b.src), // ★ 보강
           ratio: b.ratio || { w:16, h:9 },
           regions: (b.regions || []).map(r => ({
             ...r,
@@ -73,7 +79,7 @@ export default function EventDetail() {
         message.error('이벤트 로드 실패')
         navigate('/event/list')
       })
-  }, [id, navigate])
+  }, [id, navigate, location.state])
 
   if (!event) return null
 
@@ -92,22 +98,59 @@ export default function EventDetail() {
   const singleSub      = classification.sub
 
   // NEW: 반응형 YouTube 임베드
-  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
-    const src = `https://www.youtube.com/embed/${id}`;
-    return (
-      <div style={{ position:'relative', width:'100%', aspectRatio: `${ratioW} / ${ratioH}` }}>
-        <iframe
-          src={src}
-          title={title}
-          style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allowFullScreen
-        />
-      </div>
-    );
+   function parseYouTubeId(input) {
+    if (!input) return null;
+    if (/^[\w-]{11}$/.test(input)) return input; // 이미 ID만 들어온 경우
+    try {
+      const url = new URL(String(input).trim());
+      const host = url.hostname.replace('www.', '');
+      if (host === 'youtu.be') return url.pathname.slice(1);
+      if (host.includes('youtube.com')) {
+        if (url.searchParams.get('v')) return url.searchParams.get('v');
+        const m = url.pathname.match(/\/(embed|shorts)\/([\w-]{11})/);
+        if (m) return m[2];
+      }
+    } catch (_) {}
+    // 혹시 iframe 문자열이면 src= 안에서 재시도
+    const m = String(input).match(/src=["']([^"']+)["']/i);
+    if (m) return parseYouTubeId(m[1]);
+    return null;
   }
-
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
+      if (!id) {
+        // Fallback placeholder (영상 블록 표시용)
+        return (
+          <div style={{
+            width:'100%', maxWidth:800, margin:'0 auto',
+            background:'#eee', color:'#666',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            height: Math.round((ratioH/ratioW) * 800) // 대략적 높이
+          }}>
+            <span style={{fontSize:14}}>영상 블록 (ID 없음)</span>
+          </div>
+        );
+      }
+      const src = `https://www.youtube.com/embed/${id}`;
+      const paddingTop = `${(ratioH/ratioW) * 100}%`;
+      return (
+        <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
+          <div style={{
+            position:'relative', width:'100%',
+            paddingTop,               // 구형/제한 환경 대응
+            aspectRatio: `${ratioW} / ${ratioH}` // 최신 브라우저
+          }}>
+            <iframe
+              src={src}
+              title={title}
+              style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      );
+    }
   // 그리드 자리 표시 헬퍼
   const renderGrid = cols => (
     <div
@@ -149,17 +192,45 @@ export default function EventDetail() {
   const handleShowHtml = () => {
     // 1) 기본 레이아웃 + 이미지 플레이스홀더
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`
-    html += `<div id="evt-images">{#blocks}</div>\n\n`
+      html += `<div id="evt-images"></div>\n\n`
+
+      // NEW: blocks 데이터 준비 (없으면 images를 image 블록으로 fallback)
+      const blocksForHtml = (event.blocks && event.blocks.length
+        ? event.blocks
+        : (event.images || []).map(img => ({
+            id: img.id || img._id,
+            type: 'image',
+            src: img.src,
+            regions: img.regions || []
+          }))
+      ).map(b => ({
+        id: b.id || b._id,
+        type: b.type || 'image',
+        src: b.src,
+        youtubeId: b.youtubeId || parseYouTubeId(b.src),
+        ratio: b.ratio || { w:16, h:9 },
+        regions: (b.regions || []).map(r => ({
+          id: r.id || r._id,
+          xRatio: r.xRatio, yRatio: r.yRatio, wRatio: r.wRatio, hRatio: r.hRatio,
+          href: r.href, coupon: r.coupon
+        }))
+      }))
+  
+      // JSON <script>로 안전하게 삽입 (</script> 파괴 방지)
+      const blocksJson = JSON.stringify(blocksForHtml).replace(/</g, '\\u003c')
+      const blocksScriptId = `evt-blocks-${id}`
+      html += `<script id="${blocksScriptId}" type="application/json">${blocksJson}</script>\n\n`
+    
 
     // 2) 사용된 쿠폰 번호 수집
-    const mediaBlocks = event.blocks || []
-    const couponList = Array.from(new Set(
-      mediaBlocks
-        .filter(b => b.type === 'image')
-        .flatMap(b => (b.regions || [])
-          .filter(r => r.coupon)
-          .map(r => r.coupon))
-    ))
+    const mediaBlocks = blocksForHtml
+      const couponList = Array.from(new Set(
+        mediaBlocks
+          .filter(b => b.type === 'image')
+          .flatMap(b => (b.regions || [])
+            .filter(r => r.coupon)
+            .map(r => r.coupon))
+      ))
     const couponAttr = couponList.length
       ? ` data-coupon-nos="${couponList.join(',')}"`
       : ''
@@ -220,8 +291,10 @@ export default function EventDetail() {
       `src="${API_BASE}/widget.js"`,
       `data-page-id="${id}"`,
       `data-api-base="${API_BASE}"`,
+      `data-mall-id="${mallId || ''}"`,
       `data-tab-count="${tabs.length}"`,
       `data-active-color="${activeColor}"`,
+      `data-inline-blocks="${blocksScriptId}"`, 
       couponAttr
     ].filter(Boolean).join(' ')
 
@@ -267,15 +340,15 @@ export default function EventDetail() {
       >
       {(event.blocks || []).map((block, idx) => {
         if (block.type === 'video') {
-          // NEW: YouTube 영상
+          const yid = block.youtubeId || parseYouTubeId(block.src);
           return (
             <div key={block.id} style={{ width:'100%' }}>
-              <YouTubeEmbed
-                id={block.youtubeId}
-                ratioW={block.ratio?.w || 16}
-                ratioH={block.ratio?.h || 9}
-                title={`youtube-${block.youtubeId}`}
-              />
+                <YouTubeEmbed
+                  id={yid}       
+                  ratioW={block.ratio?.w || 16}
+                  ratioH={block.ratio?.h || 9}
+                  title={`youtube-${yid || 'preview'}`}
+                />
             </div>
           )
         }
