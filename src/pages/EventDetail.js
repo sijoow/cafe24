@@ -255,7 +255,7 @@ export default function EventDetail() {
     // 2) 인라인 JSON 삽입
     const blocksJson = JSON.stringify(blocksForHtml).replace(/</g, '\\u003c');
     const blocksScriptId = `evt-blocks-${id}`;
-    html += `<script id="${blocksScriptId}" type="application/json">${blocksJson}</script>\n\n`;
+    // html += `<script id="${blocksScriptId}" type="application/json">${blocksJson}</script>\n\n`;
 
     // 3) 이미지 블록들의 쿠폰 수집
     const couponList = Array.from(new Set(
