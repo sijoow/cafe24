@@ -63,7 +63,7 @@ export default function EventDetail() {
     return null;
   }
 
-  // 반응형 YouTube 임베드
+  // 반응형 YouTube 임베드 (상세 페이지 화면용)
   function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
     if (!id) {
       return (
@@ -207,12 +207,11 @@ export default function EventDetail() {
       `&opener_url=${encodeURIComponent(window.location.href)}`;
   };
 
-  // HTML 생성 & 모달 열기 (blocks 인라인 포함)
+  // HTML 생성 & 모달 열기
   const handleShowHtml = () => {
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
-    html += `<div id="evt-images"></div>\n\n`;
 
-    // 1) 블록 스냅샷 구성: 서버의 ev.blocks 우선, 없으면 images 변환
+    // 1) 렌더 스냅샷 (server blocks 우선)
     const blocksForHtml = (event.blocks && event.blocks.length
       ? event.blocks
       : (event.images || []).map(img => ({
@@ -252,12 +251,26 @@ export default function EventDetail() {
       };
     });
 
-    // 2) 인라인 JSON 삽입
-    const blocksJson = JSON.stringify(blocksForHtml).replace(/</g, '\\u003c');
-    const blocksScriptId = `evt-blocks-${id}`;
-    // html += `<script id="${blocksScriptId}" type="application/json">${blocksJson}</script>\n\n`;
+    // 2) 텍스트 블록을 HTML에 직접 포함 (inline)
+    const textHtml = blocksForHtml
+      .filter(b => b.type === 'text' && String(b.text || '').trim())
+      .map(b => {
+        const st = b.style || {};
+        const align = st.align || 'center';
+        const mt = st.mt ?? 16;
+        const mb = st.mb ?? 16;
+        const fontSize = st.fontSize || 18;
+        const fontWeight = st.fontWeight || 'normal';
+        const color = st.color || '#333';
+        const body = escapeHtml(b.text).replace(/\n/g, '<br/>');
+        return `<div style="text-align:${align};margin-top:${mt}px;margin-bottom:${mb}px;"><div style="font-size:${fontSize}px;font-weight:${fontWeight};color:${color};">${body}</div></div>`;
+      })
+      .join('\n');
 
-    // 3) 이미지 블록들의 쿠폰 수집
+    // 컨테이너 + 텍스트 선렌더링
+    html += `<div id="evt-images">\n${textHtml}\n</div>\n\n`;
+
+    // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
     const couponList = Array.from(new Set(
       blocksForHtml
         .filter(b => b.type === 'image')
@@ -269,7 +282,7 @@ export default function EventDetail() {
       ? ` data-coupon-nos="${couponList.join(',')}"`
       : '';
 
-    // 4) 탭/싱글 레이아웃 HTML
+    // 4) 탭/싱글 레이아웃 HTML (상품 영역 자리)
     if (layoutType === 'tabs') {
       html += `<div class="tabs_${id}">\n`;
       tabs.forEach((t, i) => {
@@ -307,7 +320,7 @@ export default function EventDetail() {
       html += ``;
     }
 
-    // 5) widget.js 태그 (mall-id + inline-blocks 필수)
+    // 5) widget.js 태그 (DB에서 page-id로 블록을 가져가므로 inline JSON/blocksScriptId 제거)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
       `data-mall-id="${mallId || ''}"`,
@@ -315,7 +328,7 @@ export default function EventDetail() {
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${tabs.length}"`,
       `data-active-color="${activeColor}"`,
-      `data-inline-blocks="${blocksScriptId}"`,
+      // ❌ data-inline-blocks 제거
       couponAttr
     ].filter(Boolean).join(' ');
 
@@ -353,7 +366,7 @@ export default function EventDetail() {
         }
       >
 
-        {/* 1) 블록(이미지/영상/텍스트) 렌더링 */}
+        {/* 1) 블록(이미지/영상/텍스트) 렌더링 (관리자 상세 화면용 미리보기) */}
         <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
           {(event.blocks || []).map((block, idx) => {
             if (block.type === 'video') {
