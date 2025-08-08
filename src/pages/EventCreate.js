@@ -616,12 +616,12 @@ export default function EventCreate() {
               >
                 YouTube 추가
               </Button>
-              <Button
+              {/* <Button
                 icon={<FontSizeOutlined />}
                 onClick={openCreateText}
               >
                 텍스트 추가
-              </Button>
+              </Button> */}
 
               {/* 전체 보기 토글 - 주황색 강조 / 이미지 없으면 안내 */}
               <Button
