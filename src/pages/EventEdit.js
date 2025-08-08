@@ -14,6 +14,7 @@ import {
   message,
   Segmented,
   Modal,
+  InputNumber,
 } from 'antd';
 import {
   UploadOutlined,
@@ -23,6 +24,8 @@ import {
   SaveOutlined,
   LinkOutlined,
   TagOutlined,
+  VideoCameraAddOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -45,9 +48,12 @@ export default function EventEdit() {
   const [current, setCurrent] = useState(0);
 
   // 공통 상태
-  const [docId, setDocId]           = useState(null);
-  const [title, setTitle]           = useState('');
-  const [images, setImages]         = useState([]);
+  const [docId, setDocId] = useState(null);
+  const [title, setTitle] = useState('');
+
+  // ✅ 이미지+영상 통합 블록
+  // block = { id, type: 'image'|'video', src?, file?, regions?, youtubeId?, ratio:{w,h} }
+  const [blocks, setBlocks] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   // 상품 등록 방식
@@ -57,7 +63,7 @@ export default function EventEdit() {
 
   // 카테고리/레이아웃
   const [gridSize, setGridSize]     = useState(2);
-  const [layoutType, setLayoutType] = useState('single'); 
+  const [layoutType, setLayoutType] = useState('single');
   const [allCats, setAllCats]       = useState([]);
   const [singleRoot, setSingleRoot] = useState(null);
   const [singleSub, setSingleSub]   = useState(null);
@@ -103,6 +109,65 @@ export default function EventEdit() {
   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
   const [initialSelected, setInitialSelected] = useState([]);
 
+  // 🔹 영상 블록 추가/수정 모달
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [videoInput, setVideoInput] = useState('');  // URL / ID / iframe src 아무거나
+  const [videoRatioW, setVideoRatioW] = useState(16);
+  const [videoRatioH, setVideoRatioH] = useState(9);
+  const [editingVideoIdx, setEditingVideoIdx] = useState(null);
+
+  // ────────────────────────────────────────────────────────────────
+  // 유틸: YouTube ID 파서
+  function parseYouTubeId(input) {
+    if (!input) return null;
+    if (/^[\w-]{11}$/.test(input)) return input;
+    try {
+      const url = new URL(String(input).trim());
+      const host = url.hostname.replace('www.', '');
+      if (host === 'youtu.be') return url.pathname.slice(1);
+      if (host.includes('youtube.com')) {
+        if (url.searchParams.get('v')) return url.searchParams.get('v');
+        const m = url.pathname.match(/\/(embed|shorts)\/([\w-]{11})/);
+        if (m) return m[2];
+      }
+    } catch (_) {}
+    const m = String(input).match(/src=["']([^"']+)["']/i);
+    if (m) return parseYouTubeId(m[1]);
+    return null;
+  }
+
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
+    if (!id) {
+      return (
+        <div style={{
+          width:'100%', maxWidth:800, margin:'0 auto',
+          background:'#eee', color:'#666',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          height: Math.round((ratioH/ratioW) * 800)
+        }}>
+          <span style={{fontSize:14}}>영상 (ID 없음)</span>
+        </div>
+      );
+    }
+    const src = `https://www.youtube.com/embed/${id}`;
+    const paddingTop = `${(ratioH/ratioW) * 100}%`;
+    return (
+      <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
+        <div style={{ position:'relative', width:'100%', paddingTop, aspectRatio:`${ratioW} / ${ratioH}` }}>
+          <iframe
+            src={src}
+            title={title}
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
+  }
+  // ────────────────────────────────────────────────────────────────
+
   // 초기 데이터 로드
   useEffect(() => {
     if (!mallId) return;
@@ -126,9 +191,9 @@ export default function EventEdit() {
         setTitle(ev.title);
         setGridSize(ev.gridSize);
         setLayoutType(ev.layoutType);
-        setRegisterMode(ev.classification.registerMode || 'category');
+        setRegisterMode(ev.classification?.registerMode || 'category');
 
-        if (ev.classification.registerMode === 'direct') {
+        if (ev.classification?.registerMode === 'direct') {
           if (ev.layoutType === 'single') {
             setDirectProducts(ev.classification.directProducts || []);
           } else {
@@ -137,38 +202,47 @@ export default function EventEdit() {
         }
 
         if (ev.layoutType === 'single') {
-          setSingleRoot(ev.classification.root != null
-            ? String(ev.classification.root)
-            : null
-          );
-          setSingleSub(ev.classification.sub != null
-            ? String(ev.classification.sub)
-            : null
-          );
+          setSingleRoot(ev.classification?.root != null ? String(ev.classification.root) : null);
+          setSingleSub(ev.classification?.sub  != null ? String(ev.classification.sub)  : null);
         } else {
-          const incomingTabs = ev.classification.tabs;
+          const incomingTabs = ev.classification?.tabs;
           setTabs(
             Array.isArray(incomingTabs)
               ? incomingTabs.map(t => ({
-                  title: String(t.title),
-                  root:  t.root  != null ? String(t.root) : null,
-                  sub:   t.sub   != null ? String(t.sub)  : null,
+                  title: String(t.title || ''),
+                  root:  t.root != null ? String(t.root) : null,
+                  sub:   t.sub  != null ? String(t.sub)  : null,
                 }))
-              : [
-                  { title: '', root: null, sub: null },
-                  { title: '', root: null, sub: null },
-                ]
+              : [{ title:'', root:null, sub:null }, { title:'', root:null, sub:null }]
           );
-          setActiveColor(ev.classification.activeColor || '#1890ff');
+          setActiveColor(ev.classification?.activeColor || '#1890ff');
         }
 
-        setImages(
-          (ev.images || []).map(img => ({
-            id:      img._id,
-            src:     img.src,
-            regions: img.regions.map(r => ({ ...r, id: r._id }))
-          }))
-        );
+        // ✅ blocks 정규화: content.blocks → 없으면 images를 image 블록으로
+        const rawBlocks = Array.isArray(ev?.content?.blocks)
+          ? ev.content.blocks
+          : (ev.images || []).map(img => ({
+              _id: img._id || img.id,
+              type: 'image',
+              src: img.src,
+              regions: img.regions || []
+            }));
+
+        const norm = rawBlocks.map(b => ({
+          id: b._id || b.id || `${Date.now()}-${Math.random()}`,
+          type: b.type || 'image',
+          src: b.src,
+          file: undefined,
+          youtubeId: b.youtubeId || parseYouTubeId(b.src),
+          ratio: b.ratio || { w:16, h:9 },
+          regions: (b.regions || []).map(r => ({
+            ...r,
+            id: r._id || r.id || `${Date.now()}-${Math.random()}`,
+          })),
+        }));
+
+        setBlocks(norm.length ? norm : []);
+        setSelectedIdx(0);
       })
       .catch(() => {
         message.error('이벤트 로드 실패');
@@ -176,25 +250,27 @@ export default function EventEdit() {
       });
   }, [mallId, id, navigate]);
 
-  // 이미지 교체
+  // 이미지 교체 (현재 선택 블록 = 이미지일 때만)
   const replaceImage = (idx, file, onSuccess) => {
     const reader = new FileReader();
     reader.onload = e => {
       const dataUrl = e.target.result;
-      setImages(imgs => {
-        const a = [...imgs];
+      setBlocks(bks => {
+        const a = [...bks];
         a[idx] = { ...a[idx], src: dataUrl, file };
         return a;
       });
       onSuccess();
-      message.success('미리보기 등록 완료');
+      message.success('이미지 교체 완료');
     };
     reader.readAsDataURL(file);
   };
 
-  // 매핑 핸들러
+  // 매핑 핸들러 (이미지 블록일 때만)
   const onMouseDown = e => {
     if (!addingMode || !imgRef.current) return;
+    const blk = blocks[selectedIdx];
+    if (!blk || blk.type !== 'image') return;
     const { left, top } = imgRef.current.getBoundingClientRect();
     setDragStart({ x: e.clientX - left, y: e.clientY - top });
   };
@@ -211,6 +287,12 @@ export default function EventEdit() {
   };
   const onMouseUp = () => {
     if (dragBox) {
+      const blk = blocks[selectedIdx];
+      if (!blk || blk.type !== 'image') {
+        setDragStart(null);
+        setDragBox(null);
+        return;
+      }
       setPendingBox(dragBox);
       if (addType === 'url')    setUrlModalVisible(true);
       if (addType === 'coupon') setCouponModalVisible(true);
@@ -218,12 +300,18 @@ export default function EventEdit() {
     setDragStart(null);
     setDragBox(null);
   };
+
   const addRegion = value => {
     if (!pendingBox) return;
+    const blk = blocks[selectedIdx];
+    if (!blk || blk.type !== 'image') {
+      message.warning('이미지에서만 영역을 추가할 수 있습니다.');
+      return;
+    }
     const W = imgRef.current.clientWidth;
     const H = imgRef.current.clientHeight;
     const newR = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random()}`,
       xRatio: pendingBox.x / W,
       yRatio: pendingBox.y / H,
       wRatio: pendingBox.w / W,
@@ -231,9 +319,9 @@ export default function EventEdit() {
       ...(addType==='url'    ? { href: value }   : {}),
       ...(addType==='coupon' ? { coupon: value } : {}),
     };
-    setImages(imgs => {
-      const a = [...imgs];
-      a[selectedIdx].regions.push(newR);
+    setBlocks(bks => {
+      const a = [...bks];
+      a[selectedIdx] = { ...a[selectedIdx], regions: [...(a[selectedIdx].regions||[]), newR] };
       return a;
     });
     setAddingMode(false);
@@ -243,75 +331,172 @@ export default function EventEdit() {
     message.success(addType === 'url' ? 'URL 추가됨' : '쿠폰 추가됨');
   };
 
-  // 영역 편집/삭제
+  // 영역 편집/삭제 (이미지 블록)
   const onEditRegion = idx => {
     setEditingIndex(idx);
-    editingForm.setFieldsValue(images[selectedIdx].regions[idx]);
+    const blk = blocks[selectedIdx];
+    const r = (blk?.regions || [])[idx];
+    if (r) editingForm.setFieldsValue(r);
   };
   const saveRegion = (idx, vals) => {
-    setImages(imgs => {
-      const a = [...imgs];
-      a[selectedIdx].regions[idx] = { ...a[selectedIdx].regions[idx], ...vals };
+    setBlocks(bks => {
+      const a = [...bks];
+      const regions = [...(a[selectedIdx].regions||[])];
+      regions[idx] = { ...regions[idx], ...vals };
+      a[selectedIdx] = { ...a[selectedIdx], regions };
       return a;
     });
     setEditingIndex(null);
     message.success('영역 수정됨');
   };
   const deleteRegion = idx => {
-    setImages(imgs => {
-      const a = [...imgs];
-      a[selectedIdx].regions = a[selectedIdx].regions.filter((_, i) => i !== idx);
+    setBlocks(bks => {
+      const a = [...bks];
+      a[selectedIdx] = {
+        ...a[selectedIdx],
+        regions: (a[selectedIdx].regions || []).filter((_, i) => i !== idx)
+      };
       return a;
     });
     setEditingIndex(null);
     message.success('영역 삭제됨');
   };
 
-  // 이미지 순서 변경
+  // 블록 순서 변경/삭제
   const onDragEnd = result => {
     if (!result.destination) return;
-    const a = Array.from(images);
-    const [m] = a.splice(result.source.index, 1);
-    a.splice(result.destination.index, 0, m);
-    setImages(a);
+    setBlocks(prev => {
+      const a = Array.from(prev);
+      const [m] = a.splice(result.source.index, 1);
+      a.splice(result.destination.index, 0, m);
+      return a;
+    });
     if (result.source.index === selectedIdx) {
       setSelectedIdx(result.destination.index);
     }
   };
 
-  // 이미지 삭제
-  const deleteImage = idx => {
-    if (images.length === 1) {
-      return message.warning('최소 1장 필요');
+  const deleteBlock = idx => {
+    if (blocks.length === 1) {
+      return message.warning('최소 1개 블록이 필요합니다.');
     }
-    const remaining = images.filter((_, i) => i !== idx);
-    setImages(remaining);
+    setBlocks(prev => prev.filter((_, i) => i !== idx));
     setSelectedIdx(0);
-    message.success('이미지 삭제 완료');
+    message.success('블록 삭제 완료');
+  };
+
+  // 🔹 영상 블록 추가/수정
+  const openAddVideo = () => {
+    setEditingVideoIdx(null);
+    setVideoInput('');
+    setVideoRatioW(16);
+    setVideoRatioH(9);
+    setVideoModalOpen(true);
+  };
+  const openEditVideo = (idx) => {
+    const blk = blocks[idx];
+    if (!blk || blk.type !== 'video') return;
+    setEditingVideoIdx(idx);
+    setVideoInput(blk.youtubeId || '');
+    setVideoRatioW(blk.ratio?.w || 16);
+    setVideoRatioH(blk.ratio?.h || 9);
+    setVideoModalOpen(true);
+  };
+  const confirmVideoModal = () => {
+    const yid = parseYouTubeId(videoInput);
+    if (!yid) {
+      message.error('유효한 YouTube URL/ID를 입력하세요.');
+      return;
+    }
+    if (editingVideoIdx == null) {
+      // add
+      setBlocks(prev => [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          type: 'video',
+          youtubeId: yid,
+          ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
+          regions: [],
+        }
+      ]);
+      setSelectedIdx(blocks.length);
+      message.success('영상 블록 추가됨');
+    } else {
+      // edit
+      setBlocks(prev => {
+        const a = [...prev];
+        a[editingVideoIdx] = {
+          ...a[editingVideoIdx],
+          type: 'video',
+          youtubeId: yid,
+          ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
+        };
+        return a;
+      });
+      message.success('영상 블록 수정됨');
+    }
+    setVideoModalOpen(false);
   };
 
   // 저장
   const handleSave = async () => {
     try {
+      // 이미지 블록만 업로드
       const uploaded = await Promise.all(
-        images.map(async img => {
-          if (img.file) {
+        blocks.map(async b => {
+          if (b.type === 'image' && b.file) {
             const form = new FormData();
-            form.append('file', img.file);
+            form.append('file', b.file);
             const { data } = await api.post(
               `/api/${mallId}/uploads/image`,
               form,
               { headers: { 'Content-Type': 'multipart/form-data' } }
             );
-            return { ...img, src: data.url };
+            return { ...b, src: data.url, file: undefined };
           }
-          return img;
+          return b;
         })
       );
 
+      // payload.content.blocks로 저장 + 레거시 images 동시 제공
+      const contentBlocks = uploaded.map(b => ({
+        id: b.id,
+        type: b.type,
+        src: b.type === 'image' ? b.src : b.src, // video는 src 사용 안 해도 호환 위해 둠
+        youtubeId: b.type === 'video' ? b.youtubeId : undefined,
+        ratio: b.ratio || (b.type === 'video' ? { w:16, h:9 } : undefined),
+        regions: (b.regions || []).map(r => ({
+          _id: r.id,
+          xRatio: r.xRatio,
+          yRatio: r.yRatio,
+          wRatio: r.wRatio,
+          hRatio: r.hRatio,
+          href:   r.href,
+          coupon: r.coupon
+        }))
+      }));
+
+      const legacyImages = uploaded
+        .filter(b => b.type === 'image')
+        .map(b => ({
+          _id: b.id,
+          src: b.src,
+          regions: (b.regions || []).map(r => ({
+            _id: r.id,
+            xRatio: r.xRatio,
+            yRatio: r.yRatio,
+            wRatio: r.wRatio,
+            hRatio: r.hRatio,
+            href:   r.href,
+            coupon: r.coupon
+          }))
+        }));
+
       const payload = {
         title,
-        content: '',
+        // ✅ blocks 저장
+        content: { blocks: contentBlocks },
         gridSize,
         layoutType,
         classification: {
@@ -321,19 +506,8 @@ export default function EventEdit() {
           ...(registerMode==='direct'  &&layoutType==='single'&&{ directProducts }),
           ...(registerMode==='direct'  &&layoutType==='tabs'  &&{ tabDirectProducts, tabs, activeColor }),
         },
-        images: uploaded.map(img => ({
-          _id:     img.id,
-          src:     img.src,
-          regions: img.regions.map(r => ({
-            _id:    r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon,
-          }))
-        })),
+        // ✅ 레거시 호환: images도 같이 유지
+        images: legacyImages,
       };
 
       await api.put(`/api/${mallId}/events/${id}`, payload);
@@ -345,6 +519,8 @@ export default function EventEdit() {
     }
   };
 
+  const selectedBlock = blocks[selectedIdx];
+
   return (
     <Card
       title="이벤트 수정"
@@ -353,7 +529,7 @@ export default function EventEdit() {
           <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>
             목록
           </Button>
-          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId}`)}>
+          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId || id}`)}>
             취소
           </Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
@@ -365,7 +541,7 @@ export default function EventEdit() {
     >
       <Steps current={current} onChange={setCurrent} style={{ marginBottom: 24 }}>
         <Step title="제목 입력" />
-        <Step title="이미지 매핑" />
+        <Step title="미디어(이미지/영상) & 매핑" />
         <Step title="상품등록 방식 설정" />
       </Steps>
 
@@ -381,6 +557,7 @@ export default function EventEdit() {
       {/* Step 2 */}
       {current === 1 && (
         <>
+          {/* 썸네일 리스트 (블록 단위) */}
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="thumbs" direction="horizontal">
               {prov => (
@@ -389,8 +566,8 @@ export default function EventEdit() {
                   {...prov.droppableProps}
                   style={{ display:'flex', gap:8, overflowX:'auto', padding:'8px 0' }}
                 >
-                  {images.map((img, idx) => (
-                    <Draggable key={img.id} draggableId={img.id} index={idx}>
+                  {blocks.map((blk, idx) => (
+                    <Draggable key={blk.id} draggableId={String(blk.id)} index={idx}>
                       {p => (
                         <div
                           ref={p.innerRef}
@@ -400,37 +577,62 @@ export default function EventEdit() {
                             position:'relative',
                             border: idx===selectedIdx ? `2px solid ${activeColor}` : '1px solid #ddd',
                             borderRadius:4,
+                            width: 140,
+                            height: 78,
+                            overflow:'hidden',
                             ...p.draggableProps.style
                           }}
                           onClick={()=>setSelectedIdx(idx)}
+                          title={blk.type === 'video' ? `YouTube: ${blk.youtubeId || ''}` : '이미지'}
                         >
-                          <img
-                            src={img.src}
-                            alt=""
-                            style={{ width:100, height:60, objectFit:'cover', cursor:'pointer' }}
-                          />
+                          {blk.type === 'image' ? (
+                            <img
+                              src={blk.src}
+                              alt=""
+                              style={{ width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width:'100%', height:'100%',
+                              background:'#000', color:'#fff',
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize:12
+                            }}>
+                              <span>🎬 {blk.youtubeId || '영상'}</span>
+                            </div>
+                          )}
                           <div style={{ position:'absolute', top:4, right:4, display:'flex', gap:4 }}>
-                            <Upload
-                              accept="image/*"
-                              showUploadList={false}
-                              customRequest={({file,onSuccess})=>replaceImage(idx,file,onSuccess)}
-                            >
-                              <Button size="small" icon={<UploadOutlined />} />
-                            </Upload>
+                            {blk.type === 'image' ? (
+                              <Upload
+                                accept="image/*"
+                                showUploadList={false}
+                                customRequest={({file,onSuccess})=>replaceImage(idx,file,onSuccess)}
+                              >
+                                <Button size="small" icon={<UploadOutlined />} />
+                              </Upload>
+                            ) : (
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={(e)=>{ e.stopPropagation(); openEditVideo(idx); }}
+                              />
+                            )}
                             <Button
                               size="small"
                               danger
                               icon={<DeleteOutlined />}
-                              onClick={()=>deleteImage(idx)}
+                              onClick={(e)=>{ e.stopPropagation(); deleteBlock(idx); }}
                             />
                           </div>
                         </div>
                       )}
                     </Draggable>
                   ))}
+
+                  {/* 이미지 블록 추가 */}
                   <div
                     style={{
-                      width:100, height:60,
+                      width:140, height:78,
                       border:'1px dashed #ccc',
                       borderRadius:4,
                       display:'flex', alignItems:'center', justifyContent:'center',
@@ -444,13 +646,13 @@ export default function EventEdit() {
                         const reader = new FileReader();
                         reader.onload = e=>{
                           const dataUrl = e.target.result;
-                          setImages(prev=>[
+                          setBlocks(prev=>[
                             ...prev,
-                            { id:Date.now().toString(), src:dataUrl, file, regions:[] }
+                            { id:`${Date.now()}-${Math.random()}`, type:'image', src:dataUrl, file, regions:[] }
                           ]);
-                          setSelectedIdx(images.length);
+                          setSelectedIdx(blocks.length);
                           onSuccess();
-                          message.success('미리보기 등록 완료');
+                          message.success('이미지 추가됨');
                         };
                         reader.onerror = onError;
                         reader.readAsDataURL(file);
@@ -459,127 +661,165 @@ export default function EventEdit() {
                       <PlusOutlined style={{ fontSize:24, color:'#888' }} />
                     </Upload>
                   </div>
+
+                  {/* 영상 블록 추가 */}
+                  <div
+                    onClick={openAddVideo}
+                    style={{
+                      width:140, height:78,
+                      border:'1px dashed #ccc',
+                      borderRadius:4,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      cursor:'pointer'
+                    }}
+                    title="영상 블록 추가"
+                  >
+                    <VideoCameraAddOutlined style={{ fontSize:24, color:'#888' }} />
+                  </div>
+
                   {prov.placeholder}
                 </div>
               )}
             </Droppable>
           </DragDropContext>
 
+          {/* 매핑/영상 컨트롤 */}
           <Space style={{ margin:'8px 0' }}>
             <Button
               icon={<LinkOutlined />}
               type={addingMode && addType==='url' ? 'primary':'default'}
+              disabled={selectedBlock?.type !== 'image'}
               onClick={()=>{ setAddingMode(true); setAddType('url'); }}
             >URL 추가</Button>
             <Button
               icon={<TagOutlined />}
               type={addingMode && addType==='coupon' ? 'primary':'default'}
+              disabled={selectedBlock?.type !== 'image'}
               onClick={()=>{ setAddingMode(true); setAddType('coupon'); setNewValue([]); }}
             >쿠폰 추가</Button>
           </Space>
 
-          <div
-            className="mapping-container"
-            ref={imgRef}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            style={{
-              position:'relative',
-              width:'100%',
-              maxWidth:800,
-              margin:'16px auto',
-              cursor:addingMode ? 'crosshair':'default'
-            }}
-          >
-            <img
-              src={images[selectedIdx]?.src}
-              alt=""
-              style={{ width:'100%', userSelect:'none' }}
-              draggable={false}
-            />
-
-            {dragBox && (
-              <div
-                style={{
-                  position:'absolute',
-                  left:dragBox.x,
-                  top:dragBox.y,
-                  width:dragBox.w,
-                  height:dragBox.h,
-                  border:'2px dashed #1890ff'
-                }}
+          {/* 미디어 미리보기 / 매핑 캔버스 */}
+          {selectedBlock?.type === 'video' ? (
+            <div style={{ margin:'16px auto', maxWidth:800 }}>
+              <YouTubeEmbed
+                id={selectedBlock.youtubeId}
+                ratioW={selectedBlock.ratio?.w || 16}
+                ratioH={selectedBlock.ratio?.h || 9}
+                title={`youtube-${selectedBlock.youtubeId || 'preview'}`}
               />
-            )}
+              <div style={{ marginTop:8 }}>
+                <Button size="small" icon={<EditOutlined />} onClick={()=>openEditVideo(selectedIdx)}>
+                  영상 편집
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="mapping-container"
+              ref={imgRef}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              style={{
+                position:'relative',
+                width:'100%',
+                maxWidth:800,
+                margin:'16px auto',
+                cursor:addingMode ? 'crosshair':'default'
+              }}
+            >
+              {selectedBlock && selectedBlock.type === 'image' && (
+                <img
+                  src={selectedBlock.src}
+                  alt=""
+                  style={{ width:'100%', userSelect:'none' }}
+                  draggable={false}
+                />
+              )}
 
-            {images[selectedIdx]?.regions.map((r,i)=>(
-              <Popover
-                key={r.id}
-                trigger="click"
-                placement="topLeft"
-                getPopupContainer={trigger=>trigger.parentNode}
-                open={editingIndex===i}
-                onOpenChange={open=>open?onEditRegion(i):setEditingIndex(null)}
-                content={
-                  <Form
-                    form={editingForm}
-                    initialValues={r}
-                    onFinish={vals=>saveRegion(i,vals)}
-                    layout="vertical"
-                    style={{ width:500 }}
-                  >
-                    {r.coupon ? (
-                      <Form.Item
-                        name="coupon"
-                        label="쿠폰 선택 혹은 번호 입력"
-                        rules={[{ required:true, message:'쿠폰을 선택하거나 번호를 입력하세요' }]}
-                      >
-                        <Select
-                          mode="tags"
-                          tokenSeparators={[',']}
-                          options={couponOptions}
-                          placeholder="쿠폰 선택 또는 번호 입력"
-                        />
-                      </Form.Item>
-                    ) : (
-                      <Form.Item
-                        name="href"
-                        label="URL 입력"
-                        rules={[{ required:true, message:'URL을 입력하세요' }]}
-                      >
-                        <Input placeholder="https://example.com" />
-                      </Form.Item>
-                    )}
-                    <Form.Item>
-                      <Space style={{ justifyContent:'flex-end', width:'100%' }}>
-                        <Button onClick={()=>setEditingIndex(null)}>취소</Button>
-                        <Button danger onClick={()=>deleteRegion(i)}>삭제</Button>
-                        <Button type="primary" htmlType="submit">적용</Button>
-                      </Space>
-                    </Form.Item>
-                  </Form>
-                }
-              >
+              {dragBox && (
                 <div
                   style={{
                     position:'absolute',
-                    left:`${(r.xRatio*100).toFixed(2)}%`,
-                    top:`${(r.yRatio*100).toFixed(2)}%`,
-                    width:`${(r.wRatio*100).toFixed(2)}%`,
-                    height:`${(r.hRatio*100).toFixed(2)}%`,
-                    border: r.coupon
-                      ? '2px dashed rgba(255,99,71,0.7)'
-                      : '2px dashed rgba(24,144,255,0.7)',
-                    background: r.coupon
-                      ? 'rgba(255,99,71,0.2)'
-                      : 'rgba(24,144,255,0.2)',
-                    cursor:'pointer'
+                    left:dragBox.x,
+                    top:dragBox.y,
+                    width:dragBox.w,
+                    height:dragBox.h,
+                    border:'2px dashed #1890ff'
                   }}
-                  onClick={e=>{ e.stopPropagation(); onEditRegion(i); }}
                 />
-              </Popover>
-            ))}
-          </div>
+              )}
+
+              {(selectedBlock?.regions || []).map((r,i)=>(
+                <Popover
+                  key={r.id}
+                  trigger="click"
+                  placement="topLeft"
+                  getPopupContainer={trigger=>trigger.parentNode}
+                  open={editingIndex===i}
+                  onOpenChange={open=>open?onEditRegion(i):setEditingIndex(null)}
+                  content={
+                    <Form
+                      form={editingForm}
+                      initialValues={r}
+                      onFinish={vals=>saveRegion(i,vals)}
+                      layout="vertical"
+                      style={{ width:500 }}
+                    >
+                      {r.coupon ? (
+                        <Form.Item
+                          name="coupon"
+                          label="쿠폰 선택 혹은 번호 입력"
+                          rules={[{ required:true, message:'쿠폰을 선택하거나 번호를 입력하세요' }]}
+                        >
+                          <Select
+                            mode="tags"
+                            tokenSeparators={[',']}
+                            options={couponOptions}
+                            placeholder="쿠폰 선택 또는 번호 입력"
+                          />
+                        </Form.Item>
+                      ) : (
+                        <Form.Item
+                          name="href"
+                          label="URL 입력"
+                          rules={[{ required:true, message:'URL을 입력하세요' }]}
+                        >
+                          <Input placeholder="https://example.com" />
+                        </Form.Item>
+                      )}
+                      <Form.Item>
+                        <Space style={{ justifyContent:'flex-end', width:'100%' }}>
+                          <Button onClick={()=>setEditingIndex(null)}>취소</Button>
+                          <Button danger onClick={()=>deleteRegion(i)}>삭제</Button>
+                          <Button type="primary" htmlType="submit">적용</Button>
+                        </Space>
+                      </Form.Item>
+                    </Form>
+                  }
+                >
+                  <div
+                    style={{
+                      position:'absolute',
+                      left:`${(r.xRatio*100).toFixed(2)}%`,
+                      top:`${(r.yRatio*100).toFixed(2)}%`,
+                      width:`${(r.wRatio*100).toFixed(2)}%`,
+                      height:`${(r.hRatio*100).toFixed(2)}%`,
+                      border: r.coupon
+                        ? '2px dashed rgba(255,99,71,0.7)'
+                        : '2px dashed rgba(24,144,255,0.7)',
+                      background: r.coupon
+                        ? 'rgba(255,99,71,0.2)'
+                        : 'rgba(24,144,255,0.2)',
+                      cursor:'pointer'
+                    }}
+                    onClick={e=>{ e.stopPropagation(); onEditRegion(i); }}
+                  />
+                </Popover>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -913,6 +1153,35 @@ export default function EventEdit() {
           onChange={v => setNewValue(v)}
           style={{ width:'100%' }}
         />
+      </Modal>
+
+      {/* 영상 블록 추가/수정 모달 */}
+      <Modal
+        title={editingVideoIdx == null ? '영상 블록 추가' : '영상 블록 수정'}
+        open={videoModalOpen}
+        onCancel={()=>setVideoModalOpen(false)}
+        onOk={confirmVideoModal}
+        okText={editingVideoIdx == null ? '추가' : '수정'}
+      >
+        <Space direction="vertical" style={{ width:'100%' }}>
+          <Input
+            placeholder="YouTube URL/ID/iframe src"
+            value={videoInput}
+            onChange={e=>setVideoInput(e.target.value)}
+          />
+          <Space>
+            비율:
+            <InputNumber min={1} value={videoRatioW} onChange={v=>setVideoRatioW(v||16)} />
+            :
+            <InputNumber min={1} value={videoRatioH} onChange={v=>setVideoRatioH(v||9)} />
+          </Space>
+          <div style={{ marginTop:8 }}>
+            미리보기
+            <div style={{ marginTop:8 }}>
+              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} />
+            </div>
+          </div>
+        </Space>
       </Modal>
     </Card>
   );
