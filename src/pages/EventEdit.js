@@ -26,6 +26,7 @@ import {
   TagOutlined,
   VideoCameraAddOutlined,
   EditOutlined,
+  FontSizeOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -34,6 +35,10 @@ import './EventEdit.css';
 
 const { Step } = Steps;
 const { Option } = Select;
+
+// HTML Escape (텍스트 블록에서 <br/> 변환용)
+const escapeHtml = (s = '') =>
+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export default function EventEdit() {
   const params       = new URLSearchParams(window.location.search);
@@ -44,6 +49,16 @@ export default function EventEdit() {
   const navigate     = useNavigate();
   const imgRef       = useRef(null);
 
+  // 썸네일 드래그/클릭 충돌 방지
+  const draggingRef = useRef(false);
+  const getItemStyle = (isDragging, draggableStyle) => ({
+    userSelect: 'none',
+    transition: isDragging ? undefined : 'transform 200ms cubic-bezier(0.2,0,0,1), opacity 200ms',
+    boxShadow: isDragging ? '0 6px 12px rgba(0,0,0,0.15)' : 'none',
+    zIndex: isDragging ? 2 : 1,
+    ...draggableStyle,
+  });
+
   // Steps
   const [current, setCurrent] = useState(0);
 
@@ -51,10 +66,15 @@ export default function EventEdit() {
   const [docId, setDocId] = useState(null);
   const [title, setTitle] = useState('');
 
-  // ✅ 이미지+영상 통합 블록
-  // block = { id, type: 'image'|'video', src?, file?, regions?, youtubeId?, ratio:{w,h} }
+  // ✅ 이미지+영상+텍스트 통합 블록
+  // image: {id,type:'image',src,file?,regions:[]}
+  // video: {id,type:'video',youtubeId,ratio:{w,h}}
+  // text : {id,type:'text',text,style:{align,fontSize,fontWeight,color,mt,mb}}
   const [blocks, setBlocks] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
+
+  // 전체보기
+  const [showAllPreview, setShowAllPreview] = useState(false);
 
   // 상품 등록 방식
   const [registerMode, setRegisterMode]     = useState('category');
@@ -111,10 +131,14 @@ export default function EventEdit() {
 
   // 🔹 영상 블록 추가/수정 모달
   const [videoModalOpen, setVideoModalOpen] = useState(false);
-  const [videoInput, setVideoInput] = useState('');  // URL / ID / iframe src 아무거나
+  const [videoInput, setVideoInput] = useState('');
   const [videoRatioW, setVideoRatioW] = useState(16);
   const [videoRatioH, setVideoRatioH] = useState(9);
   const [editingVideoIdx, setEditingVideoIdx] = useState(null);
+
+  // 🔹 텍스트 블록 추가/수정 모달
+  const [textModalOpen, setTextModalOpen] = useState(false);
+  const [textForm] = Form.useForm();
 
   // ────────────────────────────────────────────────────────────────
   // 유틸: YouTube ID 파서
@@ -228,20 +252,40 @@ export default function EventEdit() {
               regions: img.regions || []
             }));
 
-        const norm = rawBlocks.map(b => ({
-          id: b._id || b.id || `${Date.now()}-${Math.random()}`,
-          type: b.type || 'image',
-          src: b.src,
-          file: undefined,
-          youtubeId: b.youtubeId || parseYouTubeId(b.src),
-          ratio: b.ratio || { w:16, h:9 },
-          regions: (b.regions || []).map(r => ({
-            ...r,
-            id: r._id || r.id || `${Date.now()}-${Math.random()}`,
-          })),
-        }));
+        const norm = rawBlocks.map(b => {
+          const t = b.type || 'image';
+          if (t === 'video') {
+            return {
+              id: b._id || b.id || `${Date.now()}-${Math.random()}`,
+              type: 'video',
+              youtubeId: b.youtubeId || parseYouTubeId(b.src),
+              ratio: b.ratio || { w:16, h:9 },
+              regions: [],
+            };
+          }
+          if (t === 'text') {
+            return {
+              id: b._id || b.id || `${Date.now()}-${Math.random()}`,
+              type: 'text',
+              text: b.text || '',
+              style: b.style || {},
+            };
+          }
+          return {
+            id: b._id || b.id || `${Date.now()}-${Math.random()}`,
+            type: 'image',
+            src: b.src,
+            file: undefined,
+            youtubeId: undefined,
+            ratio: { w:16, h:9 },
+            regions: (b.regions || []).map(r => ({
+              ...r,
+              id: r._id || r.id || `${Date.now()}-${Math.random()}`,
+            })),
+          };
+        });
 
-        setBlocks(norm.length ? norm : []);
+        setBlocks(norm);
         setSelectedIdx(0);
       })
       .catch(() => {
@@ -365,15 +409,14 @@ export default function EventEdit() {
   // 블록 순서 변경/삭제
   const onDragEnd = result => {
     if (!result.destination) return;
-    setBlocks(prev => {
-      const a = Array.from(prev);
-      const [m] = a.splice(result.source.index, 1);
-      a.splice(result.destination.index, 0, m);
-      return a;
-    });
+    const a = Array.from(blocks);
+    const [m] = a.splice(result.source.index, 1);
+    a.splice(result.destination.index, 0, m);
+    setBlocks(a);
     if (result.source.index === selectedIdx) {
       setSelectedIdx(result.destination.index);
     }
+    requestAnimationFrame(() => { draggingRef.current = false; });
   };
 
   const deleteBlock = idx => {
@@ -387,6 +430,7 @@ export default function EventEdit() {
 
   // 🔹 영상 블록 추가/수정
   const openAddVideo = () => {
+    if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
     setEditingVideoIdx(null);
     setVideoInput('');
     setVideoRatioW(16);
@@ -439,6 +483,47 @@ export default function EventEdit() {
     setVideoModalOpen(false);
   };
 
+  // 🔹 텍스트 블록 추가/수정
+  const openCreateText = () => {
+    if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
+    textForm.resetFields();
+    setTextModalOpen(true);
+  };
+  const openEditText = (blk) => {
+    textForm.setFieldsValue({
+      text: blk.text || '',
+      align: blk.style?.align || 'center',
+      fontSize: blk.style?.fontSize || 18,
+      fontWeight: blk.style?.fontWeight || 'normal',
+      color: blk.style?.color || '#333333',
+      mt: blk.style?.mt ?? 16,
+      mb: blk.style?.mb ?? 16,
+    });
+    setTextModalOpen(true);
+  };
+  const submitText = () => {
+    const { text, fontSize=18, fontWeight='normal', color='#333333', align='center', mt=16, mb=16 } = textForm.getFieldsValue();
+    if (!String(text || '').trim()) return message.warning('문구를 입력하세요.');
+    const sel = blocks[selectedIdx];
+    if (sel && sel.type === 'text') {
+      // edit
+      setBlocks(prev => prev.map((b,i) =>
+        i === selectedIdx
+          ? { ...b, text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
+          : b
+      ));
+    } else {
+      // add
+      const idv = `${Date.now()}-${Math.random()}`;
+      setBlocks(prev => [
+        ...prev,
+        { id:idv, type:'text', text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
+      ]);
+      setSelectedIdx(blocks.length);
+    }
+    setTextModalOpen(false);
+  };
+
   // 저장
   const handleSave = async () => {
     try {
@@ -460,22 +545,38 @@ export default function EventEdit() {
       );
 
       // payload.content.blocks로 저장 + 레거시 images 동시 제공
-      const contentBlocks = uploaded.map(b => ({
-        id: b.id,
-        type: b.type,
-        src: b.type === 'image' ? b.src : b.src, // video는 src 사용 안 해도 호환 위해 둠
-        youtubeId: b.type === 'video' ? b.youtubeId : undefined,
-        ratio: b.ratio || (b.type === 'video' ? { w:16, h:9 } : undefined),
-        regions: (b.regions || []).map(r => ({
-          _id: r.id,
-          xRatio: r.xRatio,
-          yRatio: r.yRatio,
-          wRatio: r.wRatio,
-          hRatio: r.hRatio,
-          href:   r.href,
-          coupon: r.coupon
-        }))
-      }));
+      const contentBlocks = uploaded.map(b => {
+        if (b.type === 'video') {
+          return {
+            _id: b.id,
+            type: 'video',
+            youtubeId: b.youtubeId,
+            ratio: b.ratio || { w:16, h:9 }
+          };
+        }
+        if (b.type === 'text') {
+          return {
+            _id: b.id,
+            type: 'text',
+            text: b.text || '',
+            style: b.style || {}
+          };
+        }
+        return {
+          _id: b.id,
+          type: 'image',
+          src: b.src,
+          regions: (b.regions || []).map(r => ({
+            _id: r.id,
+            xRatio: r.xRatio,
+            yRatio: r.yRatio,
+            wRatio: r.wRatio,
+            hRatio: r.hRatio,
+            href:   r.href,
+            coupon: r.coupon
+          }))
+        };
+      });
 
       const legacyImages = uploaded
         .filter(b => b.type === 'image')
@@ -495,7 +596,6 @@ export default function EventEdit() {
 
       const payload = {
         title,
-        // ✅ blocks 저장
         content: { blocks: contentBlocks },
         gridSize,
         layoutType,
@@ -506,8 +606,7 @@ export default function EventEdit() {
           ...(registerMode==='direct'  &&layoutType==='single'&&{ directProducts }),
           ...(registerMode==='direct'  &&layoutType==='tabs'  &&{ tabDirectProducts, tabs, activeColor }),
         },
-        // ✅ 레거시 호환: images도 같이 유지
-        images: legacyImages,
+        images: legacyImages, // 레거시 호환
       };
 
       await api.put(`/api/${mallId}/events/${id}`, payload);
@@ -520,6 +619,9 @@ export default function EventEdit() {
   };
 
   const selectedBlock = blocks[selectedIdx];
+
+  // 이미지 유무
+  const hasAnyImage = blocks.some(b => b.type === 'image');
 
   return (
     <Card
@@ -541,7 +643,7 @@ export default function EventEdit() {
     >
       <Steps current={current} onChange={setCurrent} style={{ marginBottom: 24 }}>
         <Step title="제목 입력" />
-        <Step title="미디어(이미지/영상) & 매핑" />
+        <Step title="미디어(이미지/영상/텍스트) & 매핑" />
         <Step title="상품등록 방식 설정" />
       </Steps>
 
@@ -558,7 +660,10 @@ export default function EventEdit() {
       {current === 1 && (
         <>
           {/* 썸네일 리스트 (블록 단위) */}
-          <DragDropContext onDragEnd={onDragEnd}>
+          <DragDropContext
+            onDragStart={() => { draggingRef.current = true; }}
+            onDragEnd={onDragEnd}
+          >
             <Droppable droppableId="thumbs" direction="horizontal">
               {prov => (
                 <div
@@ -568,7 +673,7 @@ export default function EventEdit() {
                 >
                   {blocks.map((blk, idx) => (
                     <Draggable key={blk.id} draggableId={String(blk.id)} index={idx}>
-                      {p => (
+                      {(p, snapshot) => (
                         <div
                           ref={p.innerRef}
                           {...p.draggableProps}
@@ -580,18 +685,29 @@ export default function EventEdit() {
                             width: 140,
                             height: 78,
                             overflow:'hidden',
-                            ...p.draggableProps.style
+                            cursor:'pointer',
+                            ...getItemStyle(snapshot.isDragging, p.draggableProps.style)
                           }}
-                          onClick={()=>setSelectedIdx(idx)}
-                          title={blk.type === 'video' ? `YouTube: ${blk.youtubeId || ''}` : '이미지'}
+                          onPointerUp={() => {
+                            if (draggingRef.current) return;
+                            setSelectedIdx(idx);
+                            setShowAllPreview(false); // 전체보기 해제
+                          }}
+                          title={
+                            blk.type === 'video'
+                              ? `YouTube: ${blk.youtubeId || ''}`
+                              : blk.type === 'text'
+                              ? '텍스트'
+                              : '이미지'
+                          }
                         >
                           {blk.type === 'image' ? (
                             <img
                               src={blk.src}
                               alt=""
-                              style={{ width:'100%', height:'100%', objectFit:'cover', cursor:'pointer' }}
+                              style={{ width:'100%', height:'100%', objectFit:'cover' }}
                             />
-                          ) : (
+                          ) : blk.type === 'video' ? (
                             <div style={{
                               width:'100%', height:'100%',
                               background:'#000', color:'#fff',
@@ -600,7 +716,19 @@ export default function EventEdit() {
                             }}>
                               <span>🎬 {blk.youtubeId || '영상'}</span>
                             </div>
+                          ) : (
+                            <div
+                              style={{
+                                width:'100%', height:'100%',
+                                background:'#f5f5f5', color:'#888',
+                                display:'flex', alignItems:'center', justifyContent:'center',
+                                fontSize:22, fontWeight:700
+                              }}
+                            >
+                              Tt
+                            </div>
                           )}
+
                           <div style={{ position:'absolute', top:4, right:4, display:'flex', gap:4 }}>
                             {blk.type === 'image' ? (
                               <Upload
@@ -610,11 +738,17 @@ export default function EventEdit() {
                               >
                                 <Button size="small" icon={<UploadOutlined />} />
                               </Upload>
-                            ) : (
+                            ) : blk.type === 'video' ? (
                               <Button
                                 size="small"
                                 icon={<EditOutlined />}
                                 onClick={(e)=>{ e.stopPropagation(); openEditVideo(idx); }}
+                              />
+                            ) : (
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={(e)=>{ e.stopPropagation(); openEditText(blocks[idx]); setSelectedIdx(idx); }}
                               />
                             )}
                             <Button
@@ -677,30 +811,110 @@ export default function EventEdit() {
                     <VideoCameraAddOutlined style={{ fontSize:24, color:'#888' }} />
                   </div>
 
+                  {/* 텍스트 블록 추가 */}
+                  <div
+                    onClick={openCreateText}
+                    style={{
+                      width:140, height:78,
+                      border:'1px dashed #ccc',
+                      borderRadius:4,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      cursor:'pointer'
+                    }}
+                    title="텍스트 블록 추가"
+                  >
+                    <FontSizeOutlined style={{ fontSize:24, color:'#888' }} />
+                  </div>
+
                   {prov.placeholder}
                 </div>
               )}
             </Droppable>
           </DragDropContext>
 
-          {/* 매핑/영상 컨트롤 */}
-          <Space style={{ margin:'8px 0' }}>
+          {/* 매핑/컨트롤 + 전체보기 */}
+          <Space style={{ margin:'8px 0' }} wrap>
             <Button
               icon={<LinkOutlined />}
               type={addingMode && addType==='url' ? 'primary':'default'}
-              disabled={selectedBlock?.type !== 'image'}
-              onClick={()=>{ setAddingMode(true); setAddType('url'); }}
+              onClick={()=>{
+                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
+                if (showAllPreview) return message.info('추가하실 썸네일은 선택해주세요');
+                const sel = blocks[selectedIdx];
+                if (!sel || sel.type !== 'image') return message.info('대상 이미지를 선택하세요.');
+                setAddingMode(true); setAddType('url');
+              }}
             >URL 추가</Button>
+
             <Button
               icon={<TagOutlined />}
               type={addingMode && addType==='coupon' ? 'primary':'default'}
-              disabled={selectedBlock?.type !== 'image'}
-              onClick={()=>{ setAddingMode(true); setAddType('coupon'); setNewValue([]); }}
+              onClick={()=>{
+                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
+                if (showAllPreview) return message.info('추가하실 썸네일은 선택해주세요');
+                const sel = blocks[selectedIdx];
+                if (!sel || sel.type !== 'image') return message.info('대상 이미지를 선택하세요.');
+                setAddingMode(true); setAddType('coupon'); setNewValue([]);
+              }}
             >쿠폰 추가</Button>
+
+            <Button
+              style={{
+                marginLeft: 8,
+                background: showAllPreview ? '#fe6326' : undefined,
+                color: showAllPreview ? '#fff' : undefined,
+                borderColor: showAllPreview ? '#fe6326' : undefined
+              }}
+              onClick={()=>{
+                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
+                setShowAllPreview(v=>!v);
+              }}
+            >
+              전체 보기
+            </Button>
           </Space>
 
           {/* 미디어 미리보기 / 매핑 캔버스 */}
-          {selectedBlock?.type === 'video' ? (
+          {showAllPreview ? (
+            // 전체보기 모드
+            <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
+              {blocks.map(b =>
+                b.type === 'video' ? (
+                  <div key={b.id} style={{ width:'100%' }}>
+                    <div style={{ position:'relative', width:'100%', aspectRatio:`${b.ratio?.w||16} / ${b.ratio?.h||9}` }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${b.youtubeId}`}
+                        title="YouTube"
+                        style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                ) : b.type === 'text' ? (
+                  <div
+                    key={b.id}
+                    style={{
+                      textAlign: b.style?.align || 'center',
+                      marginTop: b.style?.mt ?? 16,
+                      marginBottom: b.style?.mb ?? 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: b.style?.fontSize || 18,
+                        fontWeight: b.style?.fontWeight || 'normal',
+                        color: b.style?.color || '#333',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: escapeHtml(b.text || '').replace(/\n/g, '<br/>') }}
+                    />
+                  </div>
+                ) : (
+                  <img key={b.id} src={b.src} alt="" style={{ width:'100%', maxWidth:800, margin:'0 auto' }} />
+                )
+              )}
+            </div>
+          ) : selectedBlock?.type === 'video' ? (
             <div style={{ margin:'16px auto', maxWidth:800 }}>
               <YouTubeEmbed
                 id={selectedBlock.youtubeId}
@@ -713,6 +927,29 @@ export default function EventEdit() {
                   영상 편집
                 </Button>
               </div>
+            </div>
+          ) : selectedBlock?.type === 'text' ? (
+            <div style={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
+              <div
+                style={{
+                  border: '1px dashed #ccc',
+                  padding: 16,
+                  background: '#fafafa',
+                  marginTop: selectedBlock.style?.mt ?? 16,
+                  marginBottom: selectedBlock.style?.mb ?? 16,
+                  textAlign: selectedBlock.style?.align || 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: selectedBlock.style?.fontSize || 18,
+                    fontWeight: selectedBlock.style?.fontWeight || 'normal',
+                    color: selectedBlock.style?.color || '#333',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: escapeHtml(selectedBlock.text || '').replace(/\n/g, '<br/>') }}
+                />
+              </div>
+              <Button onClick={() => openEditText(selectedBlock)}>텍스트 편집</Button>
             </div>
           ) : (
             <div
@@ -746,7 +983,8 @@ export default function EventEdit() {
                     top:dragBox.y,
                     width:dragBox.w,
                     height:dragBox.h,
-                    border:'2px dashed #1890ff'
+                    border:'2px dashed #1890ff',
+                    background:'rgba(24,144,255,0.15)'
                   }}
                 />
               )}
@@ -1182,6 +1420,54 @@ export default function EventEdit() {
             </div>
           </div>
         </Space>
+      </Modal>
+
+      {/* 텍스트 블록 추가/수정 모달 */}
+      <Modal
+        title={selectedBlock?.type==='text' ? '텍스트 편집' : '텍스트 추가'}
+        open={textModalOpen}
+        onCancel={()=>setTextModalOpen(false)}
+        onOk={submitText}
+        okText="적용"
+      >
+        <Form
+          form={textForm}
+          layout="vertical"
+          initialValues={{ text:'', align:'center', fontSize:18, fontWeight:'normal', color:'#333333', mt:16, mb:16 }}
+        >
+          <Form.Item name="text" label="문구" rules={[{ required:true, message:'문구를 입력하세요.' }]}>
+            <Input.TextArea rows={4} placeholder="문구를 입력하세요. 엔터는 줄바꿈(<br/>)으로 보여집니다." />
+          </Form.Item>
+          <Space wrap>
+            <Form.Item name="align" label="정렬" style={{ marginBottom:0 }}>
+              <Select style={{ width:110 }}>
+                <Option value="left">왼쪽</Option>
+                <Option value="center">가운데</Option>
+                <Option value="right">오른쪽</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="fontSize" label="폰트크기" style={{ marginBottom:0 }}>
+              <Input type="number" min={10} max={80} step={1} style={{ width:110 }} />
+            </Form.Item>
+            <Form.Item name="fontWeight" label="굵기" style={{ marginBottom:0 }}>
+              <Select style={{ width:110 }}>
+                <Option value="normal">보통</Option>
+                <Option value="500">500</Option>
+                <Option value="600">600</Option>
+                <Option value="bold">bold</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="color" label="색상" style={{ marginBottom:0 }}>
+              <Input type="color" style={{ width:60, padding:0, border:'none', background:'transparent' }} />
+            </Form.Item>
+            <Form.Item name="mt" label="위 간격(px)" style={{ marginBottom:0 }}>
+              <Input type="number" min={0} step={1} style={{ width:120 }} />
+            </Form.Item>
+            <Form.Item name="mb" label="아래 간격(px)" style={{ marginBottom:0 }}>
+              <Input type="number" min={0} step={1} style={{ width:120 }} />
+            </Form.Item>
+          </Space>
+        </Form>
       </Modal>
     </Card>
   );
