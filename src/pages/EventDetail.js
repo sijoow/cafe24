@@ -63,8 +63,22 @@ export default function EventDetail() {
     return null;
   }
 
+  // helper: 유튜브 iframe src 생성 (autoplay 처리, autoplay면 mute 포함)
+  function buildYouTubeSrc(id, autoplay) {
+    const params = new URLSearchParams();
+    if (autoplay) {
+      params.set('autoplay', '1');
+      params.set('mute', '1'); // 모바일 자동재생을 위해 음소거
+      params.set('playsinline', '1');
+    }
+    params.set('rel', '0');
+    params.set('modestbranding', '1');
+    const q = params.toString();
+    return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
+  }
+
   // 반응형 YouTube 임베드 (상세 페이지 화면용)
-  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false }) {
     if (!id) {
       return (
         <div style={{
@@ -77,7 +91,7 @@ export default function EventDetail() {
         </div>
       );
     }
-    const src = `https://www.youtube.com/embed/${id}`;
+    const src = buildYouTubeSrc(id, autoplay);
     const paddingTop = `${(ratioH/ratioW) * 100}%`;
     return (
       <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
@@ -99,7 +113,7 @@ export default function EventDetail() {
   useEffect(() => {
     axios.get(`${API_BASE}/api/${mallId}/events/${id}`)
       .then(res => {
-        const ev = res.data;
+        const ev = res.data || {};
 
         // images/regions id 매핑 (하위호환)
         ev.images = (ev.images || []).map(img => ({
@@ -122,7 +136,7 @@ export default function EventDetail() {
             }));
 
         // 블록 정규화 (image / video / text)
-        ev.blocks = rawBlocks.map(b => {
+        ev.blocks = (rawBlocks || []).map(b => {
           const base = {
             id: b._id || b.id,
             type: b.type || 'image',
@@ -132,6 +146,7 @@ export default function EventDetail() {
               ...base,
               youtubeId: b.youtubeId || parseYouTubeId(b.src),
               ratio: b.ratio || { w:16, h:9 },
+              autoplay: !!(b.autoplay), // EventCreate에서 저장된 autoplay 플래그가 있으면 사용
             };
           }
           if (b.type === 'text') {
@@ -168,6 +183,9 @@ export default function EventDetail() {
     gridSize,
     classification = {},
   } = event;
+
+  // registerMode 지원: classification.registerMode 우선, 없으면 이전 동작(기본 category), 단 layoutType === 'none'이면 none 처리
+  const registerMode = classification.registerMode ?? (layoutType === 'none' ? 'none' : 'category');
 
   const directProducts = classification.directProducts || [];
   const activeColor    = classification.activeColor   || '#1890ff';
@@ -227,9 +245,10 @@ export default function EventDetail() {
           id: b.id || b._id,
           type: 'video',
           youtubeId: b.youtubeId || parseYouTubeId(b.src),
-          ratio: b.ratio || { w:16, h:9 }
+          ratio: b.ratio || { w:16, h:9 },
+          autoplay: !!b.autoplay,
         };
-        }
+      }
       if (t === 'text') {
         return {
           id: b.id || b._id,
@@ -251,42 +270,19 @@ export default function EventDetail() {
       };
     });
 
-    const textBlocks  = allBlocks.filter(b => b.type === 'text');
-    const mediaBlocks = allBlocks.filter(b => b.type === 'image' || b.type === 'video');
-
-    // 2) 텍스트 블록을 별도 컨테이너(#evt-text)에 직접 포함 (widget이 #evt-images만 건드리도록 분리)
-    const textHtml = textBlocks
-      .filter(b => String(b.text || '').trim())
-      .map(b => {
-        const st = b.style || {};
-        const align = st.align || 'center';
-        const mt = st.mt ?? 16;
-        const mb = st.mb ?? 16;
-        const fontSize = st.fontSize || 18;
-        const fontWeight = st.fontWeight || 'normal';
-        const color = st.color || '#333';
-        const body = escapeHtml(b.text).replace(/\n/g, '<br/>');
-        return `<div style="text-align:${align};margin-top:${mt}px;margin-bottom:${mb}px;"><div style="font-size:${fontSize}px;font-weight:${fontWeight};color:${color};">${body}</div></div>`;
-      })
-      .join('\n');
-
-    // html += `<div id="evt-text">\n${textHtml}\n</div>\n\n`;
+    // 텍스트 인라인 제거: widget가 블록(텍스트 포함)을 서버에서 가져가 렌더링하도록 함
     html += `<div id="evt-images"></div>\n\n`;
 
     // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
     const couponList = Array.from(new Set(
-      mediaBlocks
+      allBlocks
         .filter(b => b.type === 'image')
-        .flatMap(b => (b.regions || [])
-          .filter(r => r.coupon)
-          .map(r => r.coupon))
+        .flatMap(b => (b.regions || []).filter(r => r.coupon).map(r => r.coupon))
     ));
-    const couponAttr = couponList.length
-      ? ` data-coupon-nos="${couponList.join(',')}"`
-      : '';
+    const couponAttr = couponList.length ? ` data-coupon-nos="${couponList.join(',')}"` : '';
 
     // 4) 탭/싱글 레이아웃 HTML (상품 영역 자리)
-    if (layoutType === 'tabs') {
+    if (registerMode !== 'none' && layoutType === 'tabs') {
       html += `<div class="tabs_${id}">\n`;
       (classification.tabs || []).forEach((t, i) => {
         html += `  <button class="${i === 0 ? 'active' : ''}" onclick="showTab('tab-${i}',this)">${t.title || `탭${i+1}`}</button>\n`;
@@ -308,7 +304,7 @@ export default function EventDetail() {
         html += `</div>\n\n`;
       });
 
-    } else if (layoutType === 'single') {
+    } else if (registerMode !== 'none' && layoutType === 'single') {
       const cate = singleSub || singleRoot;
       const singleIds = directProducts
         .map(p => (typeof p === 'object' ? p.product_no : p))
@@ -323,8 +319,7 @@ export default function EventDetail() {
       html += ``;
     }
 
-    // 5) widget.js 태그 (DB에서 page-id로 블록을 가져가므로 inline JSON 제거)
-    //    참고: data-ignore-text은 나중에 widget.js에서 텍스트 블록 스킵하도록 쓰면 좋음(선택)
+    // 5) widget.js 태그 (텍스트도 widget에서 처리하도록 data-ignore-text 제거)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
       `data-mall-id="${mallId || ''}"`,
@@ -332,7 +327,6 @@ export default function EventDetail() {
       `data-api-base="${API_BASE}"`,
       `data-tab-count="${(classification.tabs || []).length}"`,
       `data-active-color="${classification.activeColor || '#1890ff'}"`,
-      `data-ignore-text="1"`,
       couponAttr
     ].filter(Boolean).join(' ');
 
@@ -348,6 +342,28 @@ export default function EventDetail() {
     message.success('코드 복사 완료');
     setHtmlModalVisible(false);
   };
+
+  // ---------- 변경된 렌더링 로직 ----------
+  // event.blocks 순서에 상품영역(가상 블록)을 classification.productPosition 기준으로 삽입하여 하나의 배열로 렌더링합니다.
+  const buildBlocksWithProduct = () => {
+    const blocks = Array.isArray(event.blocks) ? [...event.blocks] : [];
+    const prodPosRaw = classification?.productPosition;
+    // 기본: 상품은 블록 마지막에 들어감
+    let prodPos = typeof prodPosRaw === 'number' ? prodPosRaw : (typeof prodPosRaw === 'string' && prodPosRaw !== '' ? Number(prodPosRaw) : null);
+    if (prodPos == null || Number.isNaN(prodPos)) prodPos = blocks.length;
+    prodPos = Math.max(0, Math.min(prodPos, blocks.length)); // clamp
+
+    if (registerMode === 'none') {
+      return blocks;
+    }
+
+    const withProd = [...blocks];
+    // insert virtual product block
+    withProd.splice(prodPos, 0, { id: '__products__', type: 'products' });
+    return withProd;
+  };
+
+  const combinedBlocks = buildBlocksWithProduct();
 
   return (
     <>
@@ -369,28 +385,76 @@ export default function EventDetail() {
           </Space>
         }
       >
+        {/* 통합 렌더링: combinedBlocks를 순서대로 렌더 */}
+        <div style={{ display:'grid', gap:0, maxWidth:800, margin:'0 auto' }}>
+          {combinedBlocks.map((block, idx) => {
+            if (block.type === 'products') {
+              // 상품 영역 (기존 디자인 유지: 단품/탭 처리)
+              if (layoutType === 'tabs') {
+                return (
+                  <div key={`prod-${idx}`} style={{ marginTop: 24 }}>
+                    <div style={{
+                      display:'grid', gap:8,
+                      gridTemplateColumns:`repeat(${tabs.length},1fr)`,
+                      maxWidth:800, margin:'16px auto'
+                    }}>
+                      {tabs.map((t, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setActiveTab(String(i))}
+                          className={activeTab === String(i) ? 'active' : ''}
+                          style={{
+                            padding:8, fontSize:16, border:'none',
+                            background: activeTab === String(i) ? activeColor : '#f5f5f5',
+                            color: activeTab === String(i) ? '#fff' : '#333',
+                            borderRadius:4, cursor:'pointer',
+                            display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
+                            overflow:'hidden', textOverflow:'ellipsis'
+                          }}
+                        >
+                          {t.title || `탭${i+1}`}
+                        </button>
+                      ))}
+                    </div>
+                    {renderGrid(gridSize)}
+                  </div>
+                );
+              }
 
-        {/* 1) 블록(이미지/영상/텍스트) 렌더링 (관리자 상세 화면용 미리보기) */}
-        <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
-          {(event.blocks || []).map((block, idx) => {
+              if (layoutType === 'single') {
+                return (
+                  <div key={`prod-${idx}`} style={{ marginTop: 24 }}>
+                    {renderGrid(gridSize)}
+                  </div>
+                );
+              }
+
+              // none or unknown
+              return <div key={`prod-${idx}`} />;
+            }
+
+            // video
             if (block.type === 'video') {
               const yid = block.youtubeId || parseYouTubeId(block.src);
               return (
-                <div key={block.id} style={{ width:'100%' }}>
+                <div key={block.id || `video-${idx}`} style={{ width:'100%' }}>
                   <YouTubeEmbed
                     id={yid}
                     ratioW={block.ratio?.w || 16}
                     ratioH={block.ratio?.h || 9}
                     title={`youtube-${yid || 'preview'}`}
+                    autoplay={!!block.autoplay}
                   />
                 </div>
               );
             }
+
+            // text
             if (block.type === 'text') {
               const st = block.style || {};
               return (
                 <div
-                  key={block.id}
+                  key={block.id || `text-${idx}`}
                   style={{
                     textAlign: st.align || 'center',
                     marginTop: st.mt ?? 16,
@@ -410,9 +474,10 @@ export default function EventDetail() {
                 </div>
               );
             }
-            // 이미지 + 영역
+
+            // image + regions
             return (
-              <div key={block.id} style={{ position:'relative', width:'100%', fontSize:0, margin:'0 auto' }}>
+              <div key={block.id || `img-${idx}`} style={{ position:'relative', width:'100%', fontSize:0, margin:'0 auto' }}>
                 <img src={block.src} alt={`img-${idx}`} style={{ width:'100%' }} draggable={false} />
                 {(block.regions || []).map(r => {
                   const l = (r.xRatio * 100).toFixed(2);
@@ -436,15 +501,18 @@ export default function EventDetail() {
                       />
                     );
                   } else {
-                    let hrefVal = r.href;
-                    if (!/^https?:\/\//.test(hrefVal)) hrefVal = 'https://' + hrefVal;
+                    let hrefVal = r.href || '';
+                    if (hrefVal && !/^https?:\/\//.test(hrefVal)) hrefVal = 'https://' + hrefVal;
                     return (
                       <a
                         key={r.id}
-                        href={hrefVal}
+                        href={hrefVal || '#'}
                         target="_blank"
                         rel="noreferrer"
                         style={style}
+                        onClick={e => {
+                          if (!hrefVal) e.preventDefault();
+                        }}
                       />
                     );
                   }
@@ -453,42 +521,6 @@ export default function EventDetail() {
             );
           })}
         </div>
-
-        {/* 2) 상품 그리드 (자리표시) */}
-        {layoutType === 'none' && (
-          <p style={{ textAlign:'center', marginTop:24 }}>
-            {/* 상품을 노출하지 않습니다. */}
-          </p>
-        )}
-        {layoutType === 'single' && renderGrid(gridSize)}
-        {layoutType === 'tabs' && (
-          <>
-            <div style={{
-              display:'grid', gap:8,
-              gridTemplateColumns:`repeat(${tabs.length},1fr)`,
-              maxWidth:800, margin:'16px auto'
-            }}>
-              {tabs.map((t, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTab(String(i))}
-                  className={activeTab === String(i) ? 'active' : ''}
-                  style={{
-                    padding:8, fontSize:16, border:'none',
-                    background: activeTab === String(i) ? activeColor : '#f5f5f5',
-                    color: activeTab === String(i) ? '#fff' : '#333',
-                    borderRadius:4, cursor:'pointer',
-                    display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
-                    overflow:'hidden', textOverflow:'ellipsis'
-                  }}
-                >
-                  {t.title || `탭${i+1}`}
-                </button>
-              ))}
-            </div>
-            {renderGrid(gridSize)}
-          </>
-        )}
 
       </Card>
 
