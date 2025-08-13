@@ -334,6 +334,27 @@ export default function EventCreate() {
     });
   };
 
+  // 탭 삭제 (3개 이상일 때 허용)
+  const deleteTab = (index) => {
+    setTabs(prevTabs => {
+      if (prevTabs.length <= 2) {
+        msgApi.info('탭은 최소 2개 이상이어야 합니다.');
+        return prevTabs;
+      }
+      const newTabs = prevTabs.filter((_, i) => i !== index);
+      // reindex tabDirectProducts
+      setTabDirectProducts(prev => {
+        const next = {};
+        const remainingIndices = prevTabs.map((_, i) => i).filter(i => i !== index);
+        remainingIndices.forEach((oldIdx, newIdx) => {
+          next[newIdx] = prev[oldIdx] || [];
+        });
+        return next;
+      });
+      return newTabs;
+    });
+  };
+
   // 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
@@ -438,6 +459,20 @@ export default function EventCreate() {
     setTextModalVisible(false);
   };
 
+  // registerMode 변경 핸들러: 'none' 선택시 관련 상태 초기화 및 UI 비노출 보장
+  const handleRegisterModeChange = (val) => {
+    setRegisterMode(val);
+    if (val === 'none') {
+      setLayoutType(null);
+      setDirectProducts([]);
+      setTabDirectProducts({});
+      setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+      setSingleRoot(null);
+      setSingleSub(null);
+      setActiveColor('#fe6326');
+    }
+  };
+
   // 등록
   const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async () => {
@@ -462,7 +497,7 @@ export default function EventCreate() {
       // 서버 payload
       const blocksPayload = uploaded.map(b => {
         if (b.type === 'video') {
-          return { _id: b.id, type: 'video', youtubeId: b.youtubeId, ratio: b.ratio || { w: 16, h: 9 } };
+          return { _id: b.id, type: 'video', youtubeId: b.youtubeId, ratio: b.ratio || { w: 16, h: 9 }, autoplay: !!b.autoplay };
         }
         if (b.type === 'text') {
           return { _id: b.id, type: 'text', text: b.text, style: b.style || {} };
@@ -552,6 +587,20 @@ export default function EventCreate() {
     );
   }
 
+  // helper: 유튜브 iframe query string (autoplay 처리, autoplay면 mute=1 추가)
+  const buildYouTubeSrc = (id, autoplay) => {
+    const params = new URLSearchParams();
+    if (autoplay) {
+      params.set('autoplay', '1');
+      params.set('mute', '1'); // 모바일 자동재생을 위해 mute
+      params.set('playsinline', '1');
+    }
+    params.set('rel', '0');
+    params.set('modestbranding', '1');
+    const q = params.toString();
+    return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
+  };
+
   return (
     <>
       {msgCtx}
@@ -616,12 +665,12 @@ export default function EventCreate() {
               >
                 YouTube 추가
               </Button>
-              {/* <Button
+              <Button
                 icon={<FontSizeOutlined />}
                 onClick={openCreateText}
               >
                 텍스트 추가
-              </Button> */}
+              </Button>
 
               {/* 전체 보기 토글 - 주황색 강조 / 이미지 없으면 안내 */}
               <Button
@@ -707,13 +756,13 @@ export default function EventCreate() {
             <div style={{ width: '100%', marginTop: 16, textAlign: 'center' }}>
               {showAllPreview ? (
                 // 전체 보기
-                <div style={{ display: 'grid', gap: 16, maxWidth: 800, margin: '0 auto' }}>
+                <div style={{ display: 'grid', gap: 0, maxWidth: 800, margin: '0 auto' }}>
                   {blocks.map(b =>
                     b.type === 'video' ? (
                       <div key={b.id} style={{ width: '100%' }}>
                         <div style={{ position: 'relative', width: '100%', aspectRatio: `${b.ratio?.w || 16} / ${b.ratio?.h || 9}` }}>
                           <iframe
-                            src={`https://www.youtube.com/embed/${b.youtubeId}`}
+                            src={buildYouTubeSrc(b.youtubeId, b.autoplay)}
                             title="YouTube"
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -793,13 +842,30 @@ export default function EventCreate() {
                     <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
                       <div style={{ position: 'relative', width: '100%', aspectRatio: `${selectedBlock.ratio?.w || 16} / ${selectedBlock.ratio?.h || 9}` }}>
                         <iframe
-                          src={`https://www.youtube.com/embed/${selectedBlock.youtubeId}`}
+                          src={buildYouTubeSrc(selectedBlock.youtubeId, selectedBlock.autoplay)}
                           title="YouTube video"
                           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                           allowFullScreen
                         />
                       </div>
+                      {/* autoplay 즉시 반영 체크박스 */}
+                      <div style={{ marginTop: 8 }}>
+                        <label style={{ marginRight: 12 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!selectedBlock.autoplay}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setBlocks(prev =>
+                                prev.map(b => b.id === selectedBlock.id ? { ...b, autoplay: checked } : b)
+                              );
+                            }}
+                          />
+                          <span style={{ marginLeft: 6 }}>자동 재생 (모바일의 경우 음소거처리됩니다)</span>
+                        </label>
+                      </div>
+
                       {addingMode && <Alert type="info" message="영상에는 매핑을 적용할 수 없습니다." showIcon style={{ marginTop: 8 }} />}
                     </div>
                   )}
@@ -838,33 +904,17 @@ export default function EventCreate() {
         {current === 2 && (
           <div style={{ maxWidth: 400 }}>
             <h4>상품 등록 방식</h4>
-             <Segmented
-               options={[
-                 { label: '카테고리 상품 등록', value: 'category' },
-                 { label: '직접 상품 등록', value: 'direct' },
-                 { label: '노출안함', value: 'none' },
-               ]}
-               value={registerMode}
-               onChange={val => {
-                 setRegisterMode(val);
-                 if (val === 'none') {
-                   // 노출안함 선택 시 관련 상태 초기화
-                   setGridSize(2);
-                   setLayoutType(null);
-                   setSingleRoot(null);
-                   setSingleSub(null);
-                   setDirectProducts([]);
-                   setTabDirectProducts({});
-                   setTabs([
-                     { title: '', root: null, sub: null },
-                     { title: '', root: null, sub: null },
-                   ]);
-                   setActiveColor('#fe6326');
-                 }
-               }}
-               block
-               style={{ marginBottom: 24 }}
-             />
+            <Segmented
+              options={[
+                { label: '카테고리 상품 등록', value: 'category' },
+                { label: '직접 상품 등록', value: 'direct' },
+                { label: '노출안함', value: 'none' },
+              ]}
+              value={registerMode}
+              onChange={handleRegisterModeChange}
+              block
+              style={{ marginBottom: 24 }}
+            />
 
             {/* 카테고리 */}
             {registerMode === 'category' && (
@@ -940,6 +990,11 @@ export default function EventCreate() {
                               </Select.Option>
                             ))}
                         </Select>
+
+                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
+                        {tabs.length > 2 && (
+                          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
+                        )}
                       </Space>
                     ))}
                     <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}>
@@ -1013,6 +1068,11 @@ export default function EventCreate() {
                             ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨`
                             : '상품 직접 등록'}
                         </Button>
+
+                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
+                        {tabs.length > 2 && (
+                          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
+                        )}
                       </Space>
                     ))}
                     <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}>
@@ -1042,13 +1102,13 @@ export default function EventCreate() {
         {current === 3 && (
           <div style={{ marginTop: 24 }}>
             <h4>미리보기</h4>
-            <div style={{ display: 'grid', gap: 16, maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gap: 0, maxWidth: 800, margin: '0 auto' }}>
               {blocks.map(b =>
                 b.type === 'video' ? (
                   <div key={b.id} style={{ width: '100%' }}>
                     <div style={{ position: 'relative', width: '100%', aspectRatio: `${b.ratio?.w || 16} / ${b.ratio?.h || 9}` }}>
                       <iframe
-                        src={`https://www.youtube.com/embed/${b.youtubeId}`}
+                        src={buildYouTubeSrc(b.youtubeId, b.autoplay)}
                         title="YouTube preview"
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -1069,8 +1129,9 @@ export default function EventCreate() {
               )}
             </div>
 
-            {layoutType === 'single' && <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>}
-            {layoutType === 'tabs' && (
+            {/* registerMode === 'none' 인 경우 상품관련 미리보기/그리드 숨김 */}
+            {registerMode !== 'none' && layoutType === 'single' && <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>}
+            {registerMode !== 'none' && layoutType === 'tabs' && (
               <div style={{ margin: '24px auto', maxWidth: 800 }}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   {tabs.map((t, i) => (
@@ -1163,11 +1224,11 @@ export default function EventCreate() {
           videoForm.resetFields();
         }}
         onOk={() => {
-          const { urlOrId, aspectW = 16, aspectH = 9 } = videoForm.getFieldsValue();
+          const { urlOrId, aspectW = 16, aspectH = 9, autoplay = false } = videoForm.getFieldsValue();
           const vid = getYouTubeId(urlOrId);
           if (!vid) return msgApi.error('유효한 YouTube 링크/ID가 아닙니다.');
           const id = Date.now().toString() + Math.random();
-          setBlocks(prev => [...prev, { id, type: 'video', youtubeId: vid, ratio: { w: Number(aspectW) || 16, h: Number(aspectH) || 9 } }]);
+          setBlocks(prev => [...prev, { id, type: 'video', youtubeId: vid, ratio: { w: Number(aspectW) || 16, h: Number(aspectH) || 9 }, autoplay: !!autoplay }]);
           setSelectedId(id);
           setShowAllPreview(false);
           setVideoModalVisible(false);
@@ -1175,7 +1236,7 @@ export default function EventCreate() {
         }}
         width={isMobile ? '90%' : 520}
       >
-        <Form form={videoForm} layout="vertical" initialValues={{ aspectW: 16, aspectH: 9 }}>
+        <Form form={videoForm} layout="vertical" initialValues={{ aspectW: 16, aspectH: 9, autoplay: false }}>
           <Form.Item name="urlOrId" label="YouTube 링크 또는 영상 ID" rules={[{ required: true, message: 'YouTube 링크/ID를 입력하세요.' }]}>
             <Input placeholder="예: https://youtu.be/XXXXXXXXXXX 또는 영상 ID" />
           </Form.Item>
@@ -1187,8 +1248,13 @@ export default function EventCreate() {
             <Form.Item name="aspectH" label="비율 H" style={{ marginBottom: 0 }}>
               <Input type="number" min={1} step={1} style={{ width: 100 }} />
             </Form.Item>
-            {/* <div style={{ alignSelf: 'end', padding: '0 0 8px' }}> (예: 16 / 9)</div> */}
           </Space>
+          <Form.Item name="autoplay" valuePropName="checked" style={{ marginTop: 8 }}>
+            <label>
+              <input type="checkbox" />
+              <span style={{ marginLeft: 8 }}>자동재생 (모바일 자동재생을 위해 음소거 처리됩니다)</span>
+            </label>
+          </Form.Item>
         </Form>
       </Modal>
 
