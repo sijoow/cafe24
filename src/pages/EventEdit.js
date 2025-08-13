@@ -15,6 +15,7 @@ import {
   Segmented,
   Modal,
   InputNumber,
+  Checkbox,
 } from 'antd';
 import {
   UploadOutlined,
@@ -68,7 +69,7 @@ export default function EventEdit() {
 
   // ✅ 이미지+영상+텍스트 통합 블록
   // image: {id,type:'image',src,file?,regions:[]}
-  // video: {id,type:'video',youtubeId,ratio:{w,h}}
+  // video: {id,type:'video',youtubeId,ratio:{w,h}, autoplay?}
   // text : {id,type:'text',text,style:{align,fontSize,fontWeight,color,mt,mb}}
   const [blocks, setBlocks] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -106,7 +107,14 @@ export default function EventEdit() {
       return a;
     });
   };
-  const removeTab = i => setTabs(ts => ts.filter((_, idx) => idx !== i));
+  const removeTab = i => {
+    // 보호: 최소 2개는 유지
+    if (tabs.length <= 2) {
+      message.warning('탭은 최소 2개 이상이어야 합니다.');
+      return;
+    }
+    setTabs(ts => ts.filter((_, idx) => idx !== i));
+  };
 
   // URL/Coupon 매핑
   const [addingMode, setAddingMode]           = useState(false);
@@ -135,6 +143,7 @@ export default function EventEdit() {
   const [videoRatioW, setVideoRatioW] = useState(16);
   const [videoRatioH, setVideoRatioH] = useState(9);
   const [editingVideoIdx, setEditingVideoIdx] = useState(null);
+  const [videoAutoplay, setVideoAutoplay] = useState(false); // 추가: autoplay
 
   // 🔹 텍스트 블록 추가/수정 모달
   const [textModalOpen, setTextModalOpen] = useState(false);
@@ -160,7 +169,20 @@ export default function EventEdit() {
     return null;
   }
 
-  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video' }) {
+  function buildYouTubeSrc(id, autoplay) {
+    const params = new URLSearchParams();
+    if (autoplay) {
+      params.set('autoplay', '1');
+      params.set('mute', '1'); // 자동 재생시 무음으로 설정(모바일 정책)
+      params.set('playsinline', '1');
+    }
+    params.set('rel', '0');
+    params.set('modestbranding', '1');
+    const q = params.toString();
+    return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
+  }
+
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false }) {
     if (!id) {
       return (
         <div style={{
@@ -173,7 +195,7 @@ export default function EventEdit() {
         </div>
       );
     }
-    const src = `https://www.youtube.com/embed/${id}`;
+    const src = buildYouTubeSrc(id, autoplay);
     const paddingTop = `${(ratioH/ratioW) * 100}%`;
     return (
       <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
@@ -261,6 +283,7 @@ export default function EventEdit() {
               youtubeId: b.youtubeId || parseYouTubeId(b.src),
               ratio: b.ratio || { w:16, h:9 },
               regions: [],
+              autoplay: !!b.autoplay, // 서버에 저장된 autoplay를 불러옴
             };
           }
           if (t === 'text') {
@@ -435,6 +458,7 @@ export default function EventEdit() {
     setVideoInput('');
     setVideoRatioW(16);
     setVideoRatioH(9);
+    setVideoAutoplay(false);
     setVideoModalOpen(true);
   };
   const openEditVideo = (idx) => {
@@ -444,6 +468,7 @@ export default function EventEdit() {
     setVideoInput(blk.youtubeId || '');
     setVideoRatioW(blk.ratio?.w || 16);
     setVideoRatioH(blk.ratio?.h || 9);
+    setVideoAutoplay(!!blk.autoplay);
     setVideoModalOpen(true);
   };
   const confirmVideoModal = () => {
@@ -462,6 +487,7 @@ export default function EventEdit() {
           youtubeId: yid,
           ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
           regions: [],
+          autoplay: !!videoAutoplay,
         }
       ]);
       setSelectedIdx(blocks.length);
@@ -475,6 +501,7 @@ export default function EventEdit() {
           type: 'video',
           youtubeId: yid,
           ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
+          autoplay: !!videoAutoplay,
         };
         return a;
       });
@@ -551,7 +578,8 @@ export default function EventEdit() {
             _id: b.id,
             type: 'video',
             youtubeId: b.youtubeId,
-            ratio: b.ratio || { w:16, h:9 }
+            ratio: b.ratio || { w:16, h:9 },
+            autoplay: !!b.autoplay, // 추가: autoplay 저장
           };
         }
         if (b.type === 'text') {
@@ -605,6 +633,7 @@ export default function EventEdit() {
           ...(registerMode==='category'&&layoutType==='tabs'  &&{ tabs, activeColor }),
           ...(registerMode==='direct'  &&layoutType==='single'&&{ directProducts }),
           ...(registerMode==='direct'  &&layoutType==='tabs'  &&{ tabDirectProducts, tabs, activeColor }),
+          // registerMode==='none'이면 위에 아무것도 추가하지 않음(상품 노출 관련 속성 미포함)
         },
         images: legacyImages, // 레거시 호환
       };
@@ -643,7 +672,7 @@ export default function EventEdit() {
     >
       <Steps current={current} onChange={setCurrent} style={{ marginBottom: 24 }}>
         <Step title="제목 입력" />
-        <Step title="이미지/영상 & 매핑" />
+        <Step title="미디어(이미지/영상/텍스트) & 매핑" />
         <Step title="상품등록 방식 설정" />
       </Steps>
 
@@ -695,7 +724,7 @@ export default function EventEdit() {
                           }}
                           title={
                             blk.type === 'video'
-                              ? `YouTube: ${blk.youtubeId || ''}`
+                              ? `YouTube: ${blk.youtubeId || ''}${blk.autoplay ? ' (autoplay)' : ''}`
                               : blk.type === 'text'
                               ? '텍스트'
                               : '이미지'
@@ -714,7 +743,7 @@ export default function EventEdit() {
                               display:'flex', alignItems:'center', justifyContent:'center',
                               fontSize:12
                             }}>
-                              <span>🎬 {blk.youtubeId || '영상'}</span>
+                              <span>🎬 {blk.youtubeId || '영상'}{blk.autoplay ? ' · 자동재생' : ''}</span>
                             </div>
                           ) : (
                             <div
@@ -812,7 +841,7 @@ export default function EventEdit() {
                   </div>
 
                   {/* 텍스트 블록 추가 */}
-                  {/* <div
+                  <div
                     onClick={openCreateText}
                     style={{
                       width:140, height:78,
@@ -824,7 +853,7 @@ export default function EventEdit() {
                     title="텍스트 블록 추가"
                   >
                     <FontSizeOutlined style={{ fontSize:24, color:'#888' }} />
-                  </div> */}
+                  </div>
 
                   {prov.placeholder}
                 </div>
@@ -877,13 +906,13 @@ export default function EventEdit() {
           {/* 미디어 미리보기 / 매핑 캔버스 */}
           {showAllPreview ? (
             // 전체보기 모드
-            <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
+            <div style={{ display:'grid', gap:0, maxWidth:800, margin:'0 auto' }}>
               {blocks.map(b =>
                 b.type === 'video' ? (
                   <div key={b.id} style={{ width:'100%' }}>
                     <div style={{ position:'relative', width:'100%', aspectRatio:`${b.ratio?.w||16} / ${b.ratio?.h||9}` }}>
                       <iframe
-                        src={`https://www.youtube.com/embed/${b.youtubeId}`}
+                        src={buildYouTubeSrc(b.youtubeId, !!b.autoplay)}
                         title="YouTube"
                         style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -921,6 +950,7 @@ export default function EventEdit() {
                 ratioW={selectedBlock.ratio?.w || 16}
                 ratioH={selectedBlock.ratio?.h || 9}
                 title={`youtube-${selectedBlock.youtubeId || 'preview'}`}
+                autoplay={!!selectedBlock.autoplay}
               />
               <div style={{ marginTop:8 }}>
                 <Button size="small" icon={<EditOutlined />} onClick={()=>openEditVideo(selectedIdx)}>
@@ -1413,10 +1443,15 @@ export default function EventEdit() {
             :
             <InputNumber min={1} value={videoRatioH} onChange={v=>setVideoRatioH(v||9)} />
           </Space>
+
+          <Checkbox checked={videoAutoplay} onChange={e=>setVideoAutoplay(e.target.checked)}>
+            자동 재생 (무음으로 재생됩니다)
+          </Checkbox>
+
           <div style={{ marginTop:8 }}>
             미리보기
             <div style={{ marginTop:8 }}>
-              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} />
+              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} autoplay={videoAutoplay} />
             </div>
           </div>
         </Space>
