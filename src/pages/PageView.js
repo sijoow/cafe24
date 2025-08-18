@@ -160,9 +160,10 @@ export default function StatEventVisitors() {
         // title에 원본을 join 해두면 브라우저 툴팁으로 확인 가능
         const options = Array.from(normalizedMap.entries()).map(([norm, originals]) => {
           const count = originals.length;
-          const label = count > 1 ? `${norm} (${count})` : norm;
-          return { label, value: norm, title: originals.join('\n') };
+          const label = count > 1 ? `${norm}` : norm;
+          return { label, value: norm };
         });
+
 
         setUrlOptions(options);
         setUrlMap(normalizedMap);
