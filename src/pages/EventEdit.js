@@ -114,6 +114,16 @@ export default function EventEdit() {
       return;
     }
     setTabs(ts => ts.filter((_, idx) => idx !== i));
+    // reindex tabDirectProducts: shift down indices greater than i
+    setTabDirectProducts(prev => {
+      const next = {};
+      Object.keys(prev).forEach(k => {
+        const idx = Number(k);
+        if (idx < i) next[idx] = prev[idx];
+        else if (idx > i) next[idx - 1] = prev[idx];
+      });
+      return next;
+    });
   };
 
   // URL/Coupon 매핑
@@ -652,6 +662,88 @@ export default function EventEdit() {
   // 이미지 유무
   const hasAnyImage = blocks.some(b => b.type === 'image');
 
+  // ------------------------------
+  // step 이동 전 유효성 검사 핸들러
+  // ------------------------------
+  const handleStepChange = (target) => {
+    // target === 2 => "상품등록 방식 설정" 으로 이동하려고 할 때 유효성 검사
+    if (target === 2) {
+      if (!registerMode) {
+        message.warning('상품 등록 방식을 선택하세요.');
+        return;
+      }
+
+      // registerMode === 'none' 인 경우 상품 관련 검사 없이 진행 허용
+      if (registerMode === 'none') {
+        setCurrent(target);
+        return;
+      }
+
+      // 공통: gridSize와 layoutType 검사
+      if (!gridSize) {
+        message.warning('그리드 사이즈를 선택해주세요.');
+        return;
+      }
+      if (!layoutType) {
+        message.warning('상품 노출 방식을 선택해주세요.');
+        return;
+      }
+
+      // category 모드 검사 (EventCreate와 동일한 로직)
+      if (registerMode === 'category') {
+        if (layoutType === 'single') {
+          if (!singleRoot) {
+            message.warning('상품 분류(대분류)를 선택하세요.');
+            return;
+          }
+          setCurrent(target);
+          return;
+        }
+
+        // layoutType === 'tabs'
+        if (!Array.isArray(tabs) || tabs.length < 2) {
+          message.warning('탭을 두 개 이상 설정하세요.');
+          return;
+        }
+        const hasAnyTabRoot = tabs.some(t => !!t.root);
+        if (!hasAnyTabRoot) {
+          message.warning('탭 중 하나 이상의 대분류를 선택하세요.');
+          return;
+        }
+        setCurrent(target);
+        return;
+      }
+
+      // direct 모드 검사 (EventCreate와 동일한 로직)
+      if (registerMode === 'direct') {
+        if (layoutType === 'single') {
+          if (!directProducts || directProducts.length === 0) {
+            message.warning('상품을 1개 이상 등록해주세요.');
+            return;
+          }
+          setCurrent(target);
+          return;
+        }
+
+        // layoutType === 'tabs'
+        const totalDirect = Object.values(tabDirectProducts || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+        if (totalDirect === 0) {
+          message.warning('탭당 최소 1개 이상의 상품을 등록해주세요.');
+          return;
+        }
+        setCurrent(target);
+        return;
+      }
+
+      // 기본 안전장치
+      setCurrent(target);
+      return;
+    }
+
+    // 다른 스텝으로 이동은 허용
+    setCurrent(target);
+  };
+
   return (
     <Card
       title="이벤트 수정"
@@ -670,7 +762,7 @@ export default function EventEdit() {
       }
       style={{ minHeight: '80vh' }}
     >
-      <Steps current={current} onChange={setCurrent} style={{ marginBottom: 24 }}>
+      <Steps current={current} onChange={handleStepChange} style={{ marginBottom: 24 }}>
         <Step title="제목 입력" />
         <Step title="미디어(이미지/영상/텍스트) & 매핑" />
         <Step title="상품등록 방식 설정" />
