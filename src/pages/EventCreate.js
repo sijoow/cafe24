@@ -88,6 +88,8 @@ export default function EventCreate() {
   useEffect(() => {
     if (current === 0) setTimeout(() => titleRef.current?.focus(), 0);
   }, [current]);
+
+  // ---------- 여기를 수정한 next()로 교체했습니다 ----------
   const next = () => {
     if (current === 0) {
       if (!title.trim()) setTitle('제목없음');
@@ -95,22 +97,83 @@ export default function EventCreate() {
     } else if (current === 1 && blocks.length === 0) {
       msgApi.warning('이미지를 추가하세요.');
     } else if (current === 2) {
-      if (!registerMode) msgApi.warning('상품 등록 방식을 선택하세요.');
-      else if (registerMode === 'category') {
-        if (!gridSize) msgApi.warning('그리드 사이즈를 선택해주세요.');
-        else if (!layoutType) msgApi.warning('상품 노출 방식을 선택해주세요.');
-        else if (layoutType === 'single' && !singleRoot)
-          msgApi.warning('상품 분류(대분류)를 선택하세요.');
-        else if (layoutType === 'tabs' && tabs.length < 2)
-          msgApi.warning('탭을 두 개 이상 설정하세요.');
-        else setCurrent(3);
-      } else {
-        setCurrent(3);
+      // registerMode 선택 확인
+      if (!registerMode) {
+        msgApi.warning('상품 등록 방식을 선택하세요.');
+        return;
       }
+
+      // registerMode === 'none' 인 경우 상품 관련 검사 없이 진행 허용
+      if (registerMode === 'none') {
+        setCurrent(3);
+        return;
+      }
+
+      // 공통: 그리드/레이아웃 선택 체크 (카테고리/직접 공통)
+      if (!gridSize) {
+        msgApi.warning('그리드 사이즈를 선택해주세요.');
+        return;
+      }
+      if (!layoutType) {
+        msgApi.warning('상품 노출 방식을 선택해주세요.');
+        return;
+      }
+
+      // 카테고리 기반 등록 검사
+      if (registerMode === 'category') {
+        if (layoutType === 'single') {
+          if (!singleRoot) {
+            msgApi.warning('상품 분류(대분류)를 선택하세요.');
+            return;
+          }
+          setCurrent(3);
+          return;
+        }
+
+        // layoutType === 'tabs'
+        if (tabs.length < 2) {
+          msgApi.warning('탭을 두 개 이상 설정하세요.');
+          return;
+        }
+        // 탭들 중 최소 하나는 대분류가 선택되어 있어야 실제 상품을 노출할 수 있으므로 검사
+        const hasAnyTabRoot = tabs.some(t => !!t.root);
+        if (!hasAnyTabRoot) {
+          msgApi.warning('탭 중 하나 이상의 대분류를 선택하세요.');
+          return;
+        }
+        setCurrent(3);
+        return;
+      }
+
+      // 직접 등록 검사
+      if (registerMode === 'direct') {
+        if (layoutType === 'single') {
+          if (!directProducts || directProducts.length === 0) {
+            msgApi.warning('상품을 1개 이상 등록해주세요.');
+            return;
+          }
+          setCurrent(3);
+          return;
+        }
+
+        // layoutType === 'tabs'
+        const totalDirect = Object.values(tabDirectProducts || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+        if (totalDirect === 0) {
+          msgApi.warning('탭당 최소 1개 이상의 상품을 등록해주세요.');
+          return;
+        }
+        setCurrent(3);
+        return;
+      }
+
+      // 기본 안전장치
+      setCurrent(3);
     } else {
       setCurrent(c => c + 1);
     }
   };
+  // ------------------------------------------------------------
+
   const prev = () => setCurrent(c => c - 1);
 
   // 제목
