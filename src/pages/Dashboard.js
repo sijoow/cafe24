@@ -32,7 +32,7 @@ export default function Dashboard() {
     } else {
       const stored = localStorage.getItem('mallId');
       if (stored) setMallId(stored);
-      //else message.error('mall_id 파라미터가 없습니다.');
+      else message.error('mall_id 파라미터가 없습니다.');
     }
   }, []);
 
@@ -325,7 +325,7 @@ export default function Dashboard() {
             <Table
               size="small"
               columns={[
-                { title: '쿠폰번호',     dataIndex: 'couponNo',    key: 'couponNo' },
+                { title: '쿠폰번호',     dataIndex: 'couponName',    key: 'couponName' },
                 { title: '다운로드 수',  dataIndex: 'issuedCount', key: 'issuedCount', align: 'right' },
                 { title: '주문 완료 수', dataIndex: 'usedCount',   key: 'usedCount',   align: 'right' }
               ]}
