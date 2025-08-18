@@ -39,8 +39,10 @@ export default function Dashboard() {
   // ─── 상태 선언 ───────────────────────────────────────────────
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [urls, setUrls]                   = useState([]);
-  const [selectedUrl, setSelectedUrl]     = useState(null);
+  const [urls, setUrls]                   = useState([]); // 원본 URL 배열(서버 반환)
+  const [urlOptions, setUrlOptions]       = useState([]); // normalized options for Select
+  const [urlMap, setUrlMap]               = useState(new Map()); // normalized -> [originals]
+  const [selectedUrl, setSelectedUrl]     = useState(null); // 정규화된 값
 
   const [range, setRange]     = useState([dayjs().subtract(6, 'day'), dayjs()]);
   const [minDate, setMinDate] = useState(null);
@@ -65,6 +67,71 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
 
+  // ─── helper: 정규화 함수 ──────────────────────────────────────
+  const normalizePath = (urlCandidate) => {
+    if (!urlCandidate) return '/';
+    // 절대 URL이면 pathname만 추출해서 정규화 (쿼리/해시 제거)
+    if (/^https?:\/\//i.test(urlCandidate)) {
+      try {
+        const u = new URL(urlCandidate);
+        urlCandidate = u.pathname || '';
+      } catch (e) {
+        urlCandidate = String(urlCandidate);
+      }
+    }
+
+    let s = String(urlCandidate).trim();
+
+    // 쿼리/해시 제거
+    s = s.split(/[?#]/)[0];
+
+    // remove leading slashes
+    s = s.replace(/^\/+/, '');
+
+    if (!s) return '/';
+
+    // strip trailing slashes
+    s = s.replace(/\/+$/, '');
+
+    // patterns to strip repeatedly from the start:
+    // - skin-mobile/
+    // - skin-<anything>/
+    // - numeric segment like "67/"
+    const patterns = [
+      /^skin-mobile\/?/i,
+      /^skin-[^\/]+\/?/i,
+      /^\d+\/?/
+    ];
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of patterns) {
+        if (p.test(s)) {
+          s = s.replace(p, '');
+          changed = true;
+        }
+      }
+    }
+
+    if (!s) return '/';
+    if (!s.startsWith('/')) s = '/' + s;
+    return s;
+  };
+
+  const displayLabel = (u) => {
+    if (!u) return u;
+    if (/^https?:\/\//i.test(u)) {
+      try {
+        const p = new URL(u);
+        return normalizePath(p.pathname || '');
+      } catch (e) {
+        return normalizePath(u);
+      }
+    }
+    return normalizePath(u);
+  };
+
   // ─── 이벤트 목록 & 쿠폰 개수 로드 ──────────────────────────────
   useEffect(() => {
     if (!mallId) return;
@@ -88,7 +155,7 @@ export default function Dashboard() {
     setCouponNos([]);
 
     if (!mallId || !selectedEvent) {
-      setUrls([]); setSelectedUrl(null); setMinDate(null);
+      setUrls([]); setUrlOptions([]); setUrlMap(new Map()); setSelectedUrl(null); setMinDate(null);
       return;
     }
 
@@ -101,9 +168,28 @@ export default function Dashboard() {
 
     api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
-        const list = res.data || [];
+        const list = Array.isArray(res.data) ? res.data : [];
         setUrls(list);
-        setSelectedUrl(list[0] || null);
+
+        // normalizedMap 생성 (중복 제거)
+        const normalizedMap = new Map();
+        for (const orig of list) {
+          const n = normalizePath(orig);
+          if (!normalizedMap.has(n)) normalizedMap.set(n, [orig]);
+          else normalizedMap.get(n).push(orig);
+        }
+
+        // options 생성: label은 "/test1.html (2)" 같이 보이고, value는 정규화된 값,
+        // title에는 원본들 join 해서 툴팁으로 확인 가능
+        const options = Array.from(normalizedMap.entries()).map(([norm, originals]) => {
+          const count = originals.length;
+          const label = count > 1 ? `${norm} (${count})` : norm;
+          return { label, value: norm, title: originals.join('\n') };
+        });
+
+        setUrlOptions(options);
+        setUrlMap(normalizedMap);
+        setSelectedUrl(options.length ? options[0].value : null);
       })
       .catch(() => message.error('URL 목록을 불러오지 못했습니다.'));
 
@@ -149,10 +235,13 @@ export default function Dashboard() {
     setLoading(true);
 
     const [s, e] = range.map(d => d.format('YYYY-MM-DD'));
+    // selectedUrl is normalized (or absolute)
+    const normalizedSelected = selectedUrl;
+
     const params = {
       start_date: `${s}T00:00:00+09:00`,
       end_date:   `${e}T23:59:59.999+09:00`,
-      url:        selectedUrl
+      url:        normalizedSelected
     };
 
     const visReq   = api.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
@@ -256,7 +345,6 @@ export default function Dashboard() {
       }
     }]
   };
-  
 
   // ─── 렌더링 ───────────────────────────────────────────────────
   return (
@@ -276,10 +364,18 @@ export default function Dashboard() {
           <Col>
             <Select
               placeholder="페이지 선택"
-              options={urls.map(u => ({ label: u, value: u }))}
+              options={urlOptions.length ? urlOptions : urls.map(u => ({ label: u, value: u }))}
               value={selectedUrl}
               onChange={setSelectedUrl}
               style={{ width: 240 }}
+              showSearch
+              filterOption={(input, option) => {
+                const val = (option?.value || '').toString().toLowerCase();
+                const lab = (option?.label || '').toString().toLowerCase();
+                const title = (option?.title || '').toString().toLowerCase();
+                const needle = (input || '').toLowerCase();
+                return val.includes(needle) || lab.includes(needle) || title.includes(needle);
+              }}
             />
           </Col>
           <Col>
@@ -291,6 +387,7 @@ export default function Dashboard() {
             />
           </Col>
           <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
+
           <Col flex="auto" />
           <Col className="kpi-col"><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }}  style={{textAlign:'center'}}/></Col>
           <Col  className="kpi-col" ><Statistic title="전체 쿠폰 수" value={couponCount} suffix="개" style={{ marginLeft: 16,textAlign:'center' }}  valueStyle={{ fontSize: 18 }}/></Col>
@@ -308,7 +405,7 @@ export default function Dashboard() {
         {/* 2열: 쿠폰 다운로드/주문 완료 통계 */}
         <Col xs={24} md={12}>
           <Card
-            title="쿠폰 다운로드 / 주문 완료 통계"
+            title="쿠폰 다운로드 / 주문 완료 통계"
             style={{
               height: 320,
               overflowY: 'auto',
