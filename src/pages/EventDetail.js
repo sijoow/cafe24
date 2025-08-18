@@ -188,6 +188,7 @@ export default function EventDetail() {
   const registerMode = classification.registerMode ?? (layoutType === 'none' ? 'none' : 'category');
 
   const directProducts = classification.directProducts || [];
+  const tabDirectProducts = classification.tabDirectProducts || {};
   const activeColor    = classification.activeColor   || '#1890ff';
   const tabs           = classification.tabs          || [];
   const singleRoot     = classification.root;
@@ -225,8 +226,41 @@ export default function EventDetail() {
       `&opener_url=${encodeURIComponent(window.location.href)}`;
   };
 
-  // HTML 생성 & 모달 열기
+  // ----------------------------
+  // 상품 영역을 포함할지 결정하는 헬퍼
+  // ----------------------------
+  const shouldIncludeProductArea = () => {
+    if (!registerMode || registerMode === 'none') return false;
+
+    // layoutType 안전 처리
+    const lt = layoutType || 'single';
+
+    if (lt === 'single') {
+      if (registerMode === 'direct') {
+        return Array.isArray(directProducts) && directProducts.length > 0;
+      } else {
+        // category
+        return Boolean(singleRoot || singleSub);
+      }
+    }
+
+    if (lt === 'tabs') {
+      if (registerMode === 'direct') {
+        // tabDirectProducts의 어느 탭이라도 상품이 있으면 보여줌
+        return Object.keys(tabDirectProducts).some(k => Array.isArray(tabDirectProducts[k]) && tabDirectProducts[k].length > 0);
+      } else {
+        // category: tabs 배열에 적어도 하나의 tab이 유효한 카테고리(root 또는 sub)을 가지고 있어야 함
+        return Array.isArray(tabs) && tabs.length > 0 && tabs.some(t => t && (t.root || t.sub));
+      }
+    }
+
+    return false;
+  };
+
+  // HTML 생성 & 모달 열기 (상품영역 포함 여부 체크 반영)
   const handleShowHtml = () => {
+    const includeProducts = shouldIncludeProductArea();
+
     let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
 
     // 1) 렌더 스냅샷 (server blocks 우선)
@@ -270,10 +304,9 @@ export default function EventDetail() {
       };
     });
 
-    // 텍스트 인라인 제거: widget가 블록(텍스트 포함)을 서버에서 가져가 렌더링하도록 함
     html += `<div id="evt-images"></div>\n\n`;
 
-    // 3) 이미지 블록들의 쿠폰 수집 → widget.js 전달
+    // 쿠폰 리스트 수집
     const couponList = Array.from(new Set(
       allBlocks
         .filter(b => b.type === 'image')
@@ -281,45 +314,43 @@ export default function EventDetail() {
     ));
     const couponAttr = couponList.length ? ` data-coupon-nos="${couponList.join(',')}"` : '';
 
-    // 4) 탭/싱글 레이아웃 HTML (상품 영역 자리)
-    if (registerMode !== 'none' && layoutType === 'tabs') {
-      html += `<div class="tabs_${id}">\n`;
-      (classification.tabs || []).forEach((t, i) => {
-        html += `  <button class="${i === 0 ? 'active' : ''}" onclick="showTab('tab-${i}',this)">${t.title || `탭${i+1}`}</button>\n`;
-      });
-      html += `</div>\n\n`;
+    // 상품 HTML: includeProducts 여부에 따라 삽입
+    if (includeProducts) {
+      if (registerMode !== 'none' && layoutType === 'tabs') {
+        html += `<div class="tabs_${id}">\n`;
+        (classification.tabs || []).forEach((t, i) => {
+          html += `  <button class="${i === 0 ? 'active' : ''}" onclick="showTab('tab-${i}',this)">${t.title || `탭${i+1}`}</button>\n`;
+        });
+        html += `</div>\n\n`;
 
-      (classification.tabs || []).forEach((t, i) => {
-        const disp = i === 0 ? 'block' : 'none';
-        const cate = t.sub || t.root;
-        const tabDirect = (classification.tabDirectProducts || {})[i] || [];
-        const tabIds    = tabDirect
+        (classification.tabs || []).forEach((t, i) => {
+          const disp = i === 0 ? 'block' : 'none';
+          const cate = t.sub || t.root;
+          const tabDirect = (classification.tabDirectProducts || {})[i] || [];
+          const tabIds    = tabDirect
+            .map(p => (typeof p === 'object' ? p.product_no : p))
+            .filter(Boolean)
+            .join(',');
+          const directAttrForTab = tabIds ? ` data-direct-nos="${tabIds}"` : '';
+
+          html += `<div id="tab-${i}" class="tab-content_${id}" style="display:${disp}">\n`;
+          html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForTab}></ul>\n`;
+          html += `</div>\n\n`;
+        });
+      } else if (registerMode !== 'none' && layoutType === 'single') {
+        const cate = singleSub || singleRoot;
+        const singleIds = directProducts
           .map(p => (typeof p === 'object' ? p.product_no : p))
           .filter(Boolean)
           .join(',');
-        const directAttrForTab = tabIds ? ` data-direct-nos="${tabIds}"` : '';
+        const directAttrForSingle = singleIds ? ` data-direct-nos="${singleIds}"` : '';
 
-        html += `<div id="tab-${i}" class="tab-content_${id}" style="display:${disp}">\n`;
-        html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForTab}></ul>\n`;
+        html += `<div class="product_list_widget">\n`;
+        html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForSingle}></ul>\n`;
         html += `</div>\n\n`;
-      });
-
-    } else if (registerMode !== 'none' && layoutType === 'single') {
-      const cate = singleSub || singleRoot;
-      const singleIds = directProducts
-        .map(p => (typeof p === 'object' ? p.product_no : p))
-        .filter(Boolean)
-        .join(',');
-      const directAttrForSingle = singleIds ? ` data-direct-nos="${singleIds}"` : '';
-
-      html += `<div class="product_list_widget">\n`;
-      html += `  <ul class="main_Grid_${id}" data-cate="${cate}" data-grid-size="${gridSize}"${directAttrForSingle}></ul>\n`;
-      html += `</div>\n\n`;
-    } else {
-      html += ``;
+      }
     }
 
-    // 5) widget.js 태그 (텍스트도 widget에서 처리하도록 data-ignore-text 제거)
     const scriptAttrs = [
       `src="${API_BASE}/widget.js"`,
       `data-mall-id="${mallId || ''}"`,
@@ -353,7 +384,8 @@ export default function EventDetail() {
     if (prodPos == null || Number.isNaN(prodPos)) prodPos = blocks.length;
     prodPos = Math.max(0, Math.min(prodPos, blocks.length)); // clamp
 
-    if (registerMode === 'none') {
+    // include 여부 결정
+    if (!shouldIncludeProductArea()) {
       return blocks;
     }
 
@@ -389,6 +421,9 @@ export default function EventDetail() {
         <div style={{ display:'grid', gap:0, maxWidth:800, margin:'0 auto' }}>
           {combinedBlocks.map((block, idx) => {
             if (block.type === 'products') {
+              // 안전: 렌더 전에 다시 체크 (이중 방어)
+              if (!shouldIncludeProductArea()) return null;
+
               // 상품 영역 (기존 디자인 유지: 단품/탭 처리)
               if (layoutType === 'tabs') {
                 return (
