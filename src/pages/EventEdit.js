@@ -67,10 +67,7 @@ export default function EventEdit() {
   const [docId, setDocId] = useState(null);
   const [title, setTitle] = useState('');
 
-  // ✅ 이미지+영상+텍스트 통합 블록
-  // image: {id,type:'image',src,file?,regions:[]}
-  // video: {id,type:'video',youtubeId,ratio:{w,h}, autoplay?}
-  // text : {id,type:'text',text,style:{align,fontSize,fontWeight,color,mt,mb}}
+  // 이미지+영상+텍스트 통합 블록
   const [blocks, setBlocks] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
@@ -78,13 +75,13 @@ export default function EventEdit() {
   const [showAllPreview, setShowAllPreview] = useState(false);
 
   // 상품 등록 방식
-  const [registerMode, setRegisterMode]     = useState('category');
+  const [registerMode, setRegisterMode]     = useState('category'); // 'category' | 'direct' | 'none'
   const [directProducts, setDirectProducts] = useState([]);
   const [tabDirectProducts, setTabDirectProducts] = useState({});
 
   // 카테고리/레이아웃
   const [gridSize, setGridSize]     = useState(2);
-  const [layoutType, setLayoutType] = useState('single');
+  const [layoutType, setLayoutType] = useState('single'); // 'single' | 'tabs'
   const [allCats, setAllCats]       = useState([]);
   const [singleRoot, setSingleRoot] = useState(null);
   const [singleSub, setSingleSub]   = useState(null);
@@ -107,24 +104,14 @@ export default function EventEdit() {
       return a;
     });
   };
-  const removeTab = i => {
-    // 보호: 최소 2개는 유지
-    if (tabs.length <= 2) {
-      message.warning('탭은 최소 2개 이상이어야 합니다.');
-      return;
+  const removeTab = i => setTabs(ts => {
+    const a = ts.filter((_, idx) => idx !== i);
+    // 최소 2개 보장
+    if (a.length < 2) {
+      return [{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }];
     }
-    setTabs(ts => ts.filter((_, idx) => idx !== i));
-    // reindex tabDirectProducts: shift down indices greater than i
-    setTabDirectProducts(prev => {
-      const next = {};
-      Object.keys(prev).forEach(k => {
-        const idx = Number(k);
-        if (idx < i) next[idx] = prev[idx];
-        else if (idx > i) next[idx - 1] = prev[idx];
-      });
-      return next;
-    });
-  };
+    return a;
+  });
 
   // URL/Coupon 매핑
   const [addingMode, setAddingMode]           = useState(false);
@@ -147,15 +134,15 @@ export default function EventEdit() {
   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
   const [initialSelected, setInitialSelected] = useState([]);
 
-  // 🔹 영상 블록 추가/수정 모달
+  // 영상/텍스트 모달 상태
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoInput, setVideoInput] = useState('');
   const [videoRatioW, setVideoRatioW] = useState(16);
   const [videoRatioH, setVideoRatioH] = useState(9);
   const [editingVideoIdx, setEditingVideoIdx] = useState(null);
-  const [videoAutoplay, setVideoAutoplay] = useState(false); // 추가: autoplay
+  const [videoAutoplay, setVideoAutoplay] = useState(false);
+  const [videoLoop, setVideoLoop] = useState(false);
 
-  // 🔹 텍스트 블록 추가/수정 모달
   const [textModalOpen, setTextModalOpen] = useState(false);
   const [textForm] = Form.useForm();
 
@@ -179,20 +166,22 @@ export default function EventEdit() {
     return null;
   }
 
-  function buildYouTubeSrc(id, autoplay) {
-    const params = new URLSearchParams();
-    if (autoplay) {
-      params.set('autoplay', '1');
-      params.set('mute', '1'); // 자동 재생시 무음으로 설정(모바일 정책)
-      params.set('playsinline', '1');
+  function buildYouTubeSrc(id, autoplay = false, loop = false) {
+    const params = new URLSearchParams({
+      autoplay: autoplay ? '1' : '0',
+      mute: autoplay ? '1' : '0',
+      playsinline: '1',
+      rel: '0',
+      modestbranding: '1',
+    });
+    if (loop) {
+      params.set('loop', '1');
+      params.set('playlist', id);
     }
-    params.set('rel', '0');
-    params.set('modestbranding', '1');
-    const q = params.toString();
-    return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
+    return `https://www.youtube.com/embed/${id}?${params.toString()}`;
   }
 
-  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false }) {
+  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false, loop = false }) {
     if (!id) {
       return (
         <div style={{
@@ -205,7 +194,7 @@ export default function EventEdit() {
         </div>
       );
     }
-    const src = buildYouTubeSrc(id, autoplay);
+    const src = buildYouTubeSrc(id, autoplay, loop);
     const paddingTop = `${(ratioH/ratioW) * 100}%`;
     return (
       <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
@@ -224,6 +213,53 @@ export default function EventEdit() {
   }
   // ────────────────────────────────────────────────────────────────
 
+  // <<< CHANGED >>>: registerMode 변경 핸들러 — 'none'일 때 관련 상태 정리
+  const handleSetRegisterMode = (val) => {
+    setRegisterMode(val);
+    if (val === 'none') {
+      // 노출안함일 때 관련 상태 초기화
+      setGridSize(2);
+      setLayoutType('single');
+      setDirectProducts([]);
+      setTabDirectProducts({});
+      setSingleRoot(null);
+      setSingleSub(null);
+      setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+      setActiveColor('#1890ff');
+    }
+    // if switching to category, clear direct lists
+    if (val === 'category') {
+      setDirectProducts([]);
+      setTabDirectProducts({});
+    }
+    // if switching to direct, keep existing category values but ensure tabs exist
+    if (val === 'direct') {
+      if (!Array.isArray(tabs) || tabs.length < 2) {
+        setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+      }
+    }
+  };
+
+  // <<< CHANGED >>>: layoutType 변경 시 관련 상태 정리
+  const handleSetLayoutType = (val) => {
+    setLayoutType(val);
+    if (val === 'single') {
+      // single로 바꾸면 tabDirectProducts 무시
+      setTabDirectProducts({});
+      // ensure singleRoot/sub exist if category mode
+      if (registerMode === 'category') {
+        if (!singleRoot) setSingleRoot(null);
+        if (!singleSub) setSingleSub(null);
+      }
+    } else if (val === 'tabs') {
+      // tabs로 바꾸면 directProducts (단일) 무시
+      setDirectProducts([]);
+      if (!Array.isArray(tabs) || tabs.length < 2) {
+        setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+      }
+    }
+  };
+
   // 초기 데이터 로드
   useEffect(() => {
     if (!mallId) return;
@@ -241,7 +277,7 @@ export default function EventEdit() {
       ))
       .catch(() => message.error('쿠폰 로드 실패'));
 
-    api.get(`/api/${mallId}/events/${id}`)
+    api.get(`/api/${mallId}/eventTemple/${id}`)
       .then(({ data: ev }) => {
         setDocId(ev._id);
         setTitle(ev.title);
@@ -274,7 +310,7 @@ export default function EventEdit() {
           setActiveColor(ev.classification?.activeColor || '#1890ff');
         }
 
-        // ✅ blocks 정규화: content.blocks → 없으면 images를 image 블록으로
+        // blocks 정규화
         const rawBlocks = Array.isArray(ev?.content?.blocks)
           ? ev.content.blocks
           : (ev.images || []).map(img => ({
@@ -292,8 +328,9 @@ export default function EventEdit() {
               type: 'video',
               youtubeId: b.youtubeId || parseYouTubeId(b.src),
               ratio: b.ratio || { w:16, h:9 },
+              autoplay: b.autoplay === true || b.autoplay === 'true' || b.autoplay === 1 || b.autoplay === '1',
+              loop: b.loop === true || b.loop === 'true' || b.loop === 1 || b.loop === '1',
               regions: [],
-              autoplay: !!b.autoplay, // 서버에 저장된 autoplay를 불러옴
             };
           }
           if (t === 'text') {
@@ -327,7 +364,7 @@ export default function EventEdit() {
       });
   }, [mallId, id, navigate]);
 
-  // 이미지 교체 (현재 선택 블록 = 이미지일 때만)
+  // 이미지 교체
   const replaceImage = (idx, file, onSuccess) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -343,7 +380,7 @@ export default function EventEdit() {
     reader.readAsDataURL(file);
   };
 
-  // 매핑 핸들러 (이미지 블록일 때만)
+  // 매핑 핸들러
   const onMouseDown = e => {
     if (!addingMode || !imgRef.current) return;
     const blk = blocks[selectedIdx];
@@ -408,7 +445,7 @@ export default function EventEdit() {
     message.success(addType === 'url' ? 'URL 추가됨' : '쿠폰 추가됨');
   };
 
-  // 영역 편집/삭제 (이미지 블록)
+  // 영역 편집/삭제
   const onEditRegion = idx => {
     setEditingIndex(idx);
     const blk = blocks[selectedIdx];
@@ -461,7 +498,7 @@ export default function EventEdit() {
     message.success('블록 삭제 완료');
   };
 
-  // 🔹 영상 블록 추가/수정
+  // 영상 블록 추가/수정
   const openAddVideo = () => {
     if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
     setEditingVideoIdx(null);
@@ -469,6 +506,7 @@ export default function EventEdit() {
     setVideoRatioW(16);
     setVideoRatioH(9);
     setVideoAutoplay(false);
+    setVideoLoop(false);
     setVideoModalOpen(true);
   };
   const openEditVideo = (idx) => {
@@ -479,6 +517,7 @@ export default function EventEdit() {
     setVideoRatioW(blk.ratio?.w || 16);
     setVideoRatioH(blk.ratio?.h || 9);
     setVideoAutoplay(!!blk.autoplay);
+    setVideoLoop(!!blk.loop);
     setVideoModalOpen(true);
   };
   const confirmVideoModal = () => {
@@ -488,22 +527,24 @@ export default function EventEdit() {
       return;
     }
     if (editingVideoIdx == null) {
-      // add
-      setBlocks(prev => [
-        ...prev,
-        {
-          id: `${Date.now()}-${Math.random()}`,
-          type: 'video',
-          youtubeId: yid,
-          ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
-          regions: [],
-          autoplay: !!videoAutoplay,
-        }
-      ]);
-      setSelectedIdx(blocks.length);
+      setBlocks(prev => {
+        const newBlocks = [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            type: 'video',
+            youtubeId: yid,
+            ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
+            autoplay: !!videoAutoplay,
+            loop: !!videoLoop,
+            regions: [],
+          },
+        ];
+        setSelectedIdx(newBlocks.length - 1);
+        return newBlocks;
+      });
       message.success('영상 블록 추가됨');
     } else {
-      // edit
       setBlocks(prev => {
         const a = [...prev];
         a[editingVideoIdx] = {
@@ -512,6 +553,7 @@ export default function EventEdit() {
           youtubeId: yid,
           ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
           autoplay: !!videoAutoplay,
+          loop: !!videoLoop,
         };
         return a;
       });
@@ -520,7 +562,7 @@ export default function EventEdit() {
     setVideoModalOpen(false);
   };
 
-  // 🔹 텍스트 블록 추가/수정
+  // 텍스트 블록 추가/수정
   const openCreateText = () => {
     if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
     textForm.resetFields();
@@ -543,26 +585,105 @@ export default function EventEdit() {
     if (!String(text || '').trim()) return message.warning('문구를 입력하세요.');
     const sel = blocks[selectedIdx];
     if (sel && sel.type === 'text') {
-      // edit
       setBlocks(prev => prev.map((b,i) =>
         i === selectedIdx
           ? { ...b, text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
           : b
       ));
     } else {
-      // add
       const idv = `${Date.now()}-${Math.random()}`;
-      setBlocks(prev => [
-        ...prev,
-        { id:idv, type:'text', text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
-      ]);
-      setSelectedIdx(blocks.length);
+      setBlocks(prev => {
+        const nb = [...prev, { id:idv, type:'text', text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }];
+        setSelectedIdx(nb.length - 1);
+        return nb;
+      });
     }
     setTextModalOpen(false);
   };
 
-  // 저장
+  // ========================================
+  // Validation helper used by step change & save
+  // ========================================
+  const validateProductSettings = () => {
+    // registerMode: 'category' | 'direct' | 'none'
+    if (registerMode === 'category') {
+      if (!gridSize) {
+        message.warning('그리드 사이즈를 선택해주세요.');
+        return false;
+      }
+      if (!layoutType) {
+        message.warning('상품 노출 방식을 선택해주세요.');
+        return false;
+      }
+      if (layoutType === 'single') {
+        if (!singleRoot) {
+          message.warning('상품 분류(대분류)를 선택하세요.');
+          return false;
+        }
+      } else if (layoutType === 'tabs') {
+        if (!Array.isArray(tabs) || tabs.length < 2) {
+          message.warning('탭을 두 개 이상 설정하세요.');
+          return false;
+        }
+        // 탭 중 적어도 하나에 카테고리(root/sub) 설정 필요
+        const hasTabWithCate = tabs.some(t => Boolean(t && (t.root || t.sub)));
+        if (!hasTabWithCate) {
+          message.warning('적어도 하나의 탭에 카테고리를 설정하세요.');
+          return false;
+        }
+      }
+    } else if (registerMode === 'direct') {
+      if (!gridSize) {
+        message.warning('그리드 사이즈를 선택해주세요.');
+        return false;
+      }
+      if (!layoutType) {
+        message.warning('상품 노출 방식을 선택해주세요.');
+        return false;
+      }
+      if (layoutType === 'single') {
+        if (!Array.isArray(directProducts) || directProducts.length === 0) {
+          message.warning('상품이 추가되지 않았습니다. 상품을 추가해주세요.');
+          return false;
+        }
+      } else if (layoutType === 'tabs') {
+        // 탭별 directProducts 중 적어도 한 탭에 상품이 있어야 함
+        const tabDirect = tabDirectProducts || {};
+        const hasAnyTabProduct = Object.values(tabDirect).some(arr => Array.isArray(arr) && arr.length > 0);
+        if (!hasAnyTabProduct) {
+          message.warning('탭에 추가된 상품이 없습니다. 상품을 추가해주세요.');
+          return false;
+        }
+      }
+    } else if (registerMode === 'none') {
+      // 허용
+    }
+    return true;
+  };
+
+  // Steps onChange handler with validation when moving to product step
+  const handleStepChange = (next) => {
+    // if user wants to move to product settings (step index 2), validate
+    if (next === 2) {
+      // validate media presence
+      if (!blocks || blocks.length === 0) {
+        message.warning('이미지를 추가하세요.');
+        return;
+      }
+      // validate product settings (so user doesn't jump to product step with invalid config)
+      const ok = validateProductSettings();
+      if (!ok) return;
+    }
+    setCurrent(next);
+  };
+
+  // 저장 (수정: classification을 명확히 구성) — 저장 전에 validation 수행
   const handleSave = async () => {
+    // Validate before saving
+    if (!validateProductSettings()) {
+      return;
+    }
+
     try {
       // 이미지 블록만 업로드
       const uploaded = await Promise.all(
@@ -589,7 +710,8 @@ export default function EventEdit() {
             type: 'video',
             youtubeId: b.youtubeId,
             ratio: b.ratio || { w:16, h:9 },
-            autoplay: !!b.autoplay, // 추가: autoplay 저장
+            autoplay: !!b.autoplay,
+            loop: !!b.loop,
           };
         }
         if (b.type === 'text') {
@@ -632,23 +754,40 @@ export default function EventEdit() {
           }))
         }));
 
+      // <<< CHANGED >>>: classification을 명확히 구성
+      const classification = { registerMode };
+      if (registerMode === 'category') {
+        if (layoutType === 'single') {
+          classification.root = singleRoot;
+          classification.sub  = singleSub;
+          classification.activeColor = activeColor;
+        } else if (layoutType === 'tabs') {
+          classification.tabs = tabs;
+          classification.activeColor = activeColor;
+        }
+      } else if (registerMode === 'direct') {
+        if (layoutType === 'single') {
+          classification.directProducts = directProducts;
+          classification.activeColor = activeColor;
+        } else if (layoutType === 'tabs') {
+          classification.tabDirectProducts = tabDirectProducts;
+          classification.tabs = tabs;
+          classification.activeColor = activeColor;
+        }
+      } else if (registerMode === 'none') {
+        // nothing else
+      }
+
       const payload = {
         title,
         content: { blocks: contentBlocks },
         gridSize,
         layoutType,
-        classification: {
-          registerMode,
-          ...(registerMode==='category'&&layoutType==='single'&&{ root: singleRoot, sub: singleSub }),
-          ...(registerMode==='category'&&layoutType==='tabs'  &&{ tabs, activeColor }),
-          ...(registerMode==='direct'  &&layoutType==='single'&&{ directProducts }),
-          ...(registerMode==='direct'  &&layoutType==='tabs'  &&{ tabDirectProducts, tabs, activeColor }),
-          // registerMode==='none'이면 위에 아무것도 추가하지 않음(상품 노출 관련 속성 미포함)
-        },
+        classification,
         images: legacyImages, // 레거시 호환
       };
 
-      await api.put(`/api/${mallId}/events/${id}`, payload);
+      await api.put(`/api/${mallId}/eventTemple/${id}`, payload);
       message.success('저장 완료');
       navigate(`/event/detail/${id}`);
     } catch (err) {
@@ -658,78 +797,7 @@ export default function EventEdit() {
   };
 
   const selectedBlock = blocks[selectedIdx];
-
-  // 이미지 유무
   const hasAnyImage = blocks.some(b => b.type === 'image');
-
-  // ------------------------------
-  // step 이동 전 유효성 검사 핸들러
-  // ------------------------------
-  const handleStepChange = (target) => {
-    // target === 2 => "상품등록 방식 설정" 으로 이동하려고 할 때 유효성 검사
-    if (target === 2) {
-      if (!registerMode) {
-        message.warning('상품 등록 방식을 선택하세요.');
-        return;
-      }
-
-      // 공통: gridSize와 layoutType 검사
-      if (!gridSize) {
-        message.warning('그리드 사이즈를 선택해주세요.');
-        return;
-      }
-      if (!layoutType) {
-        message.warning('상품 노출 방식을 선택해주세요.');
-        return;
-      }
-
-      // category 모드: single -> 대분류 필요 / tabs -> 탭 2개 이상
-      if (registerMode === 'category') {
-        if (layoutType === 'single' && !singleRoot) {
-          message.warning('상품 분류(대분류)를 선택하세요.');
-          return;
-        }
-        if (layoutType === 'tabs' && (!Array.isArray(tabs) || tabs.length < 2)) {
-          message.warning('탭을 두 개 이상 설정하세요.');
-          return;
-        }
-        // category 모드는 카테고리 선택만으로 통과
-        setCurrent(target);
-        return;
-      }
-
-      // direct 모드: 반드시 상품이 등록되어 있어야 함
-      if (registerMode === 'direct') {
-        if (layoutType === 'single') {
-          if (!directProducts || directProducts.length === 0) {
-            message.warning('상품을 한 개 이상 등록하세요.');
-            return;
-          }
-          setCurrent(target);
-          return;
-        }
-        if (layoutType === 'tabs') {
-          // 각 탭마다 상품이 하나 이상 등록되어 있는지 확인
-          for (let i = 0; i < tabs.length; i++) {
-            const arr = tabDirectProducts[i] || [];
-            if (!arr || arr.length === 0) {
-              message.warning(`탭 ${i + 1}에 상품을 추가하세요.`);
-              return;
-            }
-          }
-          setCurrent(target);
-          return;
-        }
-      }
-
-      // none 모드는 특별 제약 없음
-      setCurrent(target);
-      return;
-    }
-
-    // 다른 스텝으로 이동은 허용
-    setCurrent(target);
-  };
 
   return (
     <Card
@@ -767,7 +835,6 @@ export default function EventEdit() {
       {/* Step 2 */}
       {current === 1 && (
         <>
-          {/* 썸네일 리스트 (블록 단위) */}
           <DragDropContext
             onDragStart={() => { draggingRef.current = true; }}
             onDragEnd={onDragEnd}
@@ -799,11 +866,11 @@ export default function EventEdit() {
                           onPointerUp={() => {
                             if (draggingRef.current) return;
                             setSelectedIdx(idx);
-                            setShowAllPreview(false); // 전체보기 해제
+                            setShowAllPreview(false);
                           }}
                           title={
                             blk.type === 'video'
-                              ? `YouTube: ${blk.youtubeId || ''}${blk.autoplay ? ' (autoplay)' : ''}`
+                              ? `YouTube: ${blk.youtubeId || ''}`
                               : blk.type === 'text'
                               ? '텍스트'
                               : '이미지'
@@ -822,7 +889,7 @@ export default function EventEdit() {
                               display:'flex', alignItems:'center', justifyContent:'center',
                               fontSize:12
                             }}>
-                              <span>🎬 {blk.youtubeId || '영상'}{blk.autoplay ? ' · 자동재생' : ''}</span>
+                              <span>🎬 {blk.youtubeId || '영상'}</span>
                             </div>
                           ) : (
                             <div
@@ -888,11 +955,11 @@ export default function EventEdit() {
                         const reader = new FileReader();
                         reader.onload = e=>{
                           const dataUrl = e.target.result;
-                          setBlocks(prev=>[
-                            ...prev,
-                            { id:`${Date.now()}-${Math.random()}`, type:'image', src:dataUrl, file, regions:[] }
-                          ]);
-                          setSelectedIdx(blocks.length);
+                          setBlocks(prev=> {
+                            const nb = [...prev, { id:`${Date.now()}-${Math.random()}`, type:'image', src:dataUrl, file, regions:[] }];
+                            setSelectedIdx(nb.length - 1);
+                            return nb;
+                          });
                           onSuccess();
                           message.success('이미지 추가됨');
                         };
@@ -982,16 +1049,15 @@ export default function EventEdit() {
             </Button>
           </Space>
 
-          {/* 미디어 미리보기 / 매핑 캔버스 */}
+          {/* 미리보기/매핑 캔버스 */}
           {showAllPreview ? (
-            // 전체보기 모드
-            <div style={{ display:'grid', gap:0, maxWidth:800, margin:'0 auto' }}>
+            <div style={{ display:'grid', gap:16, maxWidth:800, margin:'0 auto' }}>
               {blocks.map(b =>
                 b.type === 'video' ? (
                   <div key={b.id} style={{ width:'100%' }}>
                     <div style={{ position:'relative', width:'100%', aspectRatio:`${b.ratio?.w||16} / ${b.ratio?.h||9}` }}>
                       <iframe
-                        src={buildYouTubeSrc(b.youtubeId, !!b.autoplay)}
+                        src={buildYouTubeSrc(b.youtubeId, b.autoplay, b.loop)}
                         title="YouTube"
                         style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -1030,9 +1096,20 @@ export default function EventEdit() {
                 ratioH={selectedBlock.ratio?.h || 9}
                 title={`youtube-${selectedBlock.youtubeId || 'preview'}`}
                 autoplay={!!selectedBlock.autoplay}
+                loop={!!selectedBlock.loop}
               />
               <div style={{ marginTop:8 }}>
-                <Button size="small" icon={<EditOutlined />} onClick={()=>openEditVideo(selectedIdx)}>
+                <Checkbox
+                  checked={!!selectedBlock.autoplay}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setBlocks(prev => prev.map((b, i) => i === selectedIdx ? { ...b, autoplay: checked } : b));
+                  }}
+                  style={{ marginRight: 12 }}
+                >
+                  자동 재생
+                </Checkbox>
+                <Button size="small" icon={<EditOutlined />} onClick={()=>openEditVideo(selectedIdx)} style={{ marginLeft: 12 }}>
                   영상 편집
                 </Button>
               </div>
@@ -1181,12 +1258,11 @@ export default function EventEdit() {
               { label: '노출안함',         value: 'none'     },
             ]}
             value={registerMode}
-            onChange={setRegisterMode}
+            onChange={handleSetRegisterMode} // <<< CHANGED >>>
             block
             style={{ marginBottom: 24 }}
           />
 
-          {/* 카테고리 상품 등록 */}
           {registerMode === 'category' && (
             <>
               <h4>그리드 사이즈</h4>
@@ -1209,7 +1285,7 @@ export default function EventEdit() {
                   { label: '탭상품',   value: 'tabs'   },
                 ]}
                 value={layoutType}
-                onChange={val => setLayoutType(val)}
+                onChange={handleSetLayoutType} // <<< CHANGED >>>
                 block
               />
 
@@ -1308,7 +1384,6 @@ export default function EventEdit() {
             </>
           )}
 
-          {/* 직접 상품 등록 */}
           {registerMode === 'direct' && (
             <>
               <h4>그리드 사이즈</h4>
@@ -1331,12 +1406,13 @@ export default function EventEdit() {
                   { label: '탭상품',   value: 'tabs'   },
                 ]}
                 value={layoutType}
-                onChange={val => setLayoutType(val)}
+                onChange={handleSetLayoutType} // <<< CHANGED >>>
                 block
               />
 
               {layoutType === 'single' && (
                 <Button
+                 style={{marginTop:'10px;'}}
                   type={directProducts.length > 0 ? 'primary' : 'dashed'}
                   onClick={() => {
                     setInitialSelected(directProducts.map(p => p.product_no));
@@ -1401,7 +1477,6 @@ export default function EventEdit() {
             </>
           )}
 
-          {/* 노출안함 */}
           {registerMode === 'none' && (
             <div style={{ textAlign:'center', color:'#999', padding:'32px 0' }}>
               상품을 노출하지 않습니다.
@@ -1523,14 +1598,26 @@ export default function EventEdit() {
             <InputNumber min={1} value={videoRatioH} onChange={v=>setVideoRatioH(v||9)} />
           </Space>
 
-          <Checkbox checked={videoAutoplay} onChange={e=>setVideoAutoplay(e.target.checked)}>
-            자동 재생 (무음으로 재생됩니다)
-          </Checkbox>
+          <div style={{ marginTop:8 }}>
+            <Checkbox
+              checked={!!videoAutoplay}
+              onChange={e => setVideoAutoplay(e.target.checked)}
+              style={{ marginRight: 12 }}
+            >
+              자동 재생
+            </Checkbox>
+            <Checkbox
+              checked={!!videoLoop}
+              onChange={e => setVideoLoop(e.target.checked)}
+            >
+              무한 반복
+            </Checkbox>
+          </div>
 
           <div style={{ marginTop:8 }}>
             미리보기
             <div style={{ marginTop:8 }}>
-              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} autoplay={videoAutoplay} />
+              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} autoplay={videoAutoplay} loop={videoLoop} />
             </div>
           </div>
         </Space>
