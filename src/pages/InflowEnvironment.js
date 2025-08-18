@@ -33,7 +33,7 @@ export default function InflowEnvironment() {
     } else {
       const stored = localStorage.getItem('mallId');
       if (stored) setMallId(stored);
-      //else message.error('mall_id 파라미터가 없습니다.');
+      else message.error('mall_id 파라미터가 없습니다.');
     }
   }, []);
 
@@ -43,13 +43,86 @@ export default function InflowEnvironment() {
   // ─── 상태 선언 ───────────────────────────────────────────────
   const [events, setEvents]               = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [urls, setUrls]                   = useState([]);
-  const [selectedUrl, setSelectedUrl]     = useState(null);
+
+  const [urls, setUrls]                   = useState([]); // 원본 URL 리스트
+  const [urlOptions, setUrlOptions]       = useState([]); // Select 옵션 (label/value/title)
+  const [urlMap, setUrlMap]               = useState(new Map()); // normalized -> [originals]
+  const [selectedUrl, setSelectedUrl]     = useState(null); // 정규화된 값
+
   const [range, setRange]                 = useState([dayjs().subtract(7, 'day'), dayjs()]);
   const [minDate, setMinDate]             = useState(null);
   const [pieData, setPieData]             = useState([]);
   const [lineData, setLineData]           = useState({ dates: [], devices: [], series: [] });
   const [loading, setLoading]             = useState(false);
+
+  // ─── helper: 정규화 (앞부분 skin-..., 숫자/슬래시 제거, 쿼리/해시 제거, trim) ─────────
+  const normalizePath = (urlCandidate) => {
+    if (!urlCandidate) return '/';
+    // 절대 URL이면 pathname만 추출해서 정규화 (쿼리/해시 제거)
+    if (/^https?:\/\//i.test(urlCandidate)) {
+      try {
+        const p = new URL(urlCandidate);
+        urlCandidate = p.pathname || '';
+      } catch (e) {
+        urlCandidate = String(urlCandidate);
+      }
+    }
+
+    let s = String(urlCandidate).trim();
+
+    // 쿼리나 해시 제거
+    s = s.split(/[?#]/)[0];
+
+    // remove leading slashes
+    s = s.replace(/^\/+/, '');
+
+    if (!s) return '/';
+
+    // strip trailing slashes
+    s = s.replace(/\/+$/, '');
+
+    // patterns to strip repeatedly from the start:
+    const patterns = [
+      /^skin-mobile\/?/i,
+      /^skin-[^\/]+\/?/i,
+      /^\d+\/?/
+    ];
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of patterns) {
+        if (p.test(s)) {
+          s = s.replace(p, '');
+          changed = true;
+        }
+      }
+    }
+
+    if (!s) return '/';
+    if (!s.startsWith('/')) s = '/' + s;
+    return s;
+  };
+
+  // ─── helper: 후보 URL 배열 생성 (정규화 + 원본 + 변형(슬래시 유무)) ─────────────────
+  const buildUrlCandidates = (normalized) => {
+    const candidates = new Set();
+    if (!normalized) return [];
+    // normalized (leading slash)
+    candidates.add(normalized);
+    // without leading slash
+    candidates.add(normalized.replace(/^\//, ''));
+    // if urlMap has originals, add them + their slash/no-slash variants
+    const originals = urlMap.get(normalized) || [];
+    originals.forEach(o => {
+      candidates.add(o);
+      candidates.add(o.replace(/^\/+/, ''));
+      // also try versions stripped of query/hash
+      candidates.add(String(o).split(/[?#]/)[0]);
+      candidates.add(String(o).split(/[?#]/)[0].replace(/^\/+/, ''));
+    });
+    return Array.from(candidates);
+  };
 
   // ─── 2) 이벤트 목록 로드 ───────────────────────────────────────
   useEffect(() => {
@@ -70,6 +143,8 @@ export default function InflowEnvironment() {
   useEffect(() => {
     if (!mallId || !selectedEvent) {
       setUrls([]);
+      setUrlOptions([]);
+      setUrlMap(new Map());
       setSelectedUrl(null);
       setMinDate(null);
       return;
@@ -78,12 +153,35 @@ export default function InflowEnvironment() {
     // URL 목록
     api.get(`/api/${mallId}/analytics/${selectedEvent}/urls`)
       .then(res => {
-        const list = res.data || [];
+        const list = Array.isArray(res.data) ? res.data : [];
         setUrls(list);
-        setSelectedUrl(list[0] || null);
+
+        // normalized map 생성
+        const normalizedMap = new Map();
+        for (const orig of list) {
+          const n = normalizePath(orig);
+          if (!normalizedMap.has(n)) normalizedMap.set(n, [orig]);
+          else normalizedMap.get(n).push(orig);
+        }
+
+        // options 생성: label은 "/test1.html (2)" 같이 보이고, value는 정규화된 값,
+        // title에 원본을 join 해두면 브라우저 툴팁으로 확인 가능
+        const options = Array.from(normalizedMap.entries()).map(([norm, originals]) => {
+          const count = originals.length;
+          const label = count > 1 ? `${norm} (${count})` : norm;
+          return { label, value: norm, title: originals.join('\n') };
+        });
+
+        setUrlOptions(options);
+        setUrlMap(normalizedMap);
+        setSelectedUrl(options.length ? options[0].value : null);
       })
       .catch(() => {
         message.error('URL 목록을 불러오지 못했습니다.');
+        setUrls([]);
+        setUrlOptions([]);
+        setUrlMap(new Map());
+        setSelectedUrl(null);
       });
 
     // 이벤트 생성일로 최소 날짜 초기화
@@ -95,37 +193,89 @@ export default function InflowEnvironment() {
     }
   }, [mallId, selectedEvent, events]);
 
-  // ─── 4) 데이터 조회 함수 ───────────────────────────────────────
+  // ─── helper: devices-by-date 응답 병합 (date+device 기준 합산) ─────────
+  const mergeDevicesByDate = (responsesArray) => {
+    // responsesArray: array of arrays (each inner is [{date, device, count}, ...])
+    const map = new Map(); // key: date -> { device -> count }
+    responsesArray.forEach(arr => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach(rec => {
+        const date = rec.date;
+        const device = rec.device || rec.device_type || rec.deviceType || 'Unknown';
+        const count = rec.count || 0;
+        if (!map.has(date)) map.set(date, new Map());
+        const devMap = map.get(date);
+        devMap.set(device, (devMap.get(device) || 0) + count);
+      });
+    });
+
+    // convert to a map-of-maps structure kept as-is for lookups
+    return map; // Map { date => Map { device => count } }
+  };
+
+  // ─── 4) 데이터 조회 함수 (후보 URL 여러개로 시도해서 합산) ───────────────────────
   const fetchData = useCallback(async () => {
     if (!mallId || !selectedEvent || !selectedUrl) return;
     setLoading(true);
 
     const [start, end] = range.map(d => d.format('YYYY-MM-DD'));
-    const params = {
-      start_date: `${start}T00:00:00+09:00`,
-      end_date:   `${end}T23:59:59.999+09:00`,
-      url:        selectedUrl,
-    };
-
     try {
-      // 디바이스 분포 (pie)
-      const devRes = await api.get(
-        `/api/${mallId}/analytics/${selectedEvent}/devices`,
-        { params }
+      const candidates = buildUrlCandidates(selectedUrl);
+      if (candidates.length === 0) candidates.push(selectedUrl);
+
+      // 1) devices (pie) — 후보 각각 호출해서 합산
+      const devPromises = candidates.map(candidate =>
+        api.get(`/api/${mallId}/analytics/${selectedEvent}/devices`, {
+          params: {
+            start_date: `${start}T00:00:00+09:00`,
+            end_date:   `${end}T23:59:59.999+09:00`,
+            url:        candidate
+          }
+        })
+        .then(res => Array.isArray(res.data) ? res.data : [])
+        .catch(err => {
+          console.warn('devices failed for', candidate, err && err.message);
+          return [];
+        })
       );
-      const rawPie = Array.isArray(devRes.data) ? devRes.data : [];
+
+      // 2) devices-by-date (line) — 후보 각각 호출
+      const linePromises = candidates.map(candidate =>
+        api.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`, {
+          params: {
+            start_date: `${start}T00:00:00+09:00`,
+            end_date:   `${end}T23:59:59.999+09:00`,
+            url:        candidate
+          }
+        })
+        .then(res => Array.isArray(res.data) ? res.data : [])
+        .catch(err => {
+          console.warn('devices-by-date failed for', candidate, err && err.message);
+          return [];
+        })
+      );
+
+      const [devResultsArr, lineResultsArr] = await Promise.all([
+        Promise.all(devPromises), Promise.all(linePromises)
+      ]);
+      // devResultsArr: array of arrays; flatten and sum by device_type
+      const flatDev = devResultsArr.flat();
+      const deviceCountMap = new Map();
+      flatDev.forEach(r => {
+        const type = r.device_type || r.device || r.deviceType || 'Unknown';
+        const cnt = r.count || 0;
+        deviceCountMap.set(type, (deviceCountMap.get(type) || 0) + cnt);
+      });
+
       const allDevices = ['PC', 'Android', 'iOS'];
       setPieData(allDevices.map(dev => ({
-        name:  dev,
-        value: rawPie.find(r => r.device_type === dev)?.count || 0,
+        name: dev,
+        value: deviceCountMap.get(dev) || 0
       })));
 
-      // 날짜별 디바이스 유입 (line)
-      const lineRes = await api.get(
-        `/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,
-        { params }
-      );
-      const rawLine = Array.isArray(lineRes.data) ? lineRes.data : [];
+      // line: merge responses by date+device
+      const flatLine = lineResultsArr.flat();
+      const dateDeviceMap = mergeDevicesByDate([flatLine]); // returns Map(date -> Map(device->count))
 
       // 날짜 축 생성
       const dates = [];
@@ -136,14 +286,14 @@ export default function InflowEnvironment() {
         cur = cur.add(1, 'day');
       }
 
-      // series 구성
+      // series 구성: 각 디바이스별로 dates 순서에 맞춰 count 채우기
       const series = allDevices.map(dev => ({
         name: dev,
         type: 'line',
         data: dates.map(d => {
-          const rec = rawLine.find(r => r.date === d && r.device === dev);
-          return rec ? rec.count : 0;
-        }),
+          const devMap = dateDeviceMap.get(d);
+          return devMap ? (devMap.get(dev) || 0) : 0;
+        })
       }));
 
       setLineData({ dates, devices: allDevices, series });
@@ -153,7 +303,7 @@ export default function InflowEnvironment() {
     } finally {
       setLoading(false);
     }
-  }, [mallId, selectedEvent, selectedUrl, range]);
+  }, [mallId, selectedEvent, selectedUrl, range, urlMap]);
 
   // ─── 5) 자동 조회 트리거 ───────────────────────────────────────
   useEffect(() => {
@@ -217,11 +367,20 @@ export default function InflowEnvironment() {
           />
           <Select
             placeholder="페이지 선택"
-            options={urls.map(u => ({ label: u, value: u }))}
+            options={urlOptions}
             value={selectedUrl}
             onChange={setSelectedUrl}
             style={{ width: isMobile ? '100%' : 240 }}
             allowClear
+            showSearch
+            optionLabelProp="value"
+            filterOption={(input, option) => {
+              const val = (option?.value || '').toString().toLowerCase();
+              const lab = (option?.label || '').toString().toLowerCase();
+              const title = (option?.title || '').toString().toLowerCase();
+              const needle = (input || '').toLowerCase();
+              return val.includes(needle) || lab.includes(needle) || title.includes(needle);
+            }}
           />
 
           {isMobile ? (
