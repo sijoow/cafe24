@@ -28,14 +28,16 @@ export default function Redirect() {
         console.log('[REDIRECT] /api/:mallId/mall response', data);
 
         if (data && data.installed) {
-          // 이미 설치된 앱: 사용자정보 저장 후 홈으로
+          // 이미 설치된 앱: 사용자정보 덮어쓰기
           localStorage.setItem('mallId', data.mallId || mallId);
           if (data.userId) localStorage.setItem('userId', data.userId);
           if (data.userName) localStorage.setItem('userName', data.userName);
+
+          // 홈으로 이동
           navigate('/', { replace: true });
           return;
         } else {
-          // 미설치: 서버의 /install/:mallId 로 이동 -> 서버가 카페24 권한 URL로 redirect
+          // 미설치: 설치(권한요청) 흐름으로 보냄
           const base = process.env.REACT_APP_API_BASE_URL || window.location.origin;
           window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
           return;
