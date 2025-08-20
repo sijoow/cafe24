@@ -1,4 +1,4 @@
-// src/pages/Redirect.jsx
+// src/pages/Redirect.jsx (수정본 — installAttempt 플래그 추가)
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../axios';
@@ -11,48 +11,51 @@ export default function Redirect() {
     (async () => {
       const params = new URLSearchParams(search);
       const mallId = params.get('mall_id') || params.get('state');
-
       if (!mallId) {
         console.error('mall_id가 없습니다');
         navigate('/', { replace: true });
         return;
       }
 
-      // (1) 로컬에 저장
       localStorage.setItem('mallId', mallId);
 
       try {
-        // (2) 백엔드에 설치정보 요청
         const resp = await api.get(`/api/${mallId}/mall`);
         const data = resp.data;
-        console.log('[REDIRECT] /api/:mallId/mall response', data);
+        console.log('[REDIRECT] mall check', data);
 
         if (data && data.installed) {
-          // 이미 설치된 앱: 사용자정보 덮어쓰기
-          localStorage.setItem('mallId', data.mallId || mallId);
           if (data.userId) localStorage.setItem('userId', data.userId);
           if (data.userName) localStorage.setItem('userName', data.userName);
-
-          // 홈으로 이동
           navigate('/', { replace: true });
           return;
         } else {
-          // 미설치: 설치(권한요청) 흐름으로 보냄
-          const base =
-            process.env.REACT_APP_API_BASE_URL ||
-            'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
-          // 서버의 /install/:mallId로 이동 -> 서버가 카페24 권한 URL로 redirect 해줄 것
-          window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
-          return;
+          // 설치되지 않았음 -> 한 번만 install로 보냄 (무한루프 방지)
+          const attempted = localStorage.getItem(`installAttempt_${mallId}`);
+          const now = Date.now();
+          if (!attempted || now - attempted > 1000 * 60 * 5) { // 5분 이내 재시도 막기
+            localStorage.setItem(`installAttempt_${mallId}`, String(now));
+            const base = process.env.REACT_APP_API_BASE_URL || 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+            window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
+            return;
+          } else {
+            // 이미 시도한 상태라면 사용자에게 안내 페이지로 보내기
+            navigate('/', { replace: true });
+            return;
+          }
         }
       } catch (err) {
         console.warn('[REDIRECT] mall check failed', err);
-
-        // 네트워크/서버 에러도 설치 흐름으로 유도 (혹은 에러 페이지로)
-        const base =
-          process.env.REACT_APP_API_BASE_URL ||
-          'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
-        window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
+        // 네트워크 문제 등은 설치 재시도 유도 (한 번만)
+        const attempted = localStorage.getItem(`installAttempt_${mallId}`);
+        const now = Date.now();
+        if (!attempted || now - attempted > 1000 * 60 * 5) {
+          localStorage.setItem(`installAttempt_${mallId}`, String(now));
+          const base = process.env.REACT_APP_API_BASE_URL || 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+          window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
+        } else {
+          navigate('/', { replace: true });
+        }
       }
     })();
   }, [search, navigate]);
