@@ -11,6 +11,9 @@ export default function Redirect() {
     (async () => {
       const params = new URLSearchParams(search);
       const mallId = params.get('mall_id') || params.get('state');
+      const installedFlag = params.get('installed');
+      const authError = params.get('auth_error');
+      const authErrorDesc = params.get('auth_error_description');
 
       if (!mallId) {
         console.error('mall_id가 없습니다');
@@ -18,26 +21,36 @@ export default function Redirect() {
         return;
       }
 
-      // (1) 로컬에 저장
-      localStorage.setItem('mallId', mallId);
+      // 1) 콜백으로부터 "설치 완료" 플래그가 있는 경우: 바로 처리 (DB 조회 생략)
+      if (installedFlag === '1') {
+        localStorage.setItem('mallId', mallId);
+        // (선택) 알림/토스트: 설치 완료
+        console.log('[REDIRECT] installation success for', mallId);
+        navigate('/', { replace: true });
+        return;
+      }
 
+      // 2) 콜백으로부터 에러가 온 경우: 에러 페이지로 (또는 홈으로)
+      if (authError) {
+        console.warn('[REDIRECT] auth error', authError, authErrorDesc);
+        // 여기서 /?auth_error=... 로 리다이렉트하거나 에러 페이지로 보냅니다.
+        navigate(`/?auth_error=${encodeURIComponent(authError)}&auth_error_description=${encodeURIComponent(authErrorDesc||'')}`, { replace: true });
+        return;
+      }
+
+      // 3) 일반적인 flow: 설치여부 확인 (서버가 설치 URL을 내려주면 설치흐름으로 보냄)
       try {
-        // (2) 백엔드에 설치정보 요청
+        localStorage.setItem('mallId', mallId);
         const resp = await api.get(`/api/${mallId}/mall`);
         const data = resp.data;
         console.log('[REDIRECT] /api/:mallId/mall response', data);
 
         if (data && data.installed) {
-          // 이미 설치된 앱: 사용자정보 덮어쓰기
-          localStorage.setItem('mallId', data.mallId || mallId);
           if (data.userId) localStorage.setItem('userId', data.userId);
           if (data.userName) localStorage.setItem('userName', data.userName);
-
-          // 홈으로 이동
           navigate('/', { replace: true });
           return;
         } else {
-          // 미설치: 설치(권한요청) 흐름으로 보냄
           const base = process.env.REACT_APP_API_BASE_URL || window.location.origin;
           window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
           return;
