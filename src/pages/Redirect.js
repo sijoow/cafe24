@@ -1,64 +1,58 @@
-// src/pages/Redirect.jsx (수정본 — installAttempt 플래그 추가)
-import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../axios';
+// src/pages/Redirect.jsx
+import React, { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import axios from '../axios'
 
 export default function Redirect() {
-  const navigate = useNavigate();
-  const { search } = useLocation();
+  const navigate = useNavigate()
+  const { search } = useLocation()
 
   useEffect(() => {
     (async () => {
-      const params = new URLSearchParams(search);
-      const mallId = params.get('mall_id') || params.get('state');
-      if (!mallId) {
-        console.error('mall_id가 없습니다');
-        navigate('/', { replace: true });
-        return;
-      }
-
-      localStorage.setItem('mallId', mallId);
-
       try {
-        const resp = await api.get(`/api/${mallId}/mall`);
-        const data = resp.data;
-        console.log('[REDIRECT] mall check', data);
-
-        if (data && data.installed) {
-          if (data.userId) localStorage.setItem('userId', data.userId);
-          if (data.userName) localStorage.setItem('userName', data.userName);
-          navigate('/', { replace: true });
-          return;
-        } else {
-          // 설치되지 않았음 -> 한 번만 install로 보냄 (무한루프 방지)
-          const attempted = localStorage.getItem(`installAttempt_${mallId}`);
-          const now = Date.now();
-          if (!attempted || now - attempted > 1000 * 60 * 5) { // 5분 이내 재시도 막기
-            localStorage.setItem(`installAttempt_${mallId}`, String(now));
-            const base = process.env.REACT_APP_API_BASE_URL || 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
-            window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
-            return;
-          } else {
-            // 이미 시도한 상태라면 사용자에게 안내 페이지로 보내기
-            navigate('/', { replace: true });
-            return;
-          }
+        const params = new URLSearchParams(search)
+        // cafe24에서 오는 쿼리들: mall_id 또는 state(설치시 state로 mallId 보낸 경우)
+        const mallId = params.get('mall_id') || params.get('state')
+        if (!mallId) {
+          console.error('mall_id가 없습니다')
+          return navigate('/', { replace: true })
         }
+
+        // (1) 우선 localStorage에 기록 (프론트에서 바로 참조 가능)
+        localStorage.setItem('mallId', mallId)
+
+        // (2) 백엔드에 설치 상태 조회
+        const resp = await axios.get(`/api/${mallId}/mall`)
+        const data = resp.data
+
+        if (!data) {
+          // 안전망: 응답이 없으면 대시보드로
+          return navigate('/', { replace: true })
+        }
+
+        if (data.installed === false && data.installUrl) {
+          // 설치되어 있지 않음 -> 카페24 설치(권한요청) 페이지로 이동
+          // 새 창이 아니라 현재 창에서 진행해야 카페24 로그인/설치 플로우가 정상 동작합니다.
+          window.location.href = data.installUrl
+          return
+        }
+
+        // 설치되어 있다면, 백엔드가 알려준 값(있다면)으로 localStorage 갱신
+        if (data.installed === true) {
+          if (data.mallId)   localStorage.setItem('mallId',   data.mallId)
+          if (data.userId)   localStorage.setItem('userId',   data.userId)
+          if (data.userName) localStorage.setItem('userName', data.userName)
+        }
+
+        // 완료 후 대시보드로 리다이렉트
+        navigate('/', { replace: true })
       } catch (err) {
-        console.warn('[REDIRECT] mall check failed', err);
-        // 네트워크 문제 등은 설치 재시도 유도 (한 번만)
-        const attempted = localStorage.getItem(`installAttempt_${mallId}`);
-        const now = Date.now();
-        if (!attempted || now - attempted > 1000 * 60 * 5) {
-          localStorage.setItem(`installAttempt_${mallId}`, String(now));
-          const base = process.env.REACT_APP_API_BASE_URL || 'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
-          window.location.href = `${base.replace(/\/$/, '')}/install/${mallId}`;
-        } else {
-          navigate('/', { replace: true });
-        }
+        console.warn('Redirect 처리 중 오류', err)
+        // fallback: 대시보드로
+        navigate('/', { replace: true })
       }
-    })();
-  }, [search, navigate]);
+    })()
+  }, [search, navigate])
 
-  return null;
+  return null
 }
