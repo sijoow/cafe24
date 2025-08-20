@@ -1,47 +1,51 @@
 // src/axios.js
-import axios from 'axios'
+import axios from 'axios';
 
-// 1) Axios 인스턴스 생성
+const API_BASE =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app';
+
 const api = axios.create({
-  baseURL:
-    process.env.REACT_APP_API_BASE_URL ||
-    'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app',
+  baseURL: API_BASE,
   timeout: 10000,
   headers: {
-    // 기본 JSON 헤더는 Accept만 남깁니다.
     Accept: 'application/json',
   },
-})
+});
 
-// 2) 요청 인터셉터: localStorage에 저장된 mallId/userId를 헤더에 자동 추가
+// 요청 인터셉터
 api.interceptors.request.use(
   config => {
-    const mallId = localStorage.getItem('mallId')
-    const userId = localStorage.getItem('userId')
+    const mallId = localStorage.getItem('mallId');
+    const userId = localStorage.getItem('userId');
 
-    if (mallId) config.headers['X-Mall-Id'] = mallId
-    if (userId) config.headers['X-User-Id'] = userId
+    if (mallId) config.headers['X-Mall-Id'] = mallId;
+    if (userId) config.headers['X-User-Id'] = userId;
 
-    // FormData 업로드 시 기본 Content-Type 삭제 → axios가 올바른 multipart 헤더를 세팅
     if (config.data instanceof FormData) {
-      delete config.headers['Content-Type']
+      delete config.headers['Content-Type'];
     }
 
-    return config
+    // 디버그 로그 (개발시만)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[API REQ]', config.method?.toUpperCase(), config.baseURL + (config.url||''), config);
+    }
+
+    return config;
   },
   error => Promise.reject(error)
-)
+);
 
-// 3) 응답 인터셉터: 공통 에러 처리 (예: 401 Unauthorized → 로그인 페이지로 이동)
+// 응답 인터셉터
 api.interceptors.response.use(
   response => response,
   error => {
-    const status = error.response?.status
+    const status = error.response?.status;
     if (status === 401) {
-      window.location.href = '/login'
+      window.location.href = '/login';
     }
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
-export default api
+export default api;
