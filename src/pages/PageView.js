@@ -33,7 +33,7 @@ export default function StatEventVisitors() {
     } else {
       const stored = localStorage.getItem('mallId');
       if (stored) setMallId(stored);
-      else message.error('mall_id 파라미터가 없습니다.');
+      // else message.error('mall_id 파라미터가 없습니다.');
     }
   }, []);
 
