@@ -539,6 +539,12 @@ export default function EventCreate() {
   // 등록
   const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async () => {
+    // mallId 체크: 없으면 바로 차단
+    if (!mallId) {
+      msgApi.error('쇼핑몰 ID(mallId)가 설정되어 있지 않습니다. 앱 설치 또는 URL의 mall_id 파라미터를 확인하세요.');
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
     try {
@@ -1208,7 +1214,15 @@ export default function EventCreate() {
             )}
 
             <div style={{ textAlign: 'center', marginTop: 32 }}>
-              <Button type="primary" size="large" onClick={handleSubmit} block={isMobile} loading={submitting} disabled={submitting}>
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleSubmit}
+                block={isMobile}
+                loading={submitting}
+                disabled={submitting || !mallId}
+                title={!mallId ? 'mall_id가 없으면 등록할 수 없습니다.' : undefined}
+              >
                 이벤트 등록
               </Button>
             </div>
