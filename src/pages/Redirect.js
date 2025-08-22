@@ -1,45 +1,43 @@
-// (A) /redirect -> /auth/callback 위임 (카페24가 redirect로 보낼 수도 있으니 안전하게 위임)
-app.get('/redirect', (req, res) => {
-  const qs = new URLSearchParams(req.query).toString();
-  return res.redirect(`/auth/callback?${qs}`);
-});
+// src/pages/Redirect.jsx
+import React, { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import api from '../axios'
 
-// (B) 설치 상태 확인 API
-app.get('/api/:mallId/mall', async (req, res) => {
-  const { mallId } = req.params;
-  try {
-    const tokenDoc = await db.collection('token').findOne({ mallId });
+export default function Redirect() {
+  const navigate = useNavigate()
+  const { search } = useLocation()
 
-    if (tokenDoc && tokenDoc.accessToken) {
-      return res.json({
-        installed: true,
-        mallId,
-        userId: tokenDoc.userId || null,
-        userName: tokenDoc.userName || null
-      });
+  useEffect(() => {
+    const params = new URLSearchParams(search)
+    const mallId = params.get('mall_id') || params.get('state') || params.get('mallId')
+    if (!mallId) {
+      console.error('mall_id가 없습니다')
+      return navigate('/', { replace: true })
     }
 
-    // 미설치 -> installUrl 생성
-    const scopes = process.env.CAFE24_SCOPES || 'mall.read_category,mall.read_product,mall.read_analytics';
-    const redirectUri = `${process.env.APP_URL}/auth/callback`;
+    localStorage.setItem('mallId', mallId)
 
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: process.env.CAFE24_CLIENT_ID,
-      redirect_uri: redirectUri,
-      scope: scopes,
-      state: mallId,
-    }).toString();
+    // 백엔드에 설치여부 확인
+    api.get(`/api/${mallId}/mall`)
+      .then(({ data }) => {
+        if (data.installed) {
+          if (data.userId) localStorage.setItem('userId', data.userId)
+          if (data.userName) localStorage.setItem('userName', data.userName)
+          navigate('/', { replace: true })
+        } else {
+          if (data.installUrl) {
+            window.location.href = data.installUrl  // 전체 페이지 네비게이션
+          } else {
+            console.error('installUrl이 응답에 없습니다', data)
+            navigate('/', { replace: true })
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('mall 확인 실패', err)
+        navigate('/', { replace: true })
+      })
+  }, [search, navigate])
 
-    const installUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize?${params}`;
-
-    return res.json({
-      installed: false,
-      mallId,
-      installUrl
-    });
-  } catch (err) {
-    console.error('[MALL INFO ERROR]', err);
-    return res.status(500).json({ error: 'mall info fetch failed' });
-  }
-});
+  return null
+}
