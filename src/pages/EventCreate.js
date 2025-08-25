@@ -89,7 +89,7 @@ export default function EventCreate() {
     if (current === 0) setTimeout(() => titleRef.current?.focus(), 0);
   }, [current]);
 
-  // ---------- 여기를 수정한 next()로 교체했습니다 ----------
+  // ---------- next() 변경 포함 ----------
   const next = () => {
     if (current === 0) {
       if (!title.trim()) setTitle('제목없음');
@@ -97,19 +97,14 @@ export default function EventCreate() {
     } else if (current === 1 && blocks.length === 0) {
       msgApi.warning('이미지를 추가하세요.');
     } else if (current === 2) {
-      // registerMode 선택 확인
       if (!registerMode) {
         msgApi.warning('상품 등록 방식을 선택하세요.');
         return;
       }
-
-      // registerMode === 'none' 인 경우 상품 관련 검사 없이 진행 허용
       if (registerMode === 'none') {
         setCurrent(3);
         return;
       }
-
-      // 공통: 그리드/레이아웃 선택 체크 (카테고리/직접 공통)
       if (!gridSize) {
         msgApi.warning('그리드 사이즈를 선택해주세요.');
         return;
@@ -119,7 +114,6 @@ export default function EventCreate() {
         return;
       }
 
-      // 카테고리 기반 등록 검사
       if (registerMode === 'category') {
         if (layoutType === 'single') {
           if (!singleRoot) {
@@ -129,13 +123,10 @@ export default function EventCreate() {
           setCurrent(3);
           return;
         }
-
-        // layoutType === 'tabs'
         if (tabs.length < 2) {
           msgApi.warning('탭을 두 개 이상 설정하세요.');
           return;
         }
-        // 탭들 중 최소 하나는 대분류가 선택되어 있어야 실제 상품을 노출할 수 있으므로 검사
         const hasAnyTabRoot = tabs.some(t => !!t.root);
         if (!hasAnyTabRoot) {
           msgApi.warning('탭 중 하나 이상의 대분류를 선택하세요.');
@@ -145,7 +136,6 @@ export default function EventCreate() {
         return;
       }
 
-      // 직접 등록 검사
       if (registerMode === 'direct') {
         if (layoutType === 'single') {
           if (!directProducts || directProducts.length === 0) {
@@ -155,8 +145,6 @@ export default function EventCreate() {
           setCurrent(3);
           return;
         }
-
-        // layoutType === 'tabs'
         const totalDirect = Object.values(tabDirectProducts || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
         if (totalDirect === 0) {
           msgApi.warning('탭당 최소 1개 이상의 상품을 등록해주세요.');
@@ -166,14 +154,12 @@ export default function EventCreate() {
         return;
       }
 
-      // 기본 안전장치
       setCurrent(3);
     } else {
       setCurrent(c => c + 1);
     }
   };
   // ------------------------------------------------------------
-
   const prev = () => setCurrent(c => c - 1);
 
   // 제목
@@ -379,16 +365,21 @@ export default function EventCreate() {
   const [tabDirectProducts, setTabDirectProducts] = useState({});
   const [initialSelected, setInitialSelected] = useState([]);
 
-  // 탭
+  // 탭 (gridSize만 보관, itemCount 제거)
   const [tabs, setTabs] = useState([
-    { title: '', root: null, sub: null },
-    { title: '', root: null, sub: null },
+    { title: '', root: null, sub: null, gridSize: 2 },
+    { title: '', root: null, sub: null, gridSize: 2 },
   ]);
   const [activeColor, setActiveColor] = useState('#fe6326');
+
+  // 탭 나열 방식: 한 줄에 몇 개 (값은 4 또는 2) — 기본 4
+  const [tabsPerRow, setTabsPerRow] = useState(4);
+
   const addTab = () => {
     if (tabs.length >= 4) return;
-    setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
+    setTabs(ts => [...ts, { title: '', root: null, sub: null, gridSize: gridSize || 2 }]);
   };
+
   const updateTab = (i, key, val) => {
     setTabs(ts => {
       const a = [...ts];
@@ -397,7 +388,7 @@ export default function EventCreate() {
     });
   };
 
-  // 탭 삭제 (3개 이상일 때 허용)
+  // 탭 삭제 (재색인 tabDirectProducts 유지)
   const deleteTab = (index) => {
     setTabs(prevTabs => {
       if (prevTabs.length <= 2) {
@@ -405,7 +396,6 @@ export default function EventCreate() {
         return prevTabs;
       }
       const newTabs = prevTabs.filter((_, i) => i !== index);
-      // reindex tabDirectProducts
       setTabDirectProducts(prev => {
         const next = {};
         const remainingIndices = prevTabs.map((_, i) => i).filter(i => i !== index);
@@ -456,7 +446,7 @@ export default function EventCreate() {
     setMorePrdVisible(true);
   };
 
-  // 유튜브 모달
+  // YouTube 모달
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [videoForm] = Form.useForm();
 
@@ -465,7 +455,6 @@ export default function EventCreate() {
   const [textForm] = Form.useForm();
 
   const openCreateText = () => {
-    // 이미지가 하나도 없으면 제한
     const hasImage = blocks.some(b => b.type === 'image');
     if (!hasImage) {
       msgApi.info('이미지 추가 후 이용 가능');
@@ -529,22 +518,17 @@ export default function EventCreate() {
       setLayoutType(null);
       setDirectProducts([]);
       setTabDirectProducts({});
-      setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+      setTabs([{ title: '', root: null, sub: null, gridSize: 2 }, { title: '', root: null, sub: null, gridSize: 2 }]);
       setSingleRoot(null);
       setSingleSub(null);
       setActiveColor('#fe6326');
+      setTabsPerRow(4);
     }
   };
 
   // 등록
   const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async () => {
-    // mallId 체크: 없으면 바로 차단
-    if (!mallId) {
-      msgApi.error('쇼핑몰 ID(mallId)가 설정되어 있지 않습니다. 앱 설치 또는 URL의 mall_id 파라미터를 확인하세요.');
-      return;
-    }
-
     if (submitting) return;
     setSubmitting(true);
     try {
@@ -602,7 +586,7 @@ export default function EventCreate() {
         gridSize,
         layoutType,
         classification: {
-          ...(layoutType === 'single' ? { root: singleRoot, sub: singleSub } : { tabs, activeColor }),
+          ...(layoutType === 'single' ? { root: singleRoot, sub: singleSub } : { tabs, activeColor, tabsPerRow }),
           registerMode,
           ...(registerMode === 'direct' ? { directProducts, tabDirectProducts } : {}),
         },
@@ -618,7 +602,7 @@ export default function EventCreate() {
       }
     } catch (e) {
       console.error(e);
-      msgApi.error('게시판 생성 갯수 초과 최대 10개까지의 게시판물만 등록이 가능합니다.');
+      msgApi.error('게시판 생성 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -626,6 +610,7 @@ export default function EventCreate() {
 
   // 상품 그리드 헬퍼
   function renderGrid(cols) {
+    const count = cols * cols;
     return (
       <div
         style={{
@@ -636,7 +621,7 @@ export default function EventCreate() {
           margin: '24px auto',
         }}
       >
-        {Array.from({ length: cols * cols }).map((_, i) => (
+        {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
             style={{
@@ -669,6 +654,14 @@ export default function EventCreate() {
     const q = params.toString();
     return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
   };
+
+  // Step4 미리보기에서 활성화 탭 관리
+  const [activePreviewTab, setActivePreviewTab] = useState(0);
+
+  useEffect(() => {
+    // 탭 개수 변화 시 activePreviewTab 안전화
+    if (activePreviewTab >= tabs.length) setActivePreviewTab(0);
+  }, [tabs.length, activePreviewTab]);
 
   return (
     <>
@@ -778,7 +771,6 @@ export default function EventCreate() {
                               className={`thumb-item ${b.id === selectedId ? 'active' : ''}`}
                               onPointerUp={() => {
                                 if (draggingRef.current) return;
-                                // 썸네일 클릭 시 전체보기 해제 + 편집 모드 전환
                                 if (showAllPreview) setShowAllPreview(false);
                                 setSelectedId(b.id);
                               }}
@@ -918,7 +910,6 @@ export default function EventCreate() {
                           allowFullScreen
                         />
                       </div>
-                      {/* autoplay 즉시 반영 체크박스 */}
                       <div style={{ marginTop: 8 }}>
                         <label style={{ marginRight: 12 }}>
                           <input
@@ -971,7 +962,7 @@ export default function EventCreate() {
 
         {/* Step 3 */}
         {current === 2 && (
-          <div style={{ maxWidth: 400 }}>
+          <div style={{ maxWidth: 720 }}>
             <h4>상품 등록 방식</h4>
             <Segmented
               options={[
@@ -985,18 +976,19 @@ export default function EventCreate() {
               style={{ marginBottom: 24 }}
             />
 
+            {/* 공통 그리드 사이즈 (기본) */}
+            <h4>그리드 사이즈 (기본)</h4>
+            <Space>
+              {[2, 3, 4].map(n => (
+                <Button key={n} type={gridSize === n ? 'primary' : 'default'} onClick={() => setGridSize(n)}>
+                  {n}×{n}
+                </Button>
+              ))}
+            </Space>
+
             {/* 카테고리 */}
             {registerMode === 'category' && (
               <>
-                <h4>그리드 사이즈</h4>
-                <Space>
-                  {[2, 3, 4].map(n => (
-                    <Button key={n} type={gridSize === n ? 'primary' : 'default'} onClick={() => setGridSize(n)}>
-                      {n}×{n}
-                    </Button>
-                  ))}
-                </Space>
-
                 <h4 style={{ margin: '16px 0' }}>노출 방식</h4>
                 <Segmented
                   options={[
@@ -1008,8 +1000,9 @@ export default function EventCreate() {
                     setLayoutType(val);
                     setSingleRoot(null);
                     setSingleSub(null);
-                    setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+                    setTabs([{ title: '', root: null, sub: null, gridSize: gridSize }, { title: '', root: null, sub: null, gridSize: gridSize }]);
                     setActiveColor('#fe6326');
+                    setTabsPerRow(4);
                   }}
                   block
                 />
@@ -1035,11 +1028,25 @@ export default function EventCreate() {
 
                 {layoutType === 'tabs' && (
                   <>
+                    {/* 탭 나열 옵션: 탭이 4개일 때만 노출 */}
+                    {tabs.length === 4 && (
+                      <div style={{ marginTop: 12, marginBottom: 12 }}>
+                        <span style={{ marginRight: 8 }}>탭 나열:</span>
+                        <Select value={tabsPerRow} onChange={v => setTabsPerRow(v)} style={{ width: 160 }}>
+                          <Select.Option value={4}>한 줄 (1줄에 4개)</Select.Option>
+                          <Select.Option value={2}>두 줄 (1줄에 2개씩)</Select.Option>
+                        </Select>
+                        <span style={{ marginLeft: 12, color: '#888' }}>
+                          탭이 4개일 때만 적용됩니다. (예: 두 줄 선택 시 2개씩 x 2줄)
+                        </span>
+                      </div>
+                    )}
+
                     {tabs.map((t, i) => (
-                      <Space key={i} size="middle" style={{ marginTop: 16 }}>
+                      <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12 }}>
                         <Input
                           placeholder={`탭 ${i + 1} 제목`}
-                          style={{ width: 120 }}
+                          style={{ width: 160 }}
                           value={t.title}
                           onChange={e => updateTab(i, 'title', e.target.value)}
                         />
@@ -1060,12 +1067,26 @@ export default function EventCreate() {
                             ))}
                         </Select>
 
-                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
+                        {/* 탭별 그리드는 숫자 입력이 아니라 선택만 (기본은 상단 gridSize 사용) */}
+                        <Select value={t.gridSize} onChange={v => updateTab(i, 'gridSize', v)} style={{ width: 100 }}>
+                          <Select.Option value={2}>2×2</Select.Option>
+                          <Select.Option value={3}>3×3</Select.Option>
+                          <Select.Option value={4}>4×4</Select.Option>
+                        </Select>
+
+                        <Button
+                          type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'}
+                          onClick={() => openMorePrd('tab', i)}
+                        >
+                          {(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}
+                        </Button>
+
                         {tabs.length > 2 && (
                           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
                         )}
-                      </Space>
+                      </div>
                     ))}
+
                     <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}>
                       + 탭 추가
                     </Button>
@@ -1086,15 +1107,6 @@ export default function EventCreate() {
             {/* 직접 등록 */}
             {registerMode === 'direct' && (
               <>
-                <h4>그리드 사이즈</h4>
-                <Space>
-                  {[2, 3, 4].map(n => (
-                    <Button key={n} type={gridSize === n ? 'primary' : 'default'} onClick={() => setGridSize(n)}>
-                      {n}×{n}
-                    </Button>
-                  ))}
-                </Space>
-
                 <h4 style={{ margin: '16px 0' }}>노출 방식</h4>
                 <Segmented
                   options={[
@@ -1104,7 +1116,8 @@ export default function EventCreate() {
                   value={layoutType}
                   onChange={val => {
                     setLayoutType(val);
-                    setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+                    setTabs([{ title: '', root: null, sub: null, gridSize: gridSize }, { title: '', root: null, sub: null, gridSize: gridSize }]);
+                    setTabsPerRow(4);
                   }}
                   block
                 />
@@ -1121,11 +1134,24 @@ export default function EventCreate() {
 
                 {layoutType === 'tabs' && (
                   <>
+                    {tabs.length === 4 && (
+                      <div style={{ marginTop: 12, marginBottom: 12 }}>
+                        <span style={{ marginRight: 8 }}>탭 나열:</span>
+                        <Select value={tabsPerRow} onChange={v => setTabsPerRow(v)} style={{ width: 160 }}>
+                          <Select.Option value={4}>한 줄 (1줄에 4개)</Select.Option>
+                          <Select.Option value={2}>두 줄 (1줄에 2개씩)</Select.Option>
+                        </Select>
+                        <span style={{ marginLeft: 12, color: '#888' }}>
+                          탭이 4개일 때만 적용됩니다. (예: 두 줄 선택 시 2개씩 x 2줄)
+                        </span>
+                      </div>
+                    )}
+
                     {tabs.map((t, i) => (
-                      <Space key={i} size="middle" style={{ marginTop: 16 }}>
+                      <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12 }}>
                         <Input
                           placeholder={`탭 ${i + 1} 제목`}
-                          style={{ width: 120 }}
+                          style={{ width: 160 }}
                           value={t.title}
                           onChange={e => updateTab(i, 'title', e.target.value)}
                         />
@@ -1133,16 +1159,13 @@ export default function EventCreate() {
                           type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'}
                           onClick={() => openMorePrd('tab', i)}
                         >
-                          {(tabDirectProducts[i] || []).length
-                            ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨`
-                            : '상품 직접 등록'}
+                          {(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}
                         </Button>
 
-                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
                         {tabs.length > 2 && (
                           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
                         )}
-                      </Space>
+                      </div>
                     ))}
                     <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}>
                       + 탭 추가
@@ -1200,29 +1223,36 @@ export default function EventCreate() {
 
             {/* registerMode === 'none' 인 경우 상품관련 미리보기/그리드 숨김 */}
             {registerMode !== 'none' && layoutType === 'single' && <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>}
+
             {registerMode !== 'none' && layoutType === 'tabs' && (
               <div style={{ margin: '24px auto', maxWidth: 800 }}>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {/* 탭 버튼들을 grid로 배치 (tabsPerRow 적용: 단, tabs.length === 4 일 때만 tabsPerRow 의미) */}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tabs.length === 4 ? tabsPerRow : Math.max(tabs.length, 1)}, 1fr)`, gap: 8, marginBottom: 16 }}>
                   {tabs.map((t, i) => (
-                    <Button key={i} style={{ flex: 1, background: i === 0 ? activeColor : undefined, color: i === 0 ? '#fff' : undefined }}>
+                    <Button
+                      key={i}
+                      onClick={() => setActivePreviewTab(i)}
+                      style={{
+                        width: '100%',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        background: i === activePreviewTab ? activeColor : undefined,
+                        color: i === activePreviewTab ? '#fff' : undefined,
+                      }}
+                    >
                       {t.title || `탭${i + 1}`}
                     </Button>
                   ))}
                 </div>
-                {renderGrid(gridSize)}
+
+                {/* 현재 활성 탭의 gridSize 적용 (탭별로 선택하지 않으면 전역 gridSize 사용) */}
+                {tabs[activePreviewTab] && renderGrid(tabs[activePreviewTab].gridSize || gridSize)}
               </div>
             )}
 
             <div style={{ textAlign: 'center', marginTop: 32 }}>
-              <Button
-                type="primary"
-                size="large"
-                onClick={handleSubmit}
-                block={isMobile}
-                loading={submitting}
-                disabled={submitting || !mallId}
-                title={!mallId ? 'mall_id가 없으면 등록할 수 없습니다.' : undefined}
-              >
+              <Button type="primary" size="large" onClick={handleSubmit} block={isMobile} loading={submitting} disabled={submitting}>
                 이벤트 등록
               </Button>
             </div>
