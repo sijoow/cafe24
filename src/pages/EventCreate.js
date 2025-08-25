@@ -16,7 +16,6 @@ import {
   Tag,
   Grid,
   Alert,
-  InputNumber,
 } from 'antd';
 import {
   InboxOutlined,
@@ -37,7 +36,7 @@ import encHex from 'crypto-js/enc-hex';
 const { Step } = Steps;
 const { useBreakpoint } = Grid;
 
-// YouTube id 파서 (unchanged)
+// YouTube id 파서
 function getYouTubeId(input) {
   if (!input) return null;
   if (/^[\w-]{11}$/.test(input)) return input;
@@ -54,6 +53,7 @@ function getYouTubeId(input) {
   return null;
 }
 
+// <br/>용 이스케이프
 const escapeHtml = (s = '') =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -70,6 +70,7 @@ export default function EventCreate() {
   const screens = useBreakpoint();
   const isMobile = !screens.sm;
 
+  // 드래그 중 클릭 무시용
   const draggingRef = useRef(false);
   const getItemStyle = (isDragging, draggableStyle) => ({
     userSelect: 'none',
@@ -88,7 +89,7 @@ export default function EventCreate() {
     if (current === 0) setTimeout(() => titleRef.current?.focus(), 0);
   }, [current]);
 
-  // ---------- next() 변경 포함 ----------
+  // ---------- 여기를 수정한 next()로 교체했습니다 ----------
   const next = () => {
     if (current === 0) {
       if (!title.trim()) setTitle('제목없음');
@@ -96,14 +97,19 @@ export default function EventCreate() {
     } else if (current === 1 && blocks.length === 0) {
       msgApi.warning('이미지를 추가하세요.');
     } else if (current === 2) {
+      // registerMode 선택 확인
       if (!registerMode) {
         msgApi.warning('상품 등록 방식을 선택하세요.');
         return;
       }
+
+      // registerMode === 'none' 인 경우 상품 관련 검사 없이 진행 허용
       if (registerMode === 'none') {
         setCurrent(3);
         return;
       }
+
+      // 공통: 그리드/레이아웃 선택 체크 (카테고리/직접 공통)
       if (!gridSize) {
         msgApi.warning('그리드 사이즈를 선택해주세요.');
         return;
@@ -113,6 +119,7 @@ export default function EventCreate() {
         return;
       }
 
+      // 카테고리 기반 등록 검사
       if (registerMode === 'category') {
         if (layoutType === 'single') {
           if (!singleRoot) {
@@ -122,10 +129,13 @@ export default function EventCreate() {
           setCurrent(3);
           return;
         }
+
+        // layoutType === 'tabs'
         if (tabs.length < 2) {
           msgApi.warning('탭을 두 개 이상 설정하세요.');
           return;
         }
+        // 탭들 중 최소 하나는 대분류가 선택되어 있어야 실제 상품을 노출할 수 있으므로 검사
         const hasAnyTabRoot = tabs.some(t => !!t.root);
         if (!hasAnyTabRoot) {
           msgApi.warning('탭 중 하나 이상의 대분류를 선택하세요.');
@@ -135,6 +145,7 @@ export default function EventCreate() {
         return;
       }
 
+      // 직접 등록 검사
       if (registerMode === 'direct') {
         if (layoutType === 'single') {
           if (!directProducts || directProducts.length === 0) {
@@ -144,6 +155,8 @@ export default function EventCreate() {
           setCurrent(3);
           return;
         }
+
+        // layoutType === 'tabs'
         const totalDirect = Object.values(tabDirectProducts || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
         if (totalDirect === 0) {
           msgApi.warning('탭당 최소 1개 이상의 상품을 등록해주세요.');
@@ -153,23 +166,27 @@ export default function EventCreate() {
         return;
       }
 
+      // 기본 안전장치
       setCurrent(3);
     } else {
       setCurrent(c => c + 1);
     }
   };
   // ------------------------------------------------------------
+
   const prev = () => setCurrent(c => c - 1);
 
   // 제목
   const [title, setTitle] = useState('');
 
-  // 블록들
+  // 블록들 (image / video / text)
   const [blocks, setBlocks] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+
+  // 전체보기 토글
   const [showAllPreview, setShowAllPreview] = useState(false);
 
-  // Upload props (unchanged)
+  // 업로드
   const imgRef = useRef(null);
   const uploadProps = {
     accept: 'image/*',
@@ -196,6 +213,7 @@ export default function EventCreate() {
         setBlocks(prev => {
           const next = [...prev, { id, type: 'image', src, file, hash, regions: [] }];
           setSelectedId(id);
+          // 상세 편집 모드로
           setShowAllPreview(false);
           return next;
         });
@@ -205,6 +223,7 @@ export default function EventCreate() {
     },
   };
 
+  // 드래그 정렬
   const onDragEnd = result => {
     if (!result.destination) return;
     const a = Array.from(blocks);
@@ -216,7 +235,7 @@ export default function EventCreate() {
     });
   };
 
-  // mapping states (unchanged)
+  // 매핑
   const [addingMode, setAddingMode] = useState(false);
   const [addType, setAddType] = useState(null); // 'link' | 'coupon'
   const [pendingRegion, setPendingRegion] = useState(null);
@@ -291,10 +310,11 @@ export default function EventCreate() {
     mapForm.resetFields();
   };
 
-  // 영역 편집/삭제 (unchanged)
+  // 영역 편집/삭제
   const [editingRegion, setEditingRegion] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editForm] = Form.useForm();
+
   const openEditRegion = r => {
     setEditingRegion(r);
     setEditModalVisible(true);
@@ -335,7 +355,7 @@ export default function EventCreate() {
     setEditingRegion(null);
   };
 
-  // 카테고리/레이아웃 (unchanged)
+  // 카테고리/레이아웃
   const [allCats, setAllCats] = useState([]);
   useEffect(() => {
     if (!mallId) return;
@@ -353,27 +373,22 @@ export default function EventCreate() {
   const roots = allCats.filter(c => c.category_depth === 1);
   const subs = allCats.filter(c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot);
 
-  // 등록 방식 (unchanged)
+  // 등록 방식
   const [registerMode, setRegisterMode] = useState('category');
   const [directProducts, setDirectProducts] = useState([]);
   const [tabDirectProducts, setTabDirectProducts] = useState({});
   const [initialSelected, setInitialSelected] = useState([]);
 
-  // 탭: 초기값에 gridSize/itemCount 포함
+  // 탭
   const [tabs, setTabs] = useState([
-    { title: '', root: null, sub: null, gridSize: 2, itemCount: 4 },
-    { title: '', root: null, sub: null, gridSize: 2, itemCount: 4 },
+    { title: '', root: null, sub: null },
+    { title: '', root: null, sub: null },
   ]);
   const [activeColor, setActiveColor] = useState('#fe6326');
-
-  // 탭 나열 방식: 한 줄에 몇개 (1~4) -> 기본 4 (한줄에 4개)
-  const [tabsPerRow, setTabsPerRow] = useState(4);
-
   const addTab = () => {
     if (tabs.length >= 4) return;
-    setTabs(ts => [...ts, { title: '', root: null, sub: null, gridSize: gridSize || 2, itemCount: (gridSize || 2) * (gridSize || 2) }]);
+    setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
   };
-
   const updateTab = (i, key, val) => {
     setTabs(ts => {
       const a = [...ts];
@@ -382,6 +397,7 @@ export default function EventCreate() {
     });
   };
 
+  // 탭 삭제 (3개 이상일 때 허용)
   const deleteTab = (index) => {
     setTabs(prevTabs => {
       if (prevTabs.length <= 2) {
@@ -402,7 +418,7 @@ export default function EventCreate() {
     });
   };
 
-  // 쿠폰 목록 (unchanged)
+  // 쿠폰 목록
   const [couponOptions, setCouponOptions] = useState([]);
   useEffect(() => {
     if (!mallId) return;
@@ -425,7 +441,7 @@ export default function EventCreate() {
     </Tag>
   );
 
-  // MorePrd modal states unchanged
+  // MorePrd 모달
   const [morePrdVisible, setMorePrdVisible] = useState(false);
   const [morePrdTarget, setMorePrdTarget] = useState('direct'); // 'direct' | 'tab'
   const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
@@ -440,13 +456,16 @@ export default function EventCreate() {
     setMorePrdVisible(true);
   };
 
-  // YouTube modal etc (unchanged)
+  // 유튜브 모달
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [videoForm] = Form.useForm();
+
+  // 텍스트 모달
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textForm] = Form.useForm();
 
   const openCreateText = () => {
+    // 이미지가 하나도 없으면 제한
     const hasImage = blocks.some(b => b.type === 'image');
     if (!hasImage) {
       msgApi.info('이미지 추가 후 이용 가능');
@@ -503,25 +522,33 @@ export default function EventCreate() {
     setTextModalVisible(false);
   };
 
+  // registerMode 변경 핸들러: 'none' 선택시 관련 상태 초기화 및 UI 비노출 보장
   const handleRegisterModeChange = (val) => {
     setRegisterMode(val);
     if (val === 'none') {
       setLayoutType(null);
       setDirectProducts([]);
       setTabDirectProducts({});
-      setTabs([{ title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }, { title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }]);
+      setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
       setSingleRoot(null);
       setSingleSub(null);
       setActiveColor('#fe6326');
     }
   };
 
+  // 등록
   const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async () => {
+    // mallId 체크: 없으면 바로 차단
+    if (!mallId) {
+      msgApi.error('쇼핑몰 ID(mallId)가 설정되어 있지 않습니다. 앱 설치 또는 URL의 mall_id 파라미터를 확인하세요.');
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
     try {
-      // 업로드 (unchanged)
+      // 이미지 업로드
       const uploaded = await Promise.all(
         blocks.map(async b => {
           if (b.type === 'image' && b.file) {
@@ -536,6 +563,7 @@ export default function EventCreate() {
         })
       );
 
+      // 서버 payload
       const blocksPayload = uploaded.map(b => {
         if (b.type === 'video') {
           return { _id: b.id, type: 'video', youtubeId: b.youtubeId, ratio: b.ratio || { w: 16, h: 9 }, autoplay: !!b.autoplay };
@@ -570,11 +598,11 @@ export default function EventCreate() {
           layoutType,
           classification: { registerMode },
         },
-        images: imageOnly.map(i => ({ _id: i._id, src: i.src, regions: i.regions })),
+        images: imageOnly.map(i => ({ _id: i._id, src: i.src, regions: i.regions })), // 하위호환
         gridSize,
         layoutType,
         classification: {
-          ...(layoutType === 'single' ? { root: singleRoot, sub: singleSub } : { tabs, activeColor, tabsPerRow }),
+          ...(layoutType === 'single' ? { root: singleRoot, sub: singleSub } : { tabs, activeColor }),
           registerMode,
           ...(registerMode === 'direct' ? { directProducts, tabDirectProducts } : {}),
         },
@@ -596,8 +624,8 @@ export default function EventCreate() {
     }
   };
 
-  // 상품 그리드 헬퍼: 정확한 개수와 컬럼 수를 렌더링 (수정된 부분)
-  function renderGridWithCount(cols, count) {
+  // 상품 그리드 헬퍼
+  function renderGrid(cols) {
     return (
       <div
         style={{
@@ -608,7 +636,7 @@ export default function EventCreate() {
           margin: '24px auto',
         }}
       >
-        {Array.from({ length: count }).map((_, i) => (
+        {Array.from({ length: cols * cols }).map((_, i) => (
           <div
             key={i}
             style={{
@@ -628,11 +656,12 @@ export default function EventCreate() {
     );
   }
 
+  // helper: 유튜브 iframe query string (autoplay 처리, autoplay면 mute=1 추가)
   const buildYouTubeSrc = (id, autoplay) => {
     const params = new URLSearchParams();
     if (autoplay) {
       params.set('autoplay', '1');
-      params.set('mute', '1');
+      params.set('mute', '1'); // 모바일 자동재생을 위해 mute
       params.set('playsinline', '1');
     }
     params.set('rel', '0');
@@ -669,7 +698,7 @@ export default function EventCreate() {
               <p>이미지를 드래그 또는 클릭하여 업로드</p>
             </Upload.Dragger>
 
-            {/* 컨트롤 바 (unchanged) */}
+            {/* 컨트롤 */}
             <Space style={{ margin: '12px 0' }} wrap>
               <Button
                 icon={<LinkOutlined />}
@@ -712,6 +741,7 @@ export default function EventCreate() {
                 텍스트 추가
               </Button>
 
+              {/* 전체 보기 토글 - 주황색 강조 / 이미지 없으면 안내 */}
               <Button
                 style={{
                   marginLeft: 8,
@@ -729,7 +759,7 @@ export default function EventCreate() {
               </Button>
             </Space>
 
-            {/* 썸네일 드래그 리스트 (unchanged) */}
+            {/* 썸네일 */}
             {blocks.length > 0 && (
               <DragDropContext
                 onDragStart={() => { draggingRef.current = true; }}
@@ -748,6 +778,7 @@ export default function EventCreate() {
                               className={`thumb-item ${b.id === selectedId ? 'active' : ''}`}
                               onPointerUp={() => {
                                 if (draggingRef.current) return;
+                                // 썸네일 클릭 시 전체보기 해제 + 편집 모드 전환
                                 if (showAllPreview) setShowAllPreview(false);
                                 setSelectedId(b.id);
                               }}
@@ -790,9 +821,10 @@ export default function EventCreate() {
               </DragDropContext>
             )}
 
-            {/* 프리뷰 영역 (unchanged except selection rendering uses renderGridWithCount later) */}
+            {/* 프리뷰 */}
             <div style={{ width: '100%', marginTop: 16, textAlign: 'center' }}>
               {showAllPreview ? (
+                // 전체 보기
                 <div style={{ display: 'grid', gap: 0, maxWidth: 800, margin: '0 auto' }}>
                   {blocks.map(b =>
                     b.type === 'video' ? (
@@ -820,6 +852,7 @@ export default function EventCreate() {
                   )}
                 </div>
               ) : (
+                // 상세 편집
                 <>
                   {selectedBlock?.type === 'image' && (
                     <div
@@ -885,6 +918,7 @@ export default function EventCreate() {
                           allowFullScreen
                         />
                       </div>
+                      {/* autoplay 즉시 반영 체크박스 */}
                       <div style={{ marginTop: 8 }}>
                         <label style={{ marginRight: 12 }}>
                           <input
@@ -937,7 +971,7 @@ export default function EventCreate() {
 
         {/* Step 3 */}
         {current === 2 && (
-          <div style={{ maxWidth: 720 }}>
+          <div style={{ maxWidth: 400 }}>
             <h4>상품 등록 방식</h4>
             <Segmented
               options={[
@@ -954,7 +988,7 @@ export default function EventCreate() {
             {/* 카테고리 */}
             {registerMode === 'category' && (
               <>
-                <h4>그리드 사이즈 (기본)</h4>
+                <h4>그리드 사이즈</h4>
                 <Space>
                   {[2, 3, 4].map(n => (
                     <Button key={n} type={gridSize === n ? 'primary' : 'default'} onClick={() => setGridSize(n)}>
@@ -974,9 +1008,8 @@ export default function EventCreate() {
                     setLayoutType(val);
                     setSingleRoot(null);
                     setSingleSub(null);
-                    setTabs([{ title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }, { title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }]);
+                    setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
                     setActiveColor('#fe6326');
-                    setTabsPerRow(4);
                   }}
                   block
                 />
@@ -1002,23 +1035,11 @@ export default function EventCreate() {
 
                 {layoutType === 'tabs' && (
                   <>
-                    {/* 탭 나열 방식 추가 */}
-                    <div style={{ marginTop: 12, marginBottom: 12 }}>
-                      <span style={{ marginRight: 8 }}>탭 나열 (한 줄에):</span>
-                      <Select value={tabsPerRow} onChange={v => setTabsPerRow(v)} style={{ width: 120 }}>
-                        <Select.Option value={1}>1개</Select.Option>
-                        <Select.Option value={2}>2개</Select.Option>
-                        <Select.Option value={3}>3개</Select.Option>
-                        <Select.Option value={4}>4개</Select.Option>
-                      </Select>
-                      <span style={{ marginLeft: 12, color: '#888' }}>예: 2를 선택하면 한 줄에 2개씩 배치됩니다.</span>
-                    </div>
-
                     {tabs.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12 }}>
+                      <Space key={i} size="middle" style={{ marginTop: 16 }}>
                         <Input
                           placeholder={`탭 ${i + 1} 제목`}
-                          style={{ width: 160 }}
+                          style={{ width: 120 }}
                           value={t.title}
                           onChange={e => updateTab(i, 'title', e.target.value)}
                         />
@@ -1039,29 +1060,12 @@ export default function EventCreate() {
                             ))}
                         </Select>
 
-                        {/* 탭별 그리드 설정 */}
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <Select value={t.gridSize} onChange={v => updateTab(i, 'gridSize', v)} style={{ width: 100 }}>
-                            <Select.Option value={2}>2×2</Select.Option>
-                            <Select.Option value={3}>3×3</Select.Option>
-                            <Select.Option value={4}>4×4</Select.Option>
-                          </Select>
-                          <InputNumber min={1} max={100} value={t.itemCount} onChange={v => updateTab(i, 'itemCount', v)} placeholder="노출개수" />
-                        </div>
-
-                        <Button
-                          type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'}
-                          onClick={() => openMorePrd('tab', i)}
-                        >
-                          {(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}
-                        </Button>
-
+                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
                         {tabs.length > 2 && (
                           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
                         )}
-                      </div>
+                      </Space>
                     ))}
-
                     <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}>
                       + 탭 추가
                     </Button>
@@ -1079,7 +1083,7 @@ export default function EventCreate() {
               </>
             )}
 
-            {/* 직접 등록 (layoutType === 'direct') */}
+            {/* 직접 등록 */}
             {registerMode === 'direct' && (
               <>
                 <h4>그리드 사이즈</h4>
@@ -1100,7 +1104,7 @@ export default function EventCreate() {
                   value={layoutType}
                   onChange={val => {
                     setLayoutType(val);
-                    setTabs([{ title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }, { title: '', root: null, sub: null, gridSize: 2, itemCount: 4 }]);
+                    setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
                   }}
                   block
                 />
@@ -1134,6 +1138,7 @@ export default function EventCreate() {
                             : '상품 직접 등록'}
                         </Button>
 
+                        {/* 탭이 3개 이상일 때 삭제 버튼 노출 */}
                         {tabs.length > 2 && (
                           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => deleteTab(i)} />
                         )}
@@ -1162,7 +1167,7 @@ export default function EventCreate() {
           </div>
         )}
 
-        {/* Step 4 - Preview */}
+        {/* Step 4 */}
         {current === 3 && (
           <div style={{ marginTop: 24 }}>
             <h4>미리보기</h4>
@@ -1193,38 +1198,31 @@ export default function EventCreate() {
               )}
             </div>
 
-            {/* Preview: single */}
-            {registerMode !== 'none' && layoutType === 'single' && <div style={{ marginTop: 24 }}>{renderGridWithCount(gridSize, gridSize * gridSize)}</div>}
-
-            {/* Preview: tabs */}
+            {/* registerMode === 'none' 인 경우 상품관련 미리보기/그리드 숨김 */}
+            {registerMode !== 'none' && layoutType === 'single' && <div style={{ marginTop: 24 }}>{renderGrid(gridSize)}</div>}
             {registerMode !== 'none' && layoutType === 'tabs' && (
               <div style={{ margin: '24px auto', maxWidth: 800 }}>
-                {/* 탭 버튼들을 grid로 배치 (tabsPerRow 적용) */}
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tabsPerRow}, 1fr)`, gap: 8, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   {tabs.map((t, i) => (
-                    <Button
-                      key={i}
-                      style={{
-                        width: '100%',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        background: i === 0 ? activeColor : undefined,
-                        color: i === 0 ? '#fff' : undefined,
-                      }}
-                    >
+                    <Button key={i} style={{ flex: 1, background: i === 0 ? activeColor : undefined, color: i === 0 ? '#fff' : undefined }}>
                       {t.title || `탭${i + 1}`}
                     </Button>
                   ))}
                 </div>
-
-                {/* 미리보기: 첫번째 탭(데모) 또는 각 탭의 gridSize/itemCount 사용 */}
-                {tabs[0] && renderGridWithCount(tabs[0].gridSize || gridSize, tabs[0].itemCount || ( (tabs[0].gridSize || gridSize) * (tabs[0].gridSize || gridSize) ))}
+                {renderGrid(gridSize)}
               </div>
             )}
 
             <div style={{ textAlign: 'center', marginTop: 32 }}>
-              <Button type="primary" size="large" onClick={handleSubmit} block={isMobile} loading={submitting} disabled={submitting}>
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleSubmit}
+                block={isMobile}
+                loading={submitting}
+                disabled={submitting || !mallId}
+                title={!mallId ? 'mall_id가 없으면 등록할 수 없습니다.' : undefined}
+              >
                 이벤트 등록
               </Button>
             </div>
@@ -1238,7 +1236,7 @@ export default function EventCreate() {
         </Space>
       </Card>
 
-      {/* mapModal, editModal, videoModal, textModal, morePrdModal (unchanged) */}
+      {/* 매핑 추가 모달 */}
       <Modal
         open={mapModalVisible}
         title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'}
@@ -1266,6 +1264,7 @@ export default function EventCreate() {
         </Form>
       </Modal>
 
+      {/* 매핑 편집 모달 */}
       <Modal
         open={editModalVisible}
         title="영역 편집"
@@ -1293,6 +1292,7 @@ export default function EventCreate() {
         </Form>
       </Modal>
 
+      {/* YouTube 모달 */}
       <Modal
         open={videoModalVisible}
         title="YouTube 영상 추가"
@@ -1335,6 +1335,7 @@ export default function EventCreate() {
         </Form>
       </Modal>
 
+      {/* 텍스트 모달 */}
       <Modal
         open={textModalVisible}
         title={selectedBlock?.type === 'text' ? '텍스트 편집' : '텍스트 추가'}
@@ -1383,6 +1384,7 @@ export default function EventCreate() {
         </Form>
       </Modal>
 
+      {/* 상품 선택 모달 */}
       {morePrdVisible && (
         <MorePrd
           key={`${morePrdTarget}-${morePrdTabIndex}`}
