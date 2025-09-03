@@ -67,9 +67,6 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
 
-  // ─── 환경: 사이트 기본 URL (환경변수 우선) ──────────────────
-  const SITE_BASE = process.env.REACT_APP_SITE_BASE || 'https://yogibo.kr';
-
   // ─── helper: 정규화 함수 ──────────────────────────────────────
   const normalizePath = (urlCandidate) => {
     if (!urlCandidate) return '/';
@@ -339,6 +336,7 @@ export default function Dashboard() {
       name: '클릭수',
       type: 'bar',
       data: prodPerf.slice(0,5).map(o => o.clicks),
+      // ↓ 각 막대마다 색을 다르게
       itemStyle: {
         color: ({ dataIndex }) => {
           const colors = ['#fe6326', '#91CC75', '#FAC858', '#EE6666', '#73C0DE'];
@@ -346,76 +344,6 @@ export default function Dashboard() {
         }
       }
     }]
-  };
-
-  // ─── 유틸: selectedUrl -> 완전한 URL 만들기 (원본이 있으면 우선) ─────────
-  const buildFullUrl = (normUrl) => {
-    if (!normUrl) return null;
-    // urlMap에 원본들이 있으면 절대 URL(프로토콜 포함) 우선 사용
-    try {
-      const originals = urlMap.get(normUrl) || [];
-      const abs = originals.find(o => /^https?:\/\//i.test(o));
-      if (abs) return abs;
-    } catch (e) {
-      // ignore
-    }
-    // normUrl이 절대형처럼 보이면 그대로
-    if (/^https?:\/\//i.test(normUrl)) return normUrl;
-    // normUrl이 '/...' 형태라면 SITE_BASE + normUrl
-    if (!normUrl.startsWith('/')) normUrl = '/' + normUrl;
-    return `${SITE_BASE}${normUrl}`;
-  };
-
-  // ─── 링크 복사 (정규화된 경로 / 또는 절대 URL) ───────────────────
-  const copyLink = async () => {
-    if (!selectedUrl && !(urls && urls.length)) {
-      message.warning('복사할 링크가 없습니다.');
-      return;
-    }
-    const full = buildFullUrl(selectedUrl || (urls && urls.length ? normalizePath(urls[0]) : null));
-    if (!full) {
-      message.error('링크를 생성할 수 없습니다.');
-      return;
-    }
-
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(full);
-      } else {
-        // fallback
-        const ta = document.createElement('textarea');
-        ta.value = full;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      message.success(`복사되었습니다: ${full}`);
-    } catch (e) {
-      console.error('copy failed', e);
-      message.error('클립보드에 복사하지 못했습니다.');
-    }
-  };
-
-  // ─── 이벤트 페이지 열기 (새탭) ─────────────────────────────────
-  const openEventPage = () => {
-    const urlCandidate = selectedUrl || (urls && urls.length > 0 ? normalizePath(urls[0]) : null);
-    if (!urlCandidate) {
-      message.warning('열 URL이 없습니다.');
-      return;
-    }
-    const full = buildFullUrl(urlCandidate);
-    if (!full) {
-      message.error('열 페이지 URL을 만들 수 없습니다.');
-      return;
-    }
-    try {
-      window.open(full, '_blank');
-      message.success(`이벤트 페이지로 이동: ${full}`);
-    } catch (e) {
-      console.error('open failed', e);
-      message.error('새 창을 열 수 없습니다.');
-    }
   };
 
   // ─── 렌더링 ───────────────────────────────────────────────────
@@ -439,7 +367,7 @@ export default function Dashboard() {
               options={urlOptions.length ? urlOptions : urls.map(u => ({ label: u, value: u }))}
               value={selectedUrl}
               onChange={setSelectedUrl}
-              style={{ width: 320 }}
+              style={{ width: 240 }}
               showSearch
               filterOption={(input, option) => {
                 const val = (option?.value || '').toString().toLowerCase();
@@ -458,12 +386,7 @@ export default function Dashboard() {
               disabledDate={d => minDate && d.isBefore(minDate,'day')}
             />
           </Col>
-
           <Col><Button type="primary" onClick={fetchData}>조회</Button></Col>
-
-          {/* 추가 버튼: 이벤트 페이지 열기 / 링크 복사 */}
-          <Col><Button onClick={openEventPage}>이벤트 페이지 이동</Button></Col>
-          <Col><Button onClick={copyLink}>링크 복사</Button></Col>
 
           <Col flex="auto" />
           <Col className="kpi-col"><Statistic title="전체 이벤트 수" value={eventCount} suffix="개" valueStyle={{ fontSize: 18 }}  style={{textAlign:'center'}}/></Col>
