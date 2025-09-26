@@ -193,7 +193,7 @@ export default function EventCreate() {
     multiple: true,
     showUploadList: false,
     beforeUpload: file => {
-      const maxSizeMB = 10;
+      const maxSizeMB = 100;
       if (file.size / 1024 / 1024 > maxSizeMB) {
         msgApi.error(`이미지 크기는 ${maxSizeMB}MB 이하여야 합니다.`);
         return Upload.LIST_IGNORE;
