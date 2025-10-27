@@ -82,7 +82,8 @@ export default function EventDetail() {
       return;
     }
 
-    let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
+    let html = `\n\n`;
+    html += `\n\n`;
     html += `<div id="evt-root"></div>\n\n`;
 
     const allBlocks = event.content?.blocks || [];
@@ -113,37 +114,33 @@ export default function EventDetail() {
   const blocksToRender = event.content?.blocks || (event.images || []).map(img => ({ type: 'image', ...img }));
 
   // ✅ [수정] CSS 팁 내용 변경
-  const cssTips = `/* --- 상품 그리드 디자인 예시 <style> 태그로 감싸서 붙여넣으세요.--- */
-    
-    /*상품 아이콘 위치 지정 */
-    .prd_icons{position:absolute; top:0!important;right:0!important} /*왼쪽 상단*/
-    .prd_icons{position:absolute; bottom:0!important;right:0!important} /*왼쪽 하단*/
-    .prd_icons{position:absolute; top:0!important;left:0!important} /*왼쪽 상단*/
-    .prd_icons{position:absolute; bottom:0!important;left:0!important} /*왼쪽 하단*/
+  const cssTips = `/* --- 상품 그리드 디자인 예시 --- */
+/* 아래 코드를 복사하여 HTML 코드의 <script> 태그 바로 아래에 <style> 태그로 감싸서 붙여넣으세요. */
+/* 폰트 굵기(font-weight)는 100단위로 설정 시 굵은 폰트를 사용할 수 있습니다. (예: 400(기본), 500, 700(bold)) */
 
-    /* 상품명 폰트 굵기 및 색상 변경 */
-    .prd_name {
-      font-weight: 500; /* 예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능*/
-      color: #000000; /* 예: 검은색 */
-    }
+/* 상품명 폰트 굵기 및 색상 변경 */
+.prd_name {
+  font-weight: 500; /* 예: 500 */
+  color: #000000; /* 예: 검은색 */
+}
 
-    /* 할인율 텍스트 굵기 및 색상 변경 */
-    .sale_percent, .prd_coupon_percent {
-      font-weight: bold; /* 예: bold */
-      color: #ff4d4f !important; /* 예: 빨간색 */
-    }
+/* 할인율 텍스트 굵기 및 색상 변경 */
+.sale_percent, .prd_coupon_percent {
+  font-weight: bold; /* 예: bold */
+  color: #ff4d4f !important; /* 예: 빨간색 */
+}
 
-    /* 최종 가격 폰트 굵기 및 색상 변경 */
-    .sale_price, .prd_coupon {
-      font-weight: bold; /* 예: bold */
-      color: #000000 !important; /* 예: 검은색 */
-    }
+/* 최종 가격 폰트 굵기 및 색상 변경 */
+.sale_price, .prd_coupon {
+  font-weight: bold; /* 예: bold */
+  color: #000000 !important; /* 예: 검은색 */
+}
 
-    /* 원래 가격(줄 그어진 가격) 폰트 굵기 및 색상 변경 */
-    .original_price {
-      font-weight: 400; /* 예: 400 (기본) */
-      color: #999999 !important; /* 예: 회색 */
-    }
+/* 원래 가격(줄 그어진 가격) 폰트 굵기 및 색상 변경 */
+.original_price {
+  font-weight: 400; /* 예: 400 (기본) */
+  color: #999999 !important; /* 예: 회색 */
+}
 `;
 
   return (
@@ -252,8 +249,7 @@ export default function EventDetail() {
         width={600}
       >
         <p>
-            아래 CSS 코드를 복사하여, 생성된 HTML 코드의 
-            <strong><code>&lt;script&gt;</code></strong> 태그 바로 아래에 <strong><code>&lt;style&gt;</code></strong> 태그로 감싸서 붙여넣으시면 상품 디자인을 직접 수정할 수 있습니다.
+            아래 CSS 코드를 복사하여, 생성된 HTML 코드의 <strong><code>&lt;script&gt;</code></strong> 태그 바로 아래에 <strong><code>&lt;style&gt;</code></strong> 태그로 감싸서 붙여넣으시면 상품 디자인을 직접 수정할 수 있습니다.
         </p>
         <Alert 
             message="예시: <style> ...복사한 코드... </style>" 
