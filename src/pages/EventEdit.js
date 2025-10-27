@@ -1,1601 +1,542 @@
 // src/pages/EventEdit.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MorePrd from './MorePrd';
 import {
-  Card,
-  Steps,
-  Input,
-  Button,
-  Select,
-  Space,
-  Upload,
-  Popover,
-  Form,
-  message,
-  Segmented,
-  Modal,
-  InputNumber,
-  Checkbox,
+  Card, Input, Button, Select, Space, Upload, Form, message, Segmented, Modal,
+  InputNumber, Checkbox, ColorPicker, Alert, Grid, Divider, Tag, Tooltip,
 } from 'antd';
 import {
-  UploadOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-  UnorderedListOutlined,
-  SaveOutlined,
-  LinkOutlined,
-  TagOutlined,
-  VideoCameraAddOutlined,
-  EditOutlined,
-  FontSizeOutlined,
+  UploadOutlined, DeleteOutlined, LinkOutlined, TagOutlined, VideoCameraAddOutlined,
+  EditOutlined, FontSizeOutlined, BlockOutlined, ShoppingCartOutlined, YoutubeOutlined,
+  SaveOutlined, PlusOutlined, UnorderedListOutlined, PictureOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../axios';
-import './EventEdit.css';
+import './EventCreate.css'; // Create 페이지와 동일한 CSS 사용
+import sha256 from 'crypto-js/sha256';
+import encHex from 'crypto-js/enc-hex';
 
-const { Step } = Steps;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
-// HTML Escape (텍스트 블록에서 <br/> 변환용)
-const escapeHtml = (s = '') =>
-  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// --- 유틸리티 함수들 ---
+const getYouTubeId = (input) => {
+  if (!input) return null;
+  if (/^[\w-]{11}$/.test(input)) return input;
+  try {
+    const url = new URL(input.trim());
+    const host = url.hostname.replace('www.', '');
+    if (host === 'youtu.be') return url.pathname.slice(1);
+    if (host.includes('youtube.com')) {
+      if (url.searchParams.get('v')) return url.searchParams.get('v');
+      const m = url.pathname.match(/\/(embed|shorts)\/([\w-]{11})/);
+      if (m) return m[2];
+    }
+  } catch (_) {}
+  return null;
+};
 
+const buildYouTubeSrc = (id, autoplay = false, loop = false) => {
+  const params = new URLSearchParams({ autoplay: autoplay ? '1' : '0', mute: autoplay ? '1' : '0', playsinline: '1', rel: 0, modestbranding: 1, enablejsapi: 1 });
+  if (loop) { params.set('loop', '1'); params.set('playlist', id); }
+  return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+};
+
+const escapeHtml = (s = '') => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false, loop = false }) {
+  const src = buildYouTubeSrc(id, autoplay, loop);
+  return (
+    <div style={{ width: '100%', maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: `${ratioW} / ${ratioH}` }}>
+        <iframe src={src} title={title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, borderRadius: '6px' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+      </div>
+    </div>
+  );
+}
+
+function renderGrid(cols, products = []) {
+  const itemsToRender = products.length > 0 ? products : Array.from({ length: Math.min(cols * cols, 4) });
+  const titleFontSize = `${18 - cols}px`;
+  const priceFontSize = `${17 - cols}px`;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap: 16, maxWidth: 800, margin: '24px auto' }}>
+      {itemsToRender.map((p, i) => (
+        <div key={p?.product_no || i} style={{ overflow: 'hidden', border: '1px solid #e8e8e8', background: '#fff', borderRadius: '6px' }}>
+          <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
+            {p?.list_image ? (<img src={p.list_image} alt={p.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />)}
+          </div>
+          <div style={{ padding: '12px', minHeight: '90px' }}>
+            <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>{p?.product_name || `상품명 ${i + 1}`}</div>
+            {p?.price != null && (<div style={{ fontWeight: 'bold', fontSize: priceFontSize, marginTop: '4px' }}>{Number(p.price).toLocaleString()}원</div>)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const GridPreview = ({ size, active, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        padding: '8px',
+        border: `2px solid ${active ? '#fe6326' : '#d9d9d9'}`,
+        borderRadius: '8px',
+        width: '70px',
+        height: '70px',
+        backgroundColor: active ? '#fff7e6' : 'white',
+        transition: 'all 0.2s',
+      }}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${size}, 1fr)`, gap: '4px', width: '32px', height: '32px', marginBottom: '4px' }}>
+        {Array.from({ length: size * size }).map((_, i) => (
+          <div key={i} style={{ backgroundColor: active ? '#fe6326' : '#d9d9d9', borderRadius: '2px' }}></div>
+        ))}
+      </div>
+      <span style={{ fontSize: '12px', fontWeight: active ? 'bold' : 'normal', color: active ? '#fe6326' : '#595959' }}>{size}×{size}</span>
+    </div>
+  );
+};
+
+function ProductBlockModal({ visible, onCancel, onOk, msgApi, isMobile, allCats, initialData }) {
+    const [form] = Form.useForm();
+    const [registerMode, setRegisterMode] = useState('direct');
+    const [gridSize, setGridSize] = useState(2);
+    const [layoutType, setLayoutType] = useState('single');
+    const [singleRoot, setSingleRoot] = useState(null);
+    const [singleSub, setSingleSub] = useState(null);
+    const roots = allCats.filter(c => c.category_depth === 1);
+    const [tabs, setTabs] = useState([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
+    const [activeColor, setActiveColor] = useState('#fe6326');
+    const [directProducts, setDirectProducts] = useState([]);
+    const [tabDirectProducts, setTabDirectProducts] = useState({});
+    const [morePrdVisible, setMorePrdVisible] = useState(false);
+    const [morePrdTarget, setMorePrdTarget] = useState('direct');
+    const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
+    const [initialSelected, setInitialSelected] = useState([]);
+
+    useEffect(() => {
+        if (visible && initialData) {
+            setRegisterMode(initialData.registerMode || 'direct');
+            setGridSize(initialData.gridSize || 2);
+            setLayoutType(initialData.layoutType || 'single');
+            if (initialData.registerMode === 'category') {
+                if (initialData.layoutType === 'single') { setSingleRoot(initialData.root ? String(initialData.root) : null); setSingleSub(initialData.sub ? String(initialData.sub) : null); }
+                else if (initialData.layoutType === 'tabs') { setTabs(initialData.tabs || [{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor(initialData.activeColor || '#fe6326'); }
+            } else if (initialData.registerMode === 'direct') {
+                if (initialData.layoutType === 'single') { setDirectProducts(initialData.directProducts || []); }
+                else if (initialData.layoutType === 'tabs') { setTabDirectProducts(initialData.tabDirectProducts || {}); setTabs(initialData.tabs || [{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor(initialData.activeColor || '#fe6326'); }
+            }
+        } else if (visible) { form.resetFields(); setRegisterMode('direct'); setGridSize(2); setLayoutType('single'); setSingleRoot(null); setSingleSub(null); setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor('#fe6326'); setDirectProducts([]); setTabDirectProducts({}); }
+    }, [visible, initialData, form]);
+
+    const handleRegisterModeChange = useCallback((val) => { setRegisterMode(val); setLayoutType('single'); }, []);
+    const handleLayoutTypeChange = useCallback((val) => { setLayoutType(val); }, []);
+    
+    const addTab = useCallback(() => { if (tabs.length < 4) setTabs(ts => [...ts, { title: '', root: null, sub: null }]); }, [tabs.length]);
+    const updateTab = useCallback((i, key, val) => { setTabs(ts => { const a = [...ts]; a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) }; return a; }); }, []);
+    const removeTab = useCallback((index) => { if (tabs.length > 2) setTabs(prev => prev.filter((_, i) => i !== index)); }, [tabs.length]);
+    const openMorePrd = useCallback((target, tabIndex = 0) => { setMorePrdTarget(target); setInitialSelected(target === 'direct' ? directProducts : (tabDirectProducts[tabIndex] || [])); setMorePrdTabIndex(tabIndex); setMorePrdVisible(true); }, [directProducts, tabDirectProducts]);
+    
+    const handleMorePrdOk = useCallback((selected) => { 
+        if (morePrdTarget === 'direct') setDirectProducts(selected);
+        else setTabDirectProducts(prev => ({ ...prev, [morePrdTabIndex]: selected })); 
+        setMorePrdVisible(false); 
+    }, [morePrdTarget, morePrdTabIndex]);
+    
+    const handleOk = useCallback(() => {
+        if (registerMode === 'direct') {
+            if (layoutType === 'single' && (!directProducts || directProducts.length === 0)) {
+                return msgApi.warning('단품 상품을 1개 이상 등록해주세요.');
+            }
+            if (layoutType === 'tabs') {
+                const allTabsHaveProducts = tabs.every((tab, i) => (tabDirectProducts[i] || []).length > 0);
+                if (!allTabsHaveProducts) {
+                    return msgApi.warning('모든 탭에 상품을 1개 이상 등록해주세요.');
+                }
+            }
+        }
+        
+        const blockData = { id: initialData?.id || Date.now().toString() + Math.random(), type: 'product_group', registerMode, gridSize, layoutType };
+        if (registerMode === 'category') {
+            if (layoutType === 'single') { blockData.root = singleRoot; blockData.sub = singleSub; }
+            else { blockData.tabs = tabs; blockData.activeColor = activeColor; }
+        } else if (registerMode === 'direct') {
+            if (layoutType === 'single') { blockData.directProducts = directProducts; }
+            else { blockData.tabDirectProducts = tabDirectProducts; blockData.tabs = tabs; blockData.activeColor = activeColor; }
+        }
+        onOk(blockData); 
+        onCancel();
+    }, [registerMode, gridSize, layoutType, singleRoot, singleSub, tabs, activeColor, directProducts, tabDirectProducts, onOk, onCancel, initialData, msgApi]);
+
+    return (
+        <Modal open={visible} title={initialData ? "상품 블록 편집" : "상품 블록 추가"} onCancel={onCancel} onOk={handleOk} okText={initialData ? "수정" : "추가"} cancelText="취소" width={isMobile ? '90%' : 700} destroyOnClose>
+            <Form form={form} layout="vertical">
+                <h4 style={{ marginTop: 0 }}>1. 상품 등록 방식</h4>
+                <Segmented 
+                    options={[
+                        { label: '상품 검색하여 추가', value: 'direct' }, 
+                        { label: '카테고리 지정하여 불러오기', value: 'category' }
+                    ]} 
+                    value={registerMode} 
+                    onChange={handleRegisterModeChange} 
+                    block 
+                    style={{ marginBottom: 8 }} 
+                />
+                <Alert 
+                    message={registerMode === 'direct' ? '원하는 상품을 직접 찾아 개별적으로 노출할 수 있습니다.' : '선택한 카테고리의 상품들을 자동으로 불러와 노출합니다.'}
+                    type="info"
+                    style={{ marginBottom: 24 }}
+                />
+                
+                <h4>2. 노출 방식</h4>
+                <Segmented options={[{ label: '단품', value: 'single' }, { label: '탭', value: 'tabs' }]} value={layoutType} onChange={handleLayoutTypeChange} block />
+                <div style={{ marginTop: '8px', color: '#888', fontSize: '12px', minHeight: '32px', marginBottom: '12px' }}>
+                    {layoutType === 'single'
+                        ? '선택한 상품들을 하나의 목록으로 쭉 나열하여 보여줍니다.'
+                        : '여러 개의 탭을 만들어, 각 탭마다 다른 상품 목록을 보여줄 수 있습니다.'
+                    }
+                </div>
+
+                <h4>3. 세부 설정</h4>
+                {registerMode === 'direct' && layoutType === 'single' && (<Button type={directProducts.length > 0 ? 'primary' : 'dashed'} onClick={() => openMorePrd('direct')} style={{ marginTop: 0 }}>{directProducts.length ? `상품 ${directProducts.length}개 등록됨` : '상품 직접 등록'}</Button>)}
+                {registerMode === 'direct' && layoutType === 'tabs' && (<>{tabs.map((t, i) => (<div key={i}><Space size="middle" style={{ marginTop: 8, alignItems: 'center' }}><Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={e => updateTab(i, 'title', e.target.value)} /><Button type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'} onClick={() => openMorePrd('tab', i)}>{(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}</Button>{tabs.length > 2 && (<DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />)}</Space></div>))}<Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}><PlusOutlined /> 탭 추가</Button><Space style={{ marginTop: 12, alignItems: 'center' }}><span>활성 탭 색:</span><ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} /></Space><div style={{ marginTop: '8px', color: '#888', fontSize: '12px' }}>원하시는 색상을 선택하여 활성화된 탭의 색상을 변경할 수 있습니다.</div></>)}
+                {registerMode === 'category' && layoutType === 'single' && (<Space style={{ marginTop: 0 }}><Select placeholder="대분류" style={{ width: 180 }} value={singleRoot} onChange={setSingleRoot}>{roots.map(r => (<Option key={r.category_no} value={String(r.category_no)}>{r.category_name}</Option>))}</Select><Select placeholder="소분류" style={{ width: 180 }} value={singleSub} onChange={setSingleSub} disabled={!singleRoot}>{allCats.filter(c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot).map(s => (<Option key={s.category_no} value={String(s.category_no)}>{s.category_name}</Option>))}</Select></Space>)}
+                {registerMode === 'category' && layoutType === 'tabs' && (<>{tabs.map((t, i) => (<div key={i}><Space size="middle" style={{ marginTop: 8, alignItems: 'center' }}><Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={e => updateTab(i, 'title', e.target.value)} /><Select placeholder="대분류" style={{ width: 140 }} value={t.root} onChange={v => updateTab(i, 'root', v)}>{roots.map(r => (<Option key={r.category_no} value={String(r.category_no)}>{r.category_name}</Option>))}</Select><Select placeholder="소분류" style={{ width: 140 }} value={t.sub} onChange={v => updateTab(i, 'sub', v)} disabled={!t.root}>{allCats.filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root).map(s => (<Option key={s.category_no} value={String(s.category_no)}>{s.category_name}</Option>))}</Select>{tabs.length > 2 && (<DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }}/>)}</Space></div>))}<Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}><PlusOutlined /> 탭 추가</Button><Space style={{ marginTop: 12, alignItems: 'center' }}><span>활성 탭 색:</span><ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} /></Space><div style={{ marginTop: '8px', color: '#888', fontSize: '12px' }}>원하시는 색상을 선택하여 활성화된 탭의 색상을 변경할 수 있습니다.</div></>)}
+                
+                <h4 style={{ marginTop: 24 }}>4. 그리드 사이즈</h4>
+                <Space style={{ marginBottom: 16 }}>
+                    {[2, 3, 4].map(n => (
+                        <GridPreview key={n} size={n} active={gridSize === n} onClick={() => setGridSize(n)} />
+                    ))}
+                </Space>
+            </Form>
+            {morePrdVisible && <MorePrd visible={morePrdVisible} initialSelected={initialSelected} onOk={handleMorePrdOk} onCancel={() => setMorePrdVisible(false)} />}
+        </Modal>
+    );
+}
+
+// =================================================================
+// --- Main EventEdit Component ---
+// =================================================================
 export default function EventEdit() {
-  const params       = new URLSearchParams(window.location.search);
-  const paramMallId  = params.get('mall_id') || params.get('state');
-  const storedMallId = localStorage.getItem('mallId');
-  const mallId       = paramMallId || storedMallId;
-  const { id }       = useParams();
-  const navigate     = useNavigate();
-  const imgRef       = useRef(null);
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [msgApi, msgCtx] = message.useMessage();
+  const screens = useBreakpoint();
+  const isMobile = !screens.sm;
 
-  // 썸네일 드래그/클릭 충돌 방지
+  const params = new URLSearchParams(window.location.search);
+  const paramMallId = params.get('mall_id') || params.get('state');
+  const storedMallId = localStorage.getItem('mallId');
+  const mallId = paramMallId || storedMallId;
+
   const draggingRef = useRef(false);
   const getItemStyle = (isDragging, draggableStyle) => ({
     userSelect: 'none',
-    transition: isDragging ? undefined : 'transform 200ms cubic-bezier(0.2,0,0,1), opacity 200ms',
-    boxShadow: isDragging ? '0 6px 12px rgba(0,0,0,0.15)' : 'none',
+    transition: isDragging ? undefined : 'transform 200ms cubic-bezier(0.2,0,0,1)',
     zIndex: isDragging ? 2 : 1,
     ...draggableStyle,
   });
 
-  // Steps
-  const [current, setCurrent] = useState(0);
-
-  // 공통 상태
-  const [docId, setDocId] = useState(null);
   const [title, setTitle] = useState('');
-
-  // ✅ 이미지+영상+텍스트 통합 블록
-  // image: {id,type:'image',src,file?,regions:[]}
-  // video: {id,type:'video',youtubeId,ratio:{w,h}, autoplay?}
-  // text : {id,type:'text',text,style:{align,fontSize,fontWeight,color,mt,mb}}
   const [blocks, setBlocks] = useState([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-
-  // 전체보기
-  const [showAllPreview, setShowAllPreview] = useState(false);
-
-  // 상품 등록 방식
-  const [registerMode, setRegisterMode]     = useState('category');
-  const [directProducts, setDirectProducts] = useState([]);
-  const [tabDirectProducts, setTabDirectProducts] = useState({});
-
-  // 카테고리/레이아웃
-  const [gridSize, setGridSize]     = useState(2);
-  const [layoutType, setLayoutType] = useState('single');
-  const [allCats, setAllCats]       = useState([]);
-  const [singleRoot, setSingleRoot] = useState(null);
-  const [singleSub, setSingleSub]   = useState(null);
-  const [tabs, setTabs] = useState([
-    { title: '', root: null, sub: null },
-    { title: '', root: null, sub: null },
-  ]);
-  const [activeColor, setActiveColor] = useState('#1890ff');
-
-  // 탭 헬퍼
-  const addTab = () => {
-    if (tabs.length >= 4) return;
-    setTabs(ts => [...ts, { title: '', root: null, sub: null }]);
-  };
-  const updateTab = (i, key, val) => {
-    setTabs(ts => {
-      const a = [...ts];
-      a[i] = { ...a[i], [key]: val };
-      if (key === 'root') a[i].sub = null;
-      return a;
-    });
-  };
-  const removeTab = i => {
-    // 보호: 최소 2개는 유지
-    if (tabs.length <= 2) {
-      message.warning('탭은 최소 2개 이상이어야 합니다.');
-      return;
-    }
-    setTabs(ts => ts.filter((_, idx) => idx !== i));
-    // reindex tabDirectProducts: shift down indices greater than i
-    setTabDirectProducts(prev => {
-      const next = {};
-      Object.keys(prev).forEach(k => {
-        const idx = Number(k);
-        if (idx < i) next[idx] = prev[idx];
-        else if (idx > i) next[idx - 1] = prev[idx];
-      });
-      return next;
-    });
-  };
-
-  // URL/Coupon 매핑
-  const [addingMode, setAddingMode]           = useState(false);
-  const [addType, setAddType]                 = useState(null);
-  const [dragStart, setDragStart]             = useState(null);
-  const [dragBox, setDragBox]                 = useState(null);
-  const [pendingBox, setPendingBox]           = useState(null);
-  const [newValue, setNewValue]               = useState(null);
-  const [urlModalVisible, setUrlModalVisible] = useState(false);
-  const [couponModalVisible, setCouponModalVisible] = useState(false);
-
-  // 쿠폰 옵션 & 편집
+  const [selectedId, setSelectedId] = useState(null);
+  const [allCats, setAllCats] = useState([]);
   const [couponOptions, setCouponOptions] = useState([]);
-  const [editingForm] = Form.useForm();
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const [previewActiveTabs, setPreviewActiveTabs] = useState({});
+  
+  const [productBlockModalVisible, setProductBlockModalVisible] = useState(false);
+  const [editingProductBlock, setEditingProductBlock] = useState(null);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [textModalVisible, setTextModalVisible] = useState(false);
+  
+  const [addingMode, setAddingMode] = useState(false);
+  const [addType, setAddType] = useState(null);
+  const [pendingRegion, setPendingRegion] = useState(null);
+  const [dragStartPos, setDragStart] = useState(null);
+  const [dragCurrent, setDragCurrent] = useState(null);
+  const [editingRegion, setEditingRegion] = useState(null);
+  const [notification, setNotification] = useState(null);
 
-  // MorePrd 모달
-  const [morePrdVisible, setMorePrdVisible]   = useState(false);
-  const [morePrdTarget, setMorePrdTarget]     = useState('direct');
-  const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
-  const [initialSelected, setInitialSelected] = useState([]);
-
-  // 🔹 영상 블록 추가/수정 모달
-  const [videoModalOpen, setVideoModalOpen] = useState(false);
-  const [videoInput, setVideoInput] = useState('');
-  const [videoRatioW, setVideoRatioW] = useState(16);
-  const [videoRatioH, setVideoRatioH] = useState(9);
-  const [editingVideoIdx, setEditingVideoIdx] = useState(null);
-  const [videoAutoplay, setVideoAutoplay] = useState(false); // 추가: autoplay
-
-  // 🔹 텍스트 블록 추가/수정 모달
-  const [textModalOpen, setTextModalOpen] = useState(false);
+  const [mapForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [videoForm] = Form.useForm();
   const [textForm] = Form.useForm();
+  const imgRef = useRef(null);
+  const couponSelectRef = useRef(null);
+  const couponEditSelectRef = useRef(null);
 
-  // ────────────────────────────────────────────────────────────────
-  // 유틸: YouTube ID 파서
-  function parseYouTubeId(input) {
-    if (!input) return null;
-    if (/^[\w-]{11}$/.test(input)) return input;
-    try {
-      const url = new URL(String(input).trim());
-      const host = url.hostname.replace('www.', '');
-      if (host === 'youtu.be') return url.pathname.slice(1);
-      if (host.includes('youtube.com')) {
-        if (url.searchParams.get('v')) return url.searchParams.get('v');
-        const m = url.pathname.match(/\/(embed|shorts)\/([\w-]{11})/);
-        if (m) return m[2];
-      }
-    } catch (_) {}
-    const m = String(input).match(/src=["']([^"']+)["']/i);
-    if (m) return parseYouTubeId(m[1]);
-    return null;
-  }
-
-  function buildYouTubeSrc(id, autoplay) {
-    const params = new URLSearchParams();
-    if (autoplay) {
-      params.set('autoplay', '1');
-      params.set('mute', '1'); // 자동 재생시 무음으로 설정(모바일 정책)
-      params.set('playsinline', '1');
-    }
-    params.set('rel', '0');
-    params.set('modestbranding', '1');
-    const q = params.toString();
-    return `https://www.youtube.com/embed/${id}${q ? '?' + q : ''}`;
-  }
-
-  function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', autoplay = false }) {
-    if (!id) {
-      return (
-        <div style={{
-          width:'100%', maxWidth:800, margin:'0 auto',
-          background:'#eee', color:'#666',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          height: Math.round((ratioH/ratioW) * 800)
-        }}>
-          <span style={{fontSize:14}}>영상 (ID 없음)</span>
-        </div>
-      );
-    }
-    const src = buildYouTubeSrc(id, autoplay);
-    const paddingTop = `${(ratioH/ratioW) * 100}%`;
-    return (
-      <div style={{ width:'100%', maxWidth:800, margin:'0 auto' }}>
-        <div style={{ position:'relative', width:'100%', paddingTop, aspectRatio:`${ratioW} / ${ratioH}` }}>
-          <iframe
-            src={src}
-            title={title}
-            style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          />
-        </div>
-      </div>
-    );
-  }
-  // ────────────────────────────────────────────────────────────────
-
-  // 초기 데이터 로드
   useEffect(() => {
-    if (!mallId) return;
+    if (!mallId || !id) return;
 
-    api.get(`/api/${mallId}/categories/all`)
-      .then(r => setAllCats(r.data))
-      .catch(() => message.error('카테고리 로드 실패'));
-
-    api.get(`/api/${mallId}/coupons`)
-      .then(r => setCouponOptions(
-        r.data.map(c => ({
-          value: c.coupon_no,
-          label: `${c.coupon_name} (${c.benefit_percentage}%)`
-        }))
-      ))
-      .catch(() => message.error('쿠폰 로드 실패'));
+    api.get(`/api/${mallId}/categories/all`).then(res => setAllCats(res.data)).catch(() => msgApi.error('카테고리 불러오기 실패'));
+    api.get(`/api/${mallId}/coupons`).then(res => setCouponOptions(res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)` })))).catch(() => msgApi.error('쿠폰 불러오기 실패'));
 
     api.get(`/api/${mallId}/events/${id}`)
       .then(({ data: ev }) => {
-        setDocId(ev._id);
-        setTitle(ev.title);
-        setGridSize(ev.gridSize);
-        setLayoutType(ev.layoutType);
-        setRegisterMode(ev.classification?.registerMode || 'category');
-
-        if (ev.classification?.registerMode === 'direct') {
-          if (ev.layoutType === 'single') {
-            setDirectProducts(ev.classification.directProducts || []);
-          } else {
-            setTabDirectProducts(ev.classification.tabDirectProducts || {});
-          }
+        setTitle(ev.title || '');
+        const loadedBlocks = (ev.content?.blocks || []).map(b => ({ ...b, id: b.id || b._id || `${b.type}-${Math.random()}` }));
+        setBlocks(loadedBlocks);
+        if (loadedBlocks.length > 0) {
+          setSelectedId(loadedBlocks[0].id);
         }
-
-        if (ev.layoutType === 'single') {
-          setSingleRoot(ev.classification?.root != null ? String(ev.classification.root) : null);
-          setSingleSub(ev.classification?.sub  != null ? String(ev.classification.sub)  : null);
-        } else {
-          const incomingTabs = ev.classification?.tabs;
-          setTabs(
-            Array.isArray(incomingTabs)
-              ? incomingTabs.map(t => ({
-                  title: String(t.title || ''),
-                  root:  t.root != null ? String(t.root) : null,
-                  sub:   t.sub  != null ? String(t.sub)  : null,
-                }))
-              : [{ title:'', root:null, sub:null }, { title:'', root:null, sub:null }]
-          );
-          setActiveColor(ev.classification?.activeColor || '#1890ff');
-        }
-
-        // ✅ blocks 정규화: content.blocks → 없으면 images를 image 블록으로
-        const rawBlocks = Array.isArray(ev?.content?.blocks)
-          ? ev.content.blocks
-          : (ev.images || []).map(img => ({
-              _id: img._id || img.id,
-              type: 'image',
-              src: img.src,
-              regions: img.regions || []
-            }));
-
-        const norm = rawBlocks.map(b => {
-          const t = b.type || 'image';
-          if (t === 'video') {
-            return {
-              id: b._id || b.id || `${Date.now()}-${Math.random()}`,
-              type: 'video',
-              youtubeId: b.youtubeId || parseYouTubeId(b.src),
-              ratio: b.ratio || { w:16, h:9 },
-              regions: [],
-              autoplay: !!b.autoplay, // 서버에 저장된 autoplay를 불러옴
-            };
-          }
-          if (t === 'text') {
-            return {
-              id: b._id || b.id || `${Date.now()}-${Math.random()}`,
-              type: 'text',
-              text: b.text || '',
-              style: b.style || {},
-            };
-          }
-          return {
-            id: b._id || b.id || `${Date.now()}-${Math.random()}`,
-            type: 'image',
-            src: b.src,
-            file: undefined,
-            youtubeId: undefined,
-            ratio: { w:16, h:9 },
-            regions: (b.regions || []).map(r => ({
-              ...r,
-              id: r._id || r.id || `${Date.now()}-${Math.random()}`,
-            })),
-          };
-        });
-
-        setBlocks(norm);
-        setSelectedIdx(0);
       })
       .catch(() => {
-        message.error('이벤트 로드 실패');
-        navigate(`/${mallId}/event/list`);
+        msgApi.error('이벤트 데이터를 불러오는데 실패했습니다.');
+        navigate(-1);
       });
-  }, [mallId, id, navigate]);
+  }, [mallId, id, navigate, msgApi]);
 
-  // 이미지 교체 (현재 선택 블록 = 이미지일 때만)
-  const replaceImage = (idx, file, onSuccess) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const dataUrl = e.target.result;
-      setBlocks(bks => {
-        const a = [...bks];
-        a[idx] = { ...a[idx], src: dataUrl, file };
-        return a;
-      });
-      onSuccess();
-      message.success('이미지 교체 완료');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 매핑 핸들러 (이미지 블록일 때만)
-  const onMouseDown = e => {
-    if (!addingMode || !imgRef.current) return;
-    const blk = blocks[selectedIdx];
-    if (!blk || blk.type !== 'image') return;
-    const { left, top } = imgRef.current.getBoundingClientRect();
-    setDragStart({ x: e.clientX - left, y: e.clientY - top });
-  };
-  const onMouseMove = e => {
-    if (!dragStart || !imgRef.current) return;
-    const { left, top } = imgRef.current.getBoundingClientRect();
-    const cur = { x: e.clientX - left, y: e.clientY - top };
-    setDragBox({
-      x: Math.min(dragStart.x, cur.x),
-      y: Math.min(dragStart.y, cur.y),
-      w: Math.abs(cur.x - dragStart.x),
-      h: Math.abs(cur.y - dragStart.y),
-    });
-  };
-  const onMouseUp = () => {
-    if (dragBox) {
-      const blk = blocks[selectedIdx];
-      if (!blk || blk.type !== 'image') {
-        setDragStart(null);
-        setDragBox(null);
-        return;
+  const uploadProps = {
+    accept: 'image/*',
+    multiple: true,
+    showUploadList: false,
+    beforeUpload: file => {
+      const maxSizeMB = 10;
+      if (file.size / 1024 / 1024 > maxSizeMB) {
+        msgApi.error(`이미지 크기는 ${maxSizeMB}MB 이하여야 합니다.`);
+        return Upload.LIST_IGNORE;
       }
-      setPendingBox(dragBox);
-      if (addType === 'url')    setUrlModalVisible(true);
-      if (addType === 'coupon') setCouponModalVisible(true);
-    }
-    setDragStart(null);
-    setDragBox(null);
-  };
-
-  const addRegion = value => {
-    if (!pendingBox) return;
-    const blk = blocks[selectedIdx];
-    if (!blk || blk.type !== 'image') {
-      message.warning('이미지에서만 영역을 추가할 수 있습니다.');
-      return;
-    }
-    const W = imgRef.current.clientWidth;
-    const H = imgRef.current.clientHeight;
-    const newR = {
-      id: `${Date.now()}-${Math.random()}`,
-      xRatio: pendingBox.x / W,
-      yRatio: pendingBox.y / H,
-      wRatio: pendingBox.w / W,
-      hRatio: pendingBox.h / H,
-      ...(addType==='url'    ? { href: value }   : {}),
-      ...(addType==='coupon' ? { coupon: value } : {}),
-    };
-    setBlocks(bks => {
-      const a = [...bks];
-      a[selectedIdx] = { ...a[selectedIdx], regions: [...(a[selectedIdx].regions||[]), newR] };
-      return a;
-    });
-    setAddingMode(false);
-    setAddType(null);
-    setPendingBox(null);
-    setNewValue(null);
-    message.success(addType === 'url' ? 'URL 추가됨' : '쿠폰 추가됨');
-  };
-
-  // 영역 편집/삭제 (이미지 블록)
-  const onEditRegion = idx => {
-    setEditingIndex(idx);
-    const blk = blocks[selectedIdx];
-    const r = (blk?.regions || [])[idx];
-    if (r) editingForm.setFieldsValue(r);
-  };
-  const saveRegion = (idx, vals) => {
-    setBlocks(bks => {
-      const a = [...bks];
-      const regions = [...(a[selectedIdx].regions||[])];
-      regions[idx] = { ...regions[idx], ...vals };
-      a[selectedIdx] = { ...a[selectedIdx], regions };
-      return a;
-    });
-    setEditingIndex(null);
-    message.success('영역 수정됨');
-  };
-  const deleteRegion = idx => {
-    setBlocks(bks => {
-      const a = [...bks];
-      a[selectedIdx] = {
-        ...a[selectedIdx],
-        regions: (a[selectedIdx].regions || []).filter((_, i) => i !== idx)
+      return true;
+    },
+    customRequest: ({ file, onSuccess }) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const src = e.target.result;
+        const hash = sha256(src).toString(encHex);
+        if (blocks.some(b => b.hash && b.hash === hash)) {
+          msgApi.warning('같은 이미지는 한 번만 업로드할 수 있습니다.');
+          return;
+        }
+        const id = Date.now().toString() + Math.random();
+        const newBlock = { id, type: 'image', src, file, hash, regions: [] };
+        setBlocks(prev => [...prev, newBlock]);
+        setSelectedId(id);
+        onSuccess('ok');
       };
-      return a;
-    });
-    setEditingIndex(null);
-    message.success('영역 삭제됨');
+      reader.readAsDataURL(file);
+    },
   };
 
-  // 블록 순서 변경/삭제
   const onDragEnd = result => {
     if (!result.destination) return;
     const a = Array.from(blocks);
     const [m] = a.splice(result.source.index, 1);
     a.splice(result.destination.index, 0, m);
     setBlocks(a);
-    if (result.source.index === selectedIdx) {
-      setSelectedIdx(result.destination.index);
-    }
     requestAnimationFrame(() => { draggingRef.current = false; });
   };
 
-  const deleteBlock = idx => {
-    if (blocks.length === 1) {
-      return message.warning('최소 1개 블록이 필요합니다.');
-    }
-    setBlocks(prev => prev.filter((_, i) => i !== idx));
-    setSelectedIdx(0);
-    message.success('블록 삭제 완료');
-  };
-
-  // 🔹 영상 블록 추가/수정
-  const openAddVideo = () => {
-    if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
-    setEditingVideoIdx(null);
-    setVideoInput('');
-    setVideoRatioW(16);
-    setVideoRatioH(9);
-    setVideoAutoplay(false);
-    setVideoModalOpen(true);
-  };
-  const openEditVideo = (idx) => {
-    const blk = blocks[idx];
-    if (!blk || blk.type !== 'video') return;
-    setEditingVideoIdx(idx);
-    setVideoInput(blk.youtubeId || '');
-    setVideoRatioW(blk.ratio?.w || 16);
-    setVideoRatioH(blk.ratio?.h || 9);
-    setVideoAutoplay(!!blk.autoplay);
-    setVideoModalOpen(true);
-  };
-  const confirmVideoModal = () => {
-    const yid = parseYouTubeId(videoInput);
-    if (!yid) {
-      message.error('유효한 YouTube URL/ID를 입력하세요.');
-      return;
-    }
-    if (editingVideoIdx == null) {
-      // add
-      setBlocks(prev => [
-        ...prev,
-        {
-          id: `${Date.now()}-${Math.random()}`,
-          type: 'video',
-          youtubeId: yid,
-          ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
-          regions: [],
-          autoplay: !!videoAutoplay,
-        }
-      ]);
-      setSelectedIdx(blocks.length);
-      message.success('영상 블록 추가됨');
-    } else {
-      // edit
-      setBlocks(prev => {
-        const a = [...prev];
-        a[editingVideoIdx] = {
-          ...a[editingVideoIdx],
-          type: 'video',
-          youtubeId: yid,
-          ratio: { w: Number(videoRatioW) || 16, h: Number(videoRatioH) || 9 },
-          autoplay: !!videoAutoplay,
-        };
-        return a;
-      });
-      message.success('영상 블록 수정됨');
-    }
-    setVideoModalOpen(false);
-  };
-
-  // 🔹 텍스트 블록 추가/수정
-  const openCreateText = () => {
-    if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
-    textForm.resetFields();
-    setTextModalOpen(true);
-  };
-  const openEditText = (blk) => {
-    textForm.setFieldsValue({
-      text: blk.text || '',
-      align: blk.style?.align || 'center',
-      fontSize: blk.style?.fontSize || 18,
-      fontWeight: blk.style?.fontWeight || 'normal',
-      color: blk.style?.color || '#333333',
-      mt: blk.style?.mt ?? 16,
-      mb: blk.style?.mb ?? 16,
+  const deleteBlock = (idToDelete) => {
+    setBlocks(prev => {
+      const newBlocks = prev.filter(b => b.id !== idToDelete);
+      if (selectedId === idToDelete) {
+        setSelectedId(newBlocks.length > 0 ? newBlocks[0].id : null);
+      }
+      return newBlocks;
     });
-    setTextModalOpen(true);
-  };
-  const submitText = () => {
-    const { text, fontSize=18, fontWeight='normal', color='#333333', align='center', mt=16, mb=16 } = textForm.getFieldsValue();
-    if (!String(text || '').trim()) return message.warning('문구를 입력하세요.');
-    const sel = blocks[selectedIdx];
-    if (sel && sel.type === 'text') {
-      // edit
-      setBlocks(prev => prev.map((b,i) =>
-        i === selectedIdx
-          ? { ...b, text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
-          : b
-      ));
-    } else {
-      // add
-      const idv = `${Date.now()}-${Math.random()}`;
-      setBlocks(prev => [
-        ...prev,
-        { id:idv, type:'text', text, style:{ fontSize:Number(fontSize), fontWeight, color, align, mt:Number(mt), mb:Number(mb) } }
-      ]);
-      setSelectedIdx(blocks.length);
-    }
-    setTextModalOpen(false);
+    msgApi.success('블록이 삭제되었습니다.');
   };
 
-  // 저장
+  const selectedBlock = blocks.find(b => b.id === selectedId);
+
+  const onMouseDown = e => { if (!imgRef.current) return; const { left, top } = imgRef.current.getBoundingClientRect(); setDragStart({ x: e.clientX - left, y: e.clientY - top }); setDragCurrent({ x: e.clientX - left, y: e.clientY - top }); };
+  const onMouseMove = e => { if (!dragStartPos) return; const { left, top } = imgRef.current.getBoundingClientRect(); setDragCurrent({ x: e.clientX - left, y: e.clientY - top }); };
+  const onMouseUp = () => { if (!dragStartPos || !dragCurrent) { setDragStart(null); setDragCurrent(null); return; } const { clientWidth: W, clientHeight: H } = imgRef.current; const x = Math.min(dragStartPos.x, dragCurrent.x); const y = Math.min(dragStartPos.y, dragCurrent.y); const w = Math.abs(dragCurrent.x - dragStartPos.x); const h = Math.abs(dragCurrent.y - dragStartPos.y); if (w < 5 || h < 5) { setDragStart(null); setDragCurrent(null); return; } const region = { id: Date.now().toString(), xRatio: x / W, yRatio: y / H, wRatio: w / W, hRatio: h / H, }; setPendingRegion(region); setMapModalVisible(true); setDragStart(null); setDragCurrent(null); };
+  const saveRegion = () => { if (!pendingRegion) return; mapForm.validateFields().then(vals => { const updated = { ...pendingRegion }; if (addType === 'link') { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; updated.href = href; delete updated.coupon; } else { updated.coupon = (vals.coupon || []).join(','); delete updated.href; } setBlocks(prev => prev.map(b => b.id === selectedId && b.type === 'image' ? { ...b, regions: [...(b.regions || []), updated] } : b)); setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); setNotification(null); }).catch(info => console.log('Validate Failed:', info)); };
+  const openEditRegion = r => { setEditingRegion(r); setEditModalVisible(true); if (r.coupon) editForm.setFieldsValue({ coupon: r.coupon.split(',') }); else editForm.setFieldsValue({ href: r.href }); };
+  const applyEditRegion = () => { editForm.validateFields().then(vals => { setBlocks(prev => prev.map(b => { if (b.id !== selectedId || b.type !== 'image') return b; const regions = (b.regions || []).map(r => { if (r.id !== editingRegion.id) return r; if (r.coupon != null) { return { ...r, coupon: (vals.coupon || []).join(','), href: undefined }; } else { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; return { ...r, href, coupon: undefined }; } }); return { ...b, regions }; })); setEditModalVisible(false); setEditingRegion(null); }).catch(info => console.log('Validate Failed:', info)); };
+  const deleteRegion = () => { setBlocks(prev => prev.map(b => { if (b.id !== selectedId || b.type !== 'image') return b; return { ...b, regions: (b.regions || []).filter(r => r.id !== editingRegion.id) }; })); setEditModalVisible(false); setEditingRegion(null); };
+  
+  const addProductBlock = (blockData) => { if (editingProductBlock) { setBlocks(blocks.map(b => b.id === editingProductBlock.id ? { ...blockData } : b)); } else { setBlocks(prev => [...prev, blockData]); setSelectedId(blockData.id); } setEditingProductBlock(null); setProductBlockModalVisible(false); };
+  const openVideoModal = (blockToEdit = null) => { setAddingMode(false); setNotification(null); setSelectedId(blockToEdit?.id || null); if (blockToEdit) { videoForm.setFieldsValue({ urlOrId: blockToEdit.youtubeId, w: blockToEdit.ratio?.w, h: blockToEdit.ratio?.h, autoplay: blockToEdit.autoplay }); } else { videoForm.resetFields(); } setVideoModalVisible(true); };
+  const submitVideo = () => { videoForm.validateFields().then(vals => { const { urlOrId, w = 16, h = 9, autoplay = false } = vals; const vid = getYouTubeId(urlOrId); if (!vid) return msgApi.error('유효한 YouTube 링크/ID가 아닙니다.'); const sel = blocks.find(b => b.id === selectedId); if (sel?.type === 'video') { setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, youtubeId: vid, ratio: { w, h }, autoplay, loop: autoplay } : b)); } else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, type: 'video', youtubeId: vid, ratio: { w, h }, autoplay, loop: autoplay }]); setSelectedId(id); } setVideoModalVisible(false); }).catch(info => console.log('Validate Failed:', info)); };
+  const openTextModal = (blockToEdit = null) => { setAddingMode(false); setNotification(null); setSelectedId(blockToEdit?.id || null); if (blockToEdit) { textForm.setFieldsValue({ text: blockToEdit.text, ...blockToEdit.style }); } else { textForm.resetFields(); } setTextModalVisible(true); };
+  const submitText = () => { textForm.validateFields().then(vals => { const { text, ...style } = vals; const sel = blocks.find(b => b.id === selectedId); if (sel?.type === 'text') { setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, text, style } : b)); } else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, type: 'text', text, style }]); setSelectedId(id); } setTextModalVisible(false); }).catch(info => console.log('Validate Failed:', info)); };
+  
   const handleSave = async () => {
-    try {
-      // 이미지 블록만 업로드
-      const uploaded = await Promise.all(
-        blocks.map(async b => {
-          if (b.type === 'image' && b.file) {
-            const form = new FormData();
-            form.append('file', b.file);
-            const { data } = await api.post(
-              `/api/${mallId}/uploads/image`,
-              form,
-              { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-            return { ...b, src: data.url, file: undefined };
-          }
-          return b;
-        })
-      );
+    if (!title.trim()) return msgApi.error('이벤트 제목을 입력하세요.');
+    if (blocks.length === 0) return msgApi.error('콘텐츠 블록을 하나 이상 추가하세요.');
+    if (!mallId) return msgApi.error('Mall ID가 없습니다.');
 
-      // payload.content.blocks로 저장 + 레거시 images 동시 제공
-      const contentBlocks = uploaded.map(b => {
-        if (b.type === 'video') {
-          return {
-            _id: b.id,
-            type: 'video',
-            youtubeId: b.youtubeId,
-            ratio: b.ratio || { w:16, h:9 },
-            autoplay: !!b.autoplay, // 추가: autoplay 저장
-          };
-        }
-        if (b.type === 'text') {
-          return {
-            _id: b.id,
-            type: 'text',
-            text: b.text || '',
-            style: b.style || {}
-          };
-        }
-        return {
-          _id: b.id,
-          type: 'image',
-          src: b.src,
-          regions: (b.regions || []).map(r => ({
-            _id: r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon
-          }))
-        };
-      });
-
-      const legacyImages = uploaded
-        .filter(b => b.type === 'image')
-        .map(b => ({
-          _id: b.id,
-          src: b.src,
-          regions: (b.regions || []).map(r => ({
-            _id: r.id,
-            xRatio: r.xRatio,
-            yRatio: r.yRatio,
-            wRatio: r.wRatio,
-            hRatio: r.hRatio,
-            href:   r.href,
-            coupon: r.coupon
-          }))
-        }));
-
-      const payload = {
-        title,
-        content: { blocks: contentBlocks },
-        gridSize,
-        layoutType,
-        classification: {
-          registerMode,
-          ...(registerMode==='category'&&layoutType==='single'&&{ root: singleRoot, sub: singleSub }),
-          ...(registerMode==='category'&&layoutType==='tabs'  &&{ tabs, activeColor }),
-          ...(registerMode==='direct'  &&layoutType==='single'&&{ directProducts }),
-          ...(registerMode==='direct'  &&layoutType==='tabs'  &&{ tabDirectProducts, tabs, activeColor }),
-          // registerMode==='none'이면 위에 아무것도 추가하지 않음(상품 노출 관련 속성 미포함)
-        },
-        images: legacyImages, // 레거시 호환
-      };
-
-      await api.put(`/api/${mallId}/events/${id}`, payload);
-      message.success('저장 완료');
-      navigate(`/event/detail/${id}`);
-    } catch (err) {
-      console.error(err);
-      message.error('저장 실패');
-    }
-  };
-
-  const selectedBlock = blocks[selectedIdx];
-
-  // 이미지 유무
-  const hasAnyImage = blocks.some(b => b.type === 'image');
-
-  // ------------------------------
-  // step 이동 전 유효성 검사 핸들러
-  // ------------------------------
-  const handleStepChange = (target) => {
-    // target === 2 => "상품등록 방식 설정" 으로 이동하려고 할 때 유효성 검사
-    if (target === 2) {
-      if (!registerMode) {
-        message.warning('상품 등록 방식을 선택하세요.');
-        return;
-      }
-
-      // registerMode === 'none' 인 경우 상품 관련 검사 없이 진행 허용
-      if (registerMode === 'none') {
-        setCurrent(target);
-        return;
-      }
-
-      // 공통: gridSize와 layoutType 검사
-      if (!gridSize) {
-        message.warning('그리드 사이즈를 선택해주세요.');
-        return;
-      }
-      if (!layoutType) {
-        message.warning('상품 노출 방식을 선택해주세요.');
-        return;
-      }
-
-      // category 모드 검사 (EventCreate와 동일한 로직)
-      if (registerMode === 'category') {
-        if (layoutType === 'single') {
-          if (!singleRoot) {
-            message.warning('상품 분류(대분류)를 선택하세요.');
-            return;
-          }
-          setCurrent(target);
-          return;
-        }
-
-        // layoutType === 'tabs'
-        if (!Array.isArray(tabs) || tabs.length < 2) {
-          message.warning('탭을 두 개 이상 설정하세요.');
-          return;
-        }
-        const hasAnyTabRoot = tabs.some(t => !!t.root);
-        if (!hasAnyTabRoot) {
-          message.warning('탭 중 하나 이상의 대분류를 선택하세요.');
-          return;
-        }
-        setCurrent(target);
-        return;
-      }
-
-      // direct 모드 검사 (EventCreate와 동일한 로직)
+    const productBlock = blocks.find(b => b.type === 'product_group');
+    if (productBlock) {
+      const { registerMode, layoutType, directProducts, tabDirectProducts, tabs, root } = productBlock;
       if (registerMode === 'direct') {
-        if (layoutType === 'single') {
-          if (!directProducts || directProducts.length === 0) {
-            message.warning('상품을 1개 이상 등록해주세요.');
-            return;
-          }
-          setCurrent(target);
-          return;
-        }
-
-        // layoutType === 'tabs'
-        const totalDirect = Object.values(tabDirectProducts || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
-        if (totalDirect === 0) {
-          message.warning('탭당 최소 1개 이상의 상품을 등록해주세요.');
-          return;
-        }
-        setCurrent(target);
-        return;
+        if (layoutType === 'single' && (!directProducts || directProducts.length === 0)) { return msgApi.error('상품 블록에 상품을 1개 이상 등록해주세요.'); }
+        if (layoutType === 'tabs') { const allTabsHaveProducts = tabs.every((tab, i) => (tabDirectProducts[i] || []).length > 0); if (!allTabsHaveProducts) { return msgApi.error('상품 블록의 모든 탭에 상품을 1개 이상 등록해주세요.'); } }
       }
-
-      // 기본 안전장치
-      setCurrent(target);
-      return;
+      if (registerMode === 'category') {
+        if (layoutType === 'single' && !root) { return msgApi.error('상품 블록에 카테고리(대분류)를 선택해주세요.'); }
+        if (layoutType === 'tabs') { const allTabsHaveCategory = tabs.every(tab => tab.root); if (!allTabsHaveCategory) { return msgApi.error('상품 블록의 모든 탭에 카테고리(대분류)를 선택해주세요.'); } }
+      }
     }
 
-    // 다른 스텝으로 이동은 허용
-    setCurrent(target);
+    setSubmitting(true);
+    try {
+        const uploadedBlocks = await Promise.all(
+            blocks.map(async b => {
+                if (b.type === 'image' && b.file) {
+                    const formData = new FormData();
+                    formData.append('file', b.file);
+                    const { data } = await api.post(`/api/${mallId}/uploads/image`, formData);
+                    const { file, hash, ...rest } = b;
+                    return { ...rest, src: data.url };
+                }
+                const { file, hash, ...rest } = b;
+                return rest;
+            })
+        );
+
+        const payload = {
+            title,
+            content: { blocks: uploadedBlocks },
+            images: uploadedBlocks.filter(b => b.type === 'image').map(i => ({ _id: i.id, src: i.src, regions: i.regions })),
+        };
+
+        await api.put(`/api/${mallId}/events/${id}`, payload);
+        msgApi.success('이벤트가 성공적으로 수정되었습니다.');
+        navigate(`/event/detail/${id}`);
+
+    } catch (error) {
+        console.error("Update Error:", error);
+        msgApi.error(error.response?.data?.message || '이벤트 수정에 실패했습니다.');
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (
-    <Card
-      title="이벤트 수정"
-      extra={
-        <Space>
-          <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>
-            목록
-          </Button>
-          <Button onClick={() => navigate(`/${mallId}/event/detail/${docId || id}`)}>
-            취소
-          </Button>
-          <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-            저장
-          </Button>
-        </Space>
-      }
-      style={{ minHeight: '80vh' }}
-    >
-      <Steps current={current} onChange={handleStepChange} style={{ marginBottom: 24 }}>
-        <Step title="제목 입력" />
-        <Step title="미디어(이미지/영상/텍스트) & 매핑" />
-        <Step title="상품등록 방식 설정" />
-      </Steps>
-
-      {/* Step 1 */}
-      {current === 0 && (
-        <Input
-          placeholder="제목을 입력하세요"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-        />
-      )}
-
-      {/* Step 2 */}
-      {current === 1 && (
-        <>
-          {/* 썸네일 리스트 (블록 단위) */}
-          <DragDropContext
-            onDragStart={() => { draggingRef.current = true; }}
-            onDragEnd={onDragEnd}
-          >
-            <Droppable droppableId="thumbs" direction="horizontal">
-              {prov => (
-                <div
-                  ref={prov.innerRef}
-                  {...prov.droppableProps}
-                  style={{ display:'flex', gap:8, overflowX:'auto', padding:'8px 0' }}
-                >
-                  {blocks.map((blk, idx) => (
-                    <Draggable key={blk.id} draggableId={String(blk.id)} index={idx}>
-                      {(p, snapshot) => (
-                        <div
-                          ref={p.innerRef}
-                          {...p.draggableProps}
-                          {...p.dragHandleProps}
-                          style={{
-                            position:'relative',
-                            border: idx===selectedIdx ? `2px solid ${activeColor}` : '1px solid #ddd',
-                            borderRadius:4,
-                            width: 140,
-                            height: 78,
-                            overflow:'hidden',
-                            cursor:'pointer',
-                            ...getItemStyle(snapshot.isDragging, p.draggableProps.style)
-                          }}
-                          onPointerUp={() => {
-                            if (draggingRef.current) return;
-                            setSelectedIdx(idx);
-                            setShowAllPreview(false); // 전체보기 해제
-                          }}
-                          title={
-                            blk.type === 'video'
-                              ? `YouTube: ${blk.youtubeId || ''}${blk.autoplay ? ' (autoplay)' : ''}`
-                              : blk.type === 'text'
-                              ? '텍스트'
-                              : '이미지'
-                          }
-                        >
-                          {blk.type === 'image' ? (
-                            <img
-                              src={blk.src}
-                              alt=""
-                              style={{ width:'100%', height:'100%', objectFit:'cover' }}
-                            />
-                          ) : blk.type === 'video' ? (
-                            <div style={{
-                              width:'100%', height:'100%',
-                              background:'#000', color:'#fff',
-                              display:'flex', alignItems:'center', justifyContent:'center',
-                              fontSize:12
-                            }}>
-                              <span>🎬 {blk.youtubeId || '영상'}{blk.autoplay ? ' · 자동재생' : ''}</span>
-                            </div>
-                          ) : (
+    <>
+      {msgCtx}
+      <Card 
+        title="이벤트 페이지 수정" 
+        extra={
+            <Space>
+                <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>목록으로</Button>
+                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={submitting} disabled={!mallId}>
+                    수정 완료
+                </Button>
+            </Space>
+        }
+      >
+        <div style={{ display: 'flex', gap: '24px', flexDirection: isMobile ? 'column' : 'row' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3>제목</h3>
+            <Input placeholder="이벤트 제목을 입력하세요" value={title} onChange={e => setTitle(e.target.value)} />
+            <Divider />
+            <h3>콘텐츠 구성</h3>
+            {blocks.length > 0 && (
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="blocks-list" direction="horizontal">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="thumb-list">
+                      {blocks.map((block, index) => (
+                        <Draggable key={block.id} draggableId={String(block.id)} index={index}>
+                          {(provided, snapshot) => (
                             <div
-                              style={{
-                                width:'100%', height:'100%',
-                                background:'#f5f5f5', color:'#888',
-                                display:'flex', alignItems:'center', justifyContent:'center',
-                                fontSize:22, fontWeight:700
-                              }}
+                              ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                              style={getItemStyle(snapshot.isDragging, provided.draggableProps.style)}
+                              className={`thumb-item ${selectedId === block.id ? 'active' : ''} ${block.type}`}
+                              onClick={() => setSelectedId(block.id)}
                             >
-                              Tt
+                              {block.type === 'image' && <img src={block.src} alt="콘텐츠 이미지" />}
+                              {block.type === 'video' && <><YoutubeOutlined /><span>영상 블록</span></>}
+                              {block.type === 'text' && <><FontSizeOutlined /><span>텍스트 블록</span></>}
+                              {block.type === 'product_group' && <><ShoppingCartOutlined /><span>상품 블록</span></>}
+                              <DeleteOutlined className="thumb-delete" onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }}/>
                             </div>
                           )}
-
-                          <div style={{ position:'absolute', top:4, right:4, display:'flex', gap:4 }}>
-                            {blk.type === 'image' ? (
-                              <Upload
-                                accept="image/*"
-                                showUploadList={false}
-                                customRequest={({file,onSuccess})=>replaceImage(idx,file,onSuccess)}
-                              >
-                                <Button size="small" icon={<UploadOutlined />} />
-                              </Upload>
-                            ) : blk.type === 'video' ? (
-                              <Button
-                                size="small"
-                                icon={<EditOutlined />}
-                                onClick={(e)=>{ e.stopPropagation(); openEditVideo(idx); }}
-                              />
-                            ) : (
-                              <Button
-                                size="small"
-                                icon={<EditOutlined />}
-                                onClick={(e)=>{ e.stopPropagation(); openEditText(blocks[idx]); setSelectedIdx(idx); }}
-                              />
-                            )}
-                            <Button
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={(e)=>{ e.stopPropagation(); deleteBlock(idx); }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-
-                  {/* 이미지 블록 추가 */}
-                  <div
-                    style={{
-                      width:140, height:78,
-                      border:'1px dashed #ccc',
-                      borderRadius:4,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      cursor:'pointer'
-                    }}
-                  >
-                    <Upload
-                      accept="image/*"
-                      showUploadList={false}
-                      customRequest={({file,onSuccess,onError})=>{
-                        const reader = new FileReader();
-                        reader.onload = e=>{
-                          const dataUrl = e.target.result;
-                          setBlocks(prev=>[
-                            ...prev,
-                            { id:`${Date.now()}-${Math.random()}`, type:'image', src:dataUrl, file, regions:[] }
-                          ]);
-                          setSelectedIdx(blocks.length);
-                          onSuccess();
-                          message.success('이미지 추가됨');
-                        };
-                        reader.onerror = onError;
-                        reader.readAsDataURL(file);
-                      }}
-                    >
-                      <PlusOutlined style={{ fontSize:24, color:'#888' }} />
-                    </Upload>
-                  </div>
-
-                  {/* 영상 블록 추가 */}
-                  <div
-                    onClick={openAddVideo}
-                    style={{
-                      width:140, height:78,
-                      border:'1px dashed #ccc',
-                      borderRadius:4,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      cursor:'pointer'
-                    }}
-                    title="영상 블록 추가"
-                  >
-                    <VideoCameraAddOutlined style={{ fontSize:24, color:'#888' }} />
-                  </div>
-
-                  {/* 텍스트 블록 추가 */}
-                  <div
-                    onClick={openCreateText}
-                    style={{
-                      width:140, height:78,
-                      border:'1px dashed #ccc',
-                      borderRadius:4,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      cursor:'pointer'
-                    }}
-                    title="텍스트 블록 추가"
-                  >
-                    <FontSizeOutlined style={{ fontSize:24, color:'#888' }} />
-                  </div>
-
-                  {prov.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-
-          {/* 매핑/컨트롤 + 전체보기 */}
-          <Space style={{ margin:'8px 0' }} wrap>
-            <Button
-              icon={<LinkOutlined />}
-              type={addingMode && addType==='url' ? 'primary':'default'}
-              onClick={()=>{
-                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
-                if (showAllPreview) return message.info('추가하실 썸네일은 선택해주세요');
-                const sel = blocks[selectedIdx];
-                if (!sel || sel.type !== 'image') return message.info('대상 이미지를 선택하세요.');
-                setAddingMode(true); setAddType('url');
-              }}
-            >URL 추가</Button>
-
-            <Button
-              icon={<TagOutlined />}
-              type={addingMode && addType==='coupon' ? 'primary':'default'}
-              onClick={()=>{
-                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
-                if (showAllPreview) return message.info('추가하실 썸네일은 선택해주세요');
-                const sel = blocks[selectedIdx];
-                if (!sel || sel.type !== 'image') return message.info('대상 이미지를 선택하세요.');
-                setAddingMode(true); setAddType('coupon'); setNewValue([]);
-              }}
-            >쿠폰 추가</Button>
-
-            <Button
-              style={{
-                marginLeft: 8,
-                background: showAllPreview ? '#fe6326' : undefined,
-                color: showAllPreview ? '#fff' : undefined,
-                borderColor: showAllPreview ? '#fe6326' : undefined
-              }}
-              onClick={()=>{
-                if (blocks.length === 0) return message.info('이미지 추가 후 이용가능');
-                setShowAllPreview(v=>!v);
-              }}
-            >
-              전체 보기
-            </Button>
-          </Space>
-
-          {/* 미디어 미리보기 / 매핑 캔버스 */}
-          {showAllPreview ? (
-            // 전체보기 모드
-            <div style={{ display:'grid', gap:0, maxWidth:800, margin:'0 auto' }}>
-              {blocks.map(b =>
-                b.type === 'video' ? (
-                  <div key={b.id} style={{ width:'100%' }}>
-                    <div style={{ position:'relative', width:'100%', aspectRatio:`${b.ratio?.w||16} / ${b.ratio?.h||9}` }}>
-                      <iframe
-                        src={buildYouTubeSrc(b.youtubeId, !!b.autoplay)}
-                        title="YouTube"
-                        style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-                ) : b.type === 'text' ? (
-                  <div
-                    key={b.id}
-                    style={{
-                      textAlign: b.style?.align || 'center',
-                      marginTop: b.style?.mt ?? 16,
-                      marginBottom: b.style?.mb ?? 16,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: b.style?.fontSize || 18,
-                        fontWeight: b.style?.fontWeight || 'normal',
-                        color: b.style?.color || '#333',
-                      }}
-                      dangerouslySetInnerHTML={{ __html: escapeHtml(b.text || '').replace(/\n/g, '<br/>') }}
-                    />
-                  </div>
-                ) : (
-                  <img key={b.id} src={b.src} alt="" style={{ width:'100%', maxWidth:800, margin:'0 auto' }} />
-                )
-              )}
-            </div>
-          ) : selectedBlock?.type === 'video' ? (
-            <div style={{ margin:'16px auto', maxWidth:800 }}>
-              <YouTubeEmbed
-                id={selectedBlock.youtubeId}
-                ratioW={selectedBlock.ratio?.w || 16}
-                ratioH={selectedBlock.ratio?.h || 9}
-                title={`youtube-${selectedBlock.youtubeId || 'preview'}`}
-                autoplay={!!selectedBlock.autoplay}
-              />
-              <div style={{ marginTop:8 }}>
-                <Button size="small" icon={<EditOutlined />} onClick={()=>openEditVideo(selectedIdx)}>
-                  영상 편집
-                </Button>
-              </div>
-            </div>
-          ) : selectedBlock?.type === 'text' ? (
-            <div style={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
-              <div
-                style={{
-                  border: '1px dashed #ccc',
-                  padding: 16,
-                  background: '#fafafa',
-                  marginTop: selectedBlock.style?.mt ?? 16,
-                  marginBottom: selectedBlock.style?.mb ?? 16,
-                  textAlign: selectedBlock.style?.align || 'center',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: selectedBlock.style?.fontSize || 18,
-                    fontWeight: selectedBlock.style?.fontWeight || 'normal',
-                    color: selectedBlock.style?.color || '#333',
-                  }}
-                  dangerouslySetInnerHTML={{ __html: escapeHtml(selectedBlock.text || '').replace(/\n/g, '<br/>') }}
-                />
-              </div>
-              <Button onClick={() => openEditText(selectedBlock)}>텍스트 편집</Button>
-            </div>
-          ) : (
-            <div
-              className="mapping-container"
-              ref={imgRef}
-              onMouseDown={onMouseDown}
-              onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp}
-              style={{
-                position:'relative',
-                width:'100%',
-                maxWidth:800,
-                margin:'16px auto',
-                cursor:addingMode ? 'crosshair':'default'
-              }}
-            >
-              {selectedBlock && selectedBlock.type === 'image' && (
-                <img
-                  src={selectedBlock.src}
-                  alt=""
-                  style={{ width:'100%', userSelect:'none' }}
-                  draggable={false}
-                />
-              )}
-
-              {dragBox && (
-                <div
-                  style={{
-                    position:'absolute',
-                    left:dragBox.x,
-                    top:dragBox.y,
-                    width:dragBox.w,
-                    height:dragBox.h,
-                    border:'2px dashed #1890ff',
-                    background:'rgba(24,144,255,0.15)'
-                  }}
-                />
-              )}
-
-              {(selectedBlock?.regions || []).map((r,i)=>(
-                <Popover
-                  key={r.id}
-                  trigger="click"
-                  placement="topLeft"
-                  getPopupContainer={trigger=>trigger.parentNode}
-                  open={editingIndex===i}
-                  onOpenChange={open=>open?onEditRegion(i):setEditingIndex(null)}
-                  content={
-                    <Form
-                      form={editingForm}
-                      initialValues={r}
-                      onFinish={vals=>saveRegion(i,vals)}
-                      layout="vertical"
-                      style={{ width:500 }}
-                    >
-                      {r.coupon ? (
-                        <Form.Item
-                          name="coupon"
-                          label="쿠폰 선택 혹은 번호 입력"
-                          rules={[{ required:true, message:'쿠폰을 선택하거나 번호를 입력하세요' }]}
-                        >
-                          <Select
-                            mode="tags"
-                            tokenSeparators={[',']}
-                            options={couponOptions}
-                            placeholder="쿠폰 선택 또는 번호 입력"
-                          />
-                        </Form.Item>
-                      ) : (
-                        <Form.Item
-                          name="href"
-                          label="URL 입력"
-                          rules={[{ required:true, message:'URL을 입력하세요' }]}
-                        >
-                          <Input placeholder="https://example.com" />
-                        </Form.Item>
-                      )}
-                      <Form.Item>
-                        <Space style={{ justifyContent:'flex-end', width:'100%' }}>
-                          <Button onClick={()=>setEditingIndex(null)}>취소</Button>
-                          <Button danger onClick={()=>deleteRegion(i)}>삭제</Button>
-                          <Button type="primary" htmlType="submit">적용</Button>
-                        </Space>
-                      </Form.Item>
-                    </Form>
-                  }
-                >
-                  <div
-                    style={{
-                      position:'absolute',
-                      left:`${(r.xRatio*100).toFixed(2)}%`,
-                      top:`${(r.yRatio*100).toFixed(2)}%`,
-                      width:`${(r.wRatio*100).toFixed(2)}%`,
-                      height:`${(r.hRatio*100).toFixed(2)}%`,
-                      border: r.coupon
-                        ? '2px dashed rgba(255,99,71,0.7)'
-                        : '2px dashed rgba(24,144,255,0.7)',
-                      background: r.coupon
-                        ? 'rgba(255,99,71,0.2)'
-                        : 'rgba(24,144,255,0.2)',
-                      cursor:'pointer'
-                    }}
-                    onClick={e=>{ e.stopPropagation(); onEditRegion(i); }}
-                  />
-                </Popover>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Step 3 */}
-      {current === 2 && (
-        <div style={{ maxWidth: 400 }}>
-          <h4>상품 등록 방식</h4>
-          <Segmented
-            options={[
-              { label: '카테고리 상품 등록', value: 'category' },
-              { label: '직접 상품 등록',   value: 'direct'   },
-              { label: '노출안함',         value: 'none'     },
-            ]}
-            value={registerMode}
-            onChange={setRegisterMode}
-            block
-            style={{ marginBottom: 24 }}
-          />
-
-          {/* 카테고리 상품 등록 */}
-          {registerMode === 'category' && (
-            <>
-              <h4>그리드 사이즈</h4>
-              <Space>
-                {[2,3,4].map(n => (
-                  <Button
-                    key={n}
-                    type={gridSize === n ? 'primary' : 'default'}
-                    onClick={() => setGridSize(n)}
-                  >
-                    {n}×{n}
-                  </Button>
-                ))}
-              </Space>
-
-              <h4 style={{ margin: '16px 0' }}>노출 방식</h4>
-              <Segmented
-                options={[
-                  { label: '단품상품', value: 'single' },
-                  { label: '탭상품',   value: 'tabs'   },
-                ]}
-                value={layoutType}
-                onChange={val => setLayoutType(val)}
-                block
-              />
-
-              {layoutType === 'single' && (
-                <Space style={{ marginTop: 24 }}>
-                  <Select
-                    placeholder="대분류"
-                    style={{ width: 180 }}
-                    value={singleRoot}
-                    onChange={setSingleRoot}
-                  >
-                    {allCats.filter(c => c.category_depth === 1).map(r => (
-                      <Option key={r.category_no} value={String(r.category_no)}>
-                        {r.category_name}
-                      </Option>
-                    ))}
-                  </Select>
-                  <Select
-                    placeholder="소분류"
-                    style={{ width: 180 }}
-                    value={singleSub}
-                    onChange={setSingleSub}
-                  >
-                    {allCats
-                      .filter(c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot)
-                      .map(s => (
-                        <Option key={s.category_no} value={String(s.category_no)}>
-                          {s.category_name}
-                        </Option>
+                        </Draggable>
                       ))}
-                  </Select>
-                </Space>
-              )}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            )}
+            
+            <Space style={{ marginTop: 12, flexWrap: 'wrap' }}>
+                <Button icon={<LinkOutlined />} type={addingMode && addType === 'link' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('URL을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('link'); setAddingMode(true); setNotification('클릭 시 원하는 주소의 페이지로 이동이 되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 영역을 설정하고 URL 주소를 입력하세요)'); }}>URL 추가</Button>
+                <Button icon={<TagOutlined />} type={addingMode && addType === 'coupon' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('쿠폰을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('coupon'); setAddingMode(true); setNotification('해당 부분을 클릭 시 쿠폰이 다운되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 설정 후 쿠폰을 적용하세요)'); }}>쿠폰 추가</Button>
+                <Button icon={<ShoppingCartOutlined />} onClick={() => { setAddingMode(false); setNotification(null); setEditingProductBlock(null); setProductBlockModalVisible(true); }}>상품 추가</Button>
+                <Button icon={<YoutubeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openVideoModal(); }}>YouTube 추가</Button>
+                <Button icon={<FontSizeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openTextModal(); }}>텍스트 추가</Button>
+            </Space>
 
-              {layoutType === 'tabs' && (
-                <>
-                  {tabs.map((t,i) => (
-                    <Space key={i} size="middle" style={{ marginTop:16 }}>
-                      <Input
-                        placeholder={`탭 ${i+1} 제목`}
-                        style={{ width:120 }}
-                        value={t.title}
-                        onChange={e => updateTab(i,'title',e.target.value)}
-                      />
-                      <Select
-                        placeholder="대분류"
-                        style={{ width:140 }}
-                        value={t.root}
-                        onChange={v => updateTab(i,'root',v)}
-                      >
-                        {allCats.filter(c => c.category_depth === 1).map(r => (
-                          <Option key={r.category_no} value={String(r.category_no)}>
-                            {r.category_name}
-                          </Option>
-                        ))}
-                      </Select>
-                      <Select
-                        placeholder="소분류"
-                        style={{ width:140 }}
-                        value={t.sub}
-                        onChange={v => updateTab(i,'sub',v)}
-                      >
-                        {allCats
-                          .filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root)
-                          .map(s => (
-                            <Option key={s.category_no} value={String(s.category_no)}>
-                              {s.category_name}
-                            </Option>
-                          ))}
-                      </Select>
-                      {tabs.length >= 3 && (
-                        <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor:'pointer' }} />
-                      )}
-                    </Space>
-                  ))}
-                  <Button
-                    type="dashed"
-                    block
-                    style={{ marginTop:16 }}
-                    onClick={addTab}
-                    disabled={tabs.length >= 4}
-                  >
-                    + 탭 추가
-                  </Button>
-                  <Space style={{ marginTop:12, alignItems:'center' }}>
-                    <span>활성 탭 색:</span>
-                    <Input
-                      type="color"
-                      value={activeColor}
-                      onChange={e => setActiveColor(e.target.value)}
-                      style={{ width:32, height:32, padding:0, border:'none' }}
-                    />
-                  </Space>
-                </>
-              )}
-            </>
-          )}
-
-          {/* 직접 상품 등록 */}
-          {registerMode === 'direct' && (
-            <>
-              <h4>그리드 사이즈</h4>
-              <Space>
-                {[2,3,4].map(n => (
-                  <Button
-                    key={n}
-                    type={gridSize === n ? 'primary' : 'default'}
-                    onClick={() => setGridSize(n)}
-                  >
-                    {n}×{n}
-                  </Button>
-                ))}
-              </Space>
-
-              <h4 style={{ margin: '16px 0' }}>노출 방식</h4>
-              <Segmented
-                options={[
-                  { label: '단품상품', value: 'single' },
-                  { label: '탭상품',   value: 'tabs'   },
-                ]}
-                value={layoutType}
-                onChange={val => setLayoutType(val)}
-                block
+            {addingMode && (
+              <Alert
+                message={notification}
+                type="info"
+                showIcon
+                closable
+                onClose={() => {
+                  setNotification(null);
+                  setAddingMode(false);
+                  setAddType(null);
+                }}
+                style={{ marginTop: 16 }}
               />
+            )}
 
-              {layoutType === 'single' && (
-                <Button
-                  type={directProducts.length > 0 ? 'primary' : 'dashed'}
-                  onClick={() => {
-                    setInitialSelected(directProducts.map(p => p.product_no));
-                    setMorePrdTarget('direct');
-                    setMorePrdVisible(true);
-                  }}
-                >
-                  {directProducts.length
-                    ? `상품 ${directProducts.length}개 등록됨`
-                    : '상품 직접 등록'}
-                </Button>
-              )}
-
-              {layoutType === 'tabs' && (
-                <>
-                  {tabs.map((t,i) => (
-                    <Space key={i} size="middle" style={{ marginTop:16 }}>
-                      <Input
-                        placeholder={`탭 ${i+1} 제목`}
-                        style={{ width:120 }}
-                        value={t.title}
-                        onChange={e => updateTab(i,'title',e.target.value)}
-                      />
-                      <Button
-                        type={(tabDirectProducts[i]||[]).length > 0 ? 'primary' : 'default'}
-                        onClick={() => {
-                          setInitialSelected((tabDirectProducts[i]||[]).map(p => p.product_no));
-                          setMorePrdTarget('tab');
-                          setMorePrdTabIndex(i);
-                          setMorePrdVisible(true);
-                        }}
-                      >
-                        {(tabDirectProducts[i]||[]).length
-                          ? `상품 ${(tabDirectProducts[i]||[]).length}개 등록됨`
-                          : '상품 직접 등록'}
-                      </Button>
-                      {tabs.length >= 3 && (
-                        <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor:'pointer' }} />
-                      )}
-                    </Space>
-                  ))}
-                  <Button
-                    type="dashed"
-                    block
-                    style={{ marginTop:16 }}
-                    onClick={addTab}
-                    disabled={tabs.length >= 4}
-                  >
-                    + 탭 추가
-                  </Button>
-                  <Space style={{ marginTop:12, alignItems:'center' }}>
-                    <span>활성 탭 색:</span>
-                    <Input
-                      type="color"
-                      value={activeColor}
-                      onChange={e => setActiveColor(e.target.value)}
-                      style={{ width:32, height:32, padding:0, border:'none' }}
-                    />
-                  </Space>
-                </>
-              )}
-            </>
-          )}
-
-          {/* 노출안함 */}
-          {registerMode === 'none' && (
-            <div style={{ textAlign:'center', color:'#999', padding:'32px 0' }}>
-              상품을 노출하지 않습니다.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MorePrd 모달 */}
-      {morePrdVisible && (
-        <MorePrd
-          visible={morePrdVisible}
-          target={morePrdTarget}
-          tabIndex={morePrdTabIndex}
-          initialSelected={initialSelected}
-          onOk={selected => {
-            if (morePrdTarget === 'direct') {
-              setDirectProducts(selected);
-            } else {
-              setTabDirectProducts(prev => ({
-                ...prev,
-                [morePrdTabIndex]: selected
-              }));
-            }
-            setMorePrdVisible(false);
-          }}
-          onCancel={() => setMorePrdVisible(false)}
-        />
-      )}
-
-      {/* URL 모달 */}
-      <Modal
-        title="URL 추가"
-        open={urlModalVisible}
-        onCancel={() => {
-          setPendingBox(null);
-          setAddType(null);
-          setAddingMode(false);
-          setUrlModalVisible(false);
-        }}
-        footer={[
-          <Button key="cancel" onClick={() => {
-            setPendingBox(null);
-            setAddType(null);
-            setAddingMode(false);
-            setUrlModalVisible(false);
-          }}>취소</Button>,
-          <Button key="add" type="primary" onClick={() => {
-            addRegion(newValue);
-            setUrlModalVisible(false);
-          }}>등록</Button>,
-        ]}
-      >
-        <Input
-          placeholder="https://example.com"
-          value={newValue}
-          onChange={e => setNewValue(e.target.value)}
-        />
-      </Modal>
-
-      {/* 쿠폰 모달 */}
-      <Modal
-        title="쿠폰 추가"
-        open={couponModalVisible}
-        onCancel={() => {
-          setPendingBox(null);
-          setAddType(null);
-          setAddingMode(false);
-          setCouponModalVisible(false);
-        }}
-        footer={[
-          <Button key="cancel" onClick={() => {
-            setPendingBox(null);
-            setAddType(null);
-            setAddingMode(false);
-            setCouponModalVisible(false);
-          }}>취소</Button>,
-          <Button key="delete" danger onClick={() => {
-            setPendingBox(null);
-            setAddType(null);
-            setAddingMode(false);
-            setCouponModalVisible(false);
-          }}>삭제</Button>,
-          <Button key="apply" type="primary" onClick={() => {
-            addRegion(newValue);
-            setCouponModalVisible(false);
-          }}>적용</Button>,
-        ]}
-      >
-        <Select
-          mode="tags"
-          tokenSeparators={[',']}
-          options={couponOptions}
-          placeholder="쿠폰 선택 혹은 번호 입력 (쉼표로 구분)"
-          value={newValue || []}
-          onChange={v => setNewValue(v)}
-          style={{ width:'100%' }}
-        />
-      </Modal>
-
-      {/* 영상 블록 추가/수정 모달 */}
-      <Modal
-        title={editingVideoIdx == null ? '영상 블록 추가' : '영상 블록 수정'}
-        open={videoModalOpen}
-        onCancel={()=>setVideoModalOpen(false)}
-        onOk={confirmVideoModal}
-        okText={editingVideoIdx == null ? '추가' : '수정'}
-      >
-        <Space direction="vertical" style={{ width:'100%' }}>
-          <Input
-            placeholder="YouTube URL/ID/iframe src"
-            value={videoInput}
-            onChange={e=>setVideoInput(e.target.value)}
-          />
-          <Space>
-            비율:
-            <InputNumber min={1} value={videoRatioW} onChange={v=>setVideoRatioW(v||16)} />
-            :
-            <InputNumber min={1} value={videoRatioH} onChange={v=>setVideoRatioH(v||9)} />
-          </Space>
-
-          <Checkbox checked={videoAutoplay} onChange={e=>setVideoAutoplay(e.target.checked)}>
-            자동 재생 (무음으로 재생됩니다)
-          </Checkbox>
-
-          <div style={{ marginTop:8 }}>
-            미리보기
-            <div style={{ marginTop:8 }}>
-              <YouTubeEmbed id={parseYouTubeId(videoInput)} ratioW={videoRatioW} ratioH={videoRatioH} autoplay={videoAutoplay} />
+            <Upload.Dragger {...uploadProps} style={{ marginTop: 16 }}>
+              <p className="ant-upload-drag-icon"><UploadOutlined /></p>
+              <p className="ant-upload-text">이미지 블록을 추가하려면 파일을 드래그하거나 클릭하세요</p>
+            </Upload.Dragger>
+          </div>
+          <div style={{ flex: 1, minWidth: 0, border: '1px solid #f0f0f0', borderRadius: 8, padding: '16px', background: '#fafafa' }}>
+            <h3 style={{ marginTop: 0 }}>미리보기</h3>
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
+              {blocks.map(b => {
+                const isSelected = selectedId === b.id;
+                if (b.type === 'image') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><PictureOutlined /><strong>이미지 블록</strong></div><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></div><div className="block-content image-content" onMouseDown={addingMode && isSelected ? onMouseDown : undefined} onMouseMove={addingMode && isSelected ? onMouseMove : undefined} onMouseUp={addingMode && isSelected ? onMouseUp : undefined} style={{cursor: addingMode && isSelected ? 'crosshair':'default', position:'relative', width: '100%'}}><img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }} draggable={false} onDragStart={e => e.preventDefault()} /> {(b.regions || []).map(r => { const isCoupon = !!r.coupon; const style = { position: 'absolute', left: `${r.xRatio*100}%`, top: `${r.yRatio*100}%`, width: `${r.wRatio*100}%`, height: `${r.hRatio*100}%`, border: `2px dashed ${isCoupon ? '#ff6347' : '#fe6326'}`, cursor: 'pointer', background: isCoupon ? 'rgba(255, 99, 71, 0.2)' : 'rgba(24, 144, 255, 0.2)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start' }; return (<div key={r.id} onClick={(e) => { e.stopPropagation(); openEditRegion(r); }} style={style}><span style={{ background: isCoupon ? '#ff6347' : '#fe6326', color: 'white', fontSize: '10px', padding: '1px 4px', borderRadius: '2px', lineHeight: 1, fontWeight: 'bold', margin: '1px' }}>{isCoupon ? '쿠폰' : 'URL'}</span></div>); })} {isSelected && dragStartPos && dragCurrent && <div style={{position:'absolute', left: Math.min(dragStartPos.x, dragCurrent.x), top: Math.min(dragStartPos.y, dragCurrent.y), width: Math.abs(dragCurrent.x-dragStartPos.x), height:Math.abs(dragCurrent.y-dragStartPos.y), border:'1px dashed #999', background:'rgba(200,200,200,0.2)'}} />}</div></div> );
+                if (b.type === 'video') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><YoutubeOutlined /><strong>영상 블록</strong></div><Space><Button type="link" size="small" onClick={() => openVideoModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space></div><div className="block-content"><YouTubeEmbed id={b.youtubeId} ratioW={b.ratio?.w} ratioH={b.ratio?.h} autoplay={b.autoplay} loop={b.loop} /></div></div> );
+                if (b.type === 'text') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><FontSizeOutlined /><strong>텍스트 블록</strong></div><Space><Button type="link" size="small" onClick={() => openTextModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space></div><div className="block-content" style={{ margin: `${b.style?.mt || 0}px 0 ${b.style?.mb || 0}px` }}><div style={{ textAlign: b.style?.align || 'center', fontSize: b.style?.fontSize || 18, fontWeight: b.style?.fontWeight || 'normal', color: b.style?.color || '#333', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: escapeHtml(b.text).replace(/\n/g, '<br/>') }} /></div></div> );
+                if (b.type === 'product_group') {
+                    const activeTabIndex = previewActiveTabs[b.id] || 0;
+                    let productsToDisplay = [];
+                    if (b.registerMode === 'direct') {
+                        if (b.layoutType === 'tabs') { productsToDisplay = b.tabDirectProducts?.[activeTabIndex] || []; } 
+                        else { productsToDisplay = b.directProducts || []; }
+                    }
+                    return (
+                        <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                            <div className="block-header">
+                                <div className="block-title"><ShoppingCartOutlined /><strong>상품 블록</strong></div>
+                                <Space><Button type="link" size="small" onClick={() => { setEditingProductBlock(b); setProductBlockModalVisible(true); }}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                            </div>
+                            <div className="block-content">
+                                {b.layoutType === 'tabs' && (<div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{(b.tabs || []).map((tab, i) => (<Button key={i} style={{ flex: 1, borderColor: i === activeTabIndex ? b.activeColor || '#fe6326' : undefined, backgroundColor: i === activeTabIndex ? b.activeColor || '#fe6326' : '#fff', color: i === activeTabIndex ? '#fff' : 'inherit' }} onClick={() => setPreviewActiveTabs(prev => ({ ...prev, [b.id]: i }))}>{tab.title || `탭 ${i + 1}`}</Button>))}</div>)}
+                                {b.registerMode === 'direct' ? renderGrid(b.gridSize, productsToDisplay) : (<div style={{ padding: '40px 20px', textAlign: 'center', color: '#888', background: '#f0f0f0', border: '1px dashed #d9d9d9', borderRadius: 4 }}>카테고리 상품은 실제 페이지에서 노출됩니다.</div>)}
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+              })}
             </div>
           </div>
-        </Space>
-      </Modal>
-
-      {/* 텍스트 블록 추가/수정 모달 */}
-      <Modal
-        title={selectedBlock?.type==='text' ? '텍스트 편집' : '텍스트 추가'}
-        open={textModalOpen}
-        onCancel={()=>setTextModalOpen(false)}
-        onOk={submitText}
-        okText="적용"
-      >
-        <Form
-          form={textForm}
-          layout="vertical"
-          initialValues={{ text:'', align:'center', fontSize:18, fontWeight:'normal', color:'#333333', mt:16, mb:16 }}
-        >
-          <Form.Item name="text" label="문구" rules={[{ required:true, message:'문구를 입력하세요.' }]}>
-            <Input.TextArea rows={4} placeholder="문구를 입력하세요. 엔터는 줄바꿈(<br/>)으로 보여집니다." />
-          </Form.Item>
-          <Space wrap>
-            <Form.Item name="align" label="정렬" style={{ marginBottom:0 }}>
-              <Select style={{ width:110 }}>
-                <Option value="left">왼쪽</Option>
-                <Option value="center">가운데</Option>
-                <Option value="right">오른쪽</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item name="fontSize" label="폰트크기" style={{ marginBottom:0 }}>
-              <Input type="number" min={10} max={80} step={1} style={{ width:110 }} />
-            </Form.Item>
-            <Form.Item name="fontWeight" label="굵기" style={{ marginBottom:0 }}>
-              <Select style={{ width:110 }}>
-                <Option value="normal">보통</Option>
-                <Option value="500">500</Option>
-                <Option value="600">600</Option>
-                <Option value="bold">bold</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item name="color" label="색상" style={{ marginBottom:0 }}>
-              <Input type="color" style={{ width:60, padding:0, border:'none', background:'transparent' }} />
-            </Form.Item>
-            <Form.Item name="mt" label="위 간격(px)" style={{ marginBottom:0 }}>
-              <Input type="number" min={0} step={1} style={{ width:120 }} />
-            </Form.Item>
-            <Form.Item name="mb" label="아래 간격(px)" style={{ marginBottom:0 }}>
-              <Input type="number" min={0} step={1} style={{ width:120 }} />
-            </Form.Item>
-          </Space>
-        </Form>
-      </Modal>
-    </Card>
+        </div>
+      </Card>
+      
+      <ProductBlockModal visible={productBlockModalVisible} onCancel={() => { setEditingProductBlock(null); setProductBlockModalVisible(false); }} onOk={addProductBlock} msgApi={msgApi} isMobile={isMobile} allCats={allCats} initialData={editingProductBlock} />
+      <Modal open={mapModalVisible} title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'} onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); }} onOk={saveRegion} okText="적용" cancelText="취소"><Form form={mapForm} layout="vertical">{addType === 'link' ? (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력해주세요.' }]}><Input placeholder="https://example.com" /></Form.Item>) : (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} placeholder="쿠폰 선택 또는 번호 입력" /></Form.Item>)}</Form></Modal>
+      <Modal open={editModalVisible} title="영역 편집" onCancel={() => setEditModalVisible(false)} footer={[<Button key="del" danger onClick={deleteRegion}>삭제</Button>,<Button key="cancel" onClick={() => setEditModalVisible(false)}>취소</Button>,<Button key="ok" type="primary" onClick={applyEditRegion}>적용</Button>,]}><Form form={editForm} layout="vertical">{editingRegion?.coupon ? (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponEditSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponEditSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} /></Form.Item>) : (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력하세요.' }]}><Input placeholder="https://example.com" /></Form.Item>)}</Form></Modal>
+      <Modal open={videoModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='video') ? "영상 편집" : "영상 추가"} onCancel={() => setVideoModalVisible(false)} onOk={submitVideo} okText="적용" cancelText="취소"><Form form={videoForm} layout="vertical" initialValues={{w:16, h:9}}><Form.Item name="urlOrId" label="YouTube 링크 또는 영상 ID" rules={[{ required: true, message: 'YouTube 링크/ID를 입력하세요.' }]}><Input /></Form.Item><p style={{ fontSize: '12px', color: '#888', marginTop: '-12px', marginBottom: '16px' }}>원하는 유튜브 영상 오른쪽 버튼 '동영상 URL 복사'를 통해 영상을 추가할 수 있습니다.</p><Space><Form.Item name="w" label="비율 W" style={{marginBottom:0}}><InputNumber min={1} step={1} style={{width:100}}/></Form.Item><div style={{alignSelf:'end', padding:'0 6px 8px'}}>/</div><Form.Item name="h" label="비율 H" style={{marginBottom:0}}><InputNumber min={1} step={1} style={{width:100}}/></Form.Item></Space><Form.Item name="autoplay" valuePropName="checked" style={{marginTop:8}}><Checkbox>자동재생 (자동재생 시 반복이 자동 적용됩니다)</Checkbox></Form.Item></Form></Modal>
+      <Modal open={textModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='text') ? "텍스트 편집" : "텍스트 추가"} onCancel={() => setTextModalVisible(false)} onOk={submitText} okText="적용" cancelText="취소"><Form form={textForm} layout="vertical" initialValues={{align:'center', fontSize:18, fontWeight:'normal', color:'#333333', mt:16, mb:16}}><Form.Item name="text" label="문구" rules={[{ required: true, message: '문구를 입력해주세요.' }]}><Input.TextArea rows={4} placeholder="문구를 입력하세요. 엔터는 줄바꿈으로 표시됩니다." /></Form.Item><Space wrap><Form.Item name="align" label="정렬" style={{marginBottom:0}}><Select style={{width:110}}><Option value="left">왼쪽</Option><Option value="center">가운데</Option><Option value="right">오른쪽</Option></Select></Form.Item><Form.Item name="fontSize" label="폰트크기" style={{marginBottom:0}}><InputNumber min={10} max={80} step={1} style={{width:110}}/></Form.Item><Form.Item name="fontWeight" label="굵기" style={{marginBottom:0}}><Select style={{width:110}}><Option value="normal">보통</Option><Option value="bold">굵게</Option></Select></Form.Item><Form.Item name="color" label="색상" style={{marginBottom:0}}><Input type="color" style={{width:60, padding:0, border:'none', background:'transparent'}}/></Form.Item><Form.Item name="mt" label="위 간격(px)" style={{marginBottom:0}}><InputNumber min={0} step={1} style={{width:120}}/></Form.Item><Form.Item name="mb" label="아래 간격(px)" style={{marginBottom:0}}><InputNumber min={0} step={1} style={{width:120}}/></Form.Item></Space></Form></Modal>
+    </>
   );
 }

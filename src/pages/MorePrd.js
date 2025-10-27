@@ -1,336 +1,271 @@
 // src/components/MorePrd.js
-import React, { useState, useEffect, useCallback } from 'react'
-import { Modal, Table, message, Input, Button } from 'antd'
-import { FileImageOutlined } from '@ant-design/icons'
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
-import { useParams } from 'react-router-dom'
-import api from '../axios'  // axios 인스턴스 사용
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Table, message, Input, Button } from 'antd';
+import { FileImageOutlined } from '@ant-design/icons';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import api from '../axios';
 
-/** 썸네일 컴포넌트 */
+/** Thumbnail Component */
 function Thumbnail({ src }) {
-  const [errored, setErrored] = useState(false)
+  const [errored, setErrored] = useState(false);
   if (errored || !src) {
-    return <FileImageOutlined style={{ fontSize: 50, color: '#ccc' }} />
+    return <FileImageOutlined style={{ fontSize: 50, color: '#ccc' }} />;
   }
   return (
     <img
       src={src}
-      alt=""
+      alt="thumbnail"
       onError={() => setErrored(true)}
-      style={{
-        width: 50,
-        height: 50,
-        objectFit: 'cover',
-        borderRadius: 4,
-        background: '#f0f0f0',
-      }}
+      style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4, background: '#f0f0f0' }}
     />
-  )
+  );
 }
 
-/** MorePrd 모달 */
-export default function MorePrd({
-  visible,
-  target = 'direct',   // 'direct' 또는 'tab'
-  tabIndex = 0,        // 탭 인덱스 (0,1,2…)
-  onOk,
-  onCancel,
-}) {
-  // 1) mallId: URL 파라미터 우선, 없으면 localStorage
-  const { mallId: paramMallId } = useParams()
-  const mallId = paramMallId || localStorage.getItem('mallId')
-  
-  // 탭별 storage 키
-  const keyPrefix        = `MorePrd_${target}_${tabIndex}`
-  const storageKeyKeys   = `${keyPrefix}_selectedKeys`
-  const storageKeyDetail = `${keyPrefix}_selectedDetails`
+/** MorePrd Modal */
+export default function MorePrd({ visible, onOk, onCancel, initialSelected = [] }) {
+  const params = new URLSearchParams(window.location.search);
+  const paramMallId = params.get('mall_id') || params.get('state');
+  const storedMallId = localStorage.getItem('mallId');
+  const mallId = paramMallId || storedMallId;
 
-  // 2) sessionStorage 복원
-  const [selectedRowKeys, setSelectedRowKeys] = useState(() => {
-    return JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]')
-  })
-  const [selectedDetails, setSelectedDetails] = useState(() => {
-    return JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]')
-  })
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
-  // 3) 로컬 테이블/검색 상태
-  const [loading, setLoading]       = useState(false)
-  const [products, setProducts]     = useState([])
-  const [searchText, setSearchText] = useState('')
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 10,
-    total: 0,
-  })
-  const [searchResults, setSearchResults] = useState([])
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [selectedDetails, setSelectedDetails] = useState([]);
 
-  // 4) sessionStorage 동기화
   useEffect(() => {
-    sessionStorage.setItem(storageKeyKeys, JSON.stringify(selectedRowKeys))
-  }, [selectedRowKeys])
-  useEffect(() => {
-    sessionStorage.setItem(storageKeyDetail, JSON.stringify(selectedDetails))
-  }, [selectedDetails])
-
-  // 5) 페이지 조회 함수
-  const fetchPage = async (page, pageSize) => {
-    if (!mallId) {
-      message.error('mallId가 없습니다.')
-      return
+    if (visible) {
+      setSearchText('');
+      setSearchResults([]);
+      fetchPage(1, 10);
+      
+      if (initialSelected && initialSelected.length > 0) {
+        const initialKeys = initialSelected.map(p => p.product_no);
+        setSelectedRowKeys(initialKeys);
+        setSelectedDetails(initialSelected);
+      } else {
+        setSelectedRowKeys([]);
+        setSelectedDetails([]);
+      }
     }
-    setLoading(true)
+  }, [visible, initialSelected]); // initialSelected를 의존성 배열에 추가하여 모달이 열릴 때마다 초기값 반영
+
+  useEffect(() => {
+    const missingKeys = selectedRowKeys.filter(
+      key => !selectedDetails.some(detail => detail.product_no === key)
+    );
+
+    if (missingKeys.length > 0 && mallId) {
+      const fetchMissingDetails = async () => {
+        try {
+          const newDetails = await Promise.all(
+            missingKeys.map(async key => {
+              const foundLocally = products.find(p => p.product_no === key) || searchResults.find(p => p.product_no === key);
+              if (foundLocally) return foundLocally;
+              const { data } = await api.get(`/api/${mallId}/products/${key}`);
+              return data;
+            })
+          );
+          // 중복 방지 로직 추가
+          setSelectedDetails(prev => {
+              const existingKeys = new Set(prev.map(p => p.product_no));
+              const uniqueNewDetails = newDetails.filter(p => p && !existingKeys.has(p.product_no));
+              return [...prev, ...uniqueNewDetails];
+          });
+        } catch (err) {
+          console.error('[MorePrd] Failed to load product details', err);
+          message.error('선택된 상품 정보를 가져오는데 실패했습니다.');
+        }
+      };
+      fetchMissingDetails();
+    }
+  }, [selectedRowKeys, products, searchResults, mallId]);
+
+  const fetchPage = useCallback(async (page, pageSize) => {
+    if (!mallId) return message.error('mallId가 없습니다.');
+    setLoading(true);
     try {
       const { data } = await api.get(`/api/${mallId}/products`, {
         params: { offset: (page - 1) * pageSize, limit: pageSize },
-      })
-      setProducts(data.products)
-      setPagination({ current: page, pageSize, total: data.total })
+      });
+      setProducts(data.products);
+      setPagination(prev => ({ ...prev, current: page, pageSize, total: data.total }));
     } catch (err) {
-      console.error('[MorePrd] 상품 로드 실패', err)
-      message.error('상품 로드에 실패했습니다.')
+      message.error('상품 로드에 실패했습니다.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [mallId]);
 
-  // 6) 전체 조회 + 필터(검색)
-  const fetchAllAndFilter = async q => {
-    if (!mallId) {
-      message.error('mallId가 없습니다.')
-      return
-    }
-    setLoading(true)
+  // ✅ [수정] 모든 상품을 불러와서 필터링하는 원본 로직으로 복구
+  const fetchAllAndFilter = useCallback(async (q) => {
+    if (!mallId) return message.error('mallId가 없습니다.');
+    setLoading(true);
     try {
-      let all = [], offset = 0, chunk = 100
+      let all = [], offset = 0, chunk = 100;
       while (true) {
         const res = await api.get(`/api/${mallId}/products`, {
           params: { offset, limit: chunk },
-        })
-        all = all.concat(res.data.products)
-        if (res.data.products.length < chunk) break
-        offset += chunk
+        });
+        all = all.concat(res.data.products);
+        if (res.data.products.length < chunk) break;
+        offset += chunk;
       }
       const filtered = all.filter(p =>
         p.product_name.toLowerCase().includes(q.toLowerCase())
-      )
-      setSearchResults(filtered)
-      setProducts(filtered.slice(0, pagination.pageSize))
-      setPagination({ current: 1, pageSize: pagination.pageSize, total: filtered.length })
+      );
+      setSearchResults(filtered);
+      setProducts(filtered.slice(0, pagination.pageSize));
+      setPagination(prev => ({ ...prev, current: 1, total: filtered.length }));
     } catch (err) {
-      console.error('[MorePrd] 검색 실패', err)
-      message.error('검색에 실패했습니다.')
+      console.error('[MorePrd] 검색 실패', err);
+      message.error('검색에 실패했습니다.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [mallId, pagination.pageSize]);
 
-  // 7) 모달 열릴 때 & 탭/모드 변경 시 초기 로드
-  useEffect(() => {
-    if (!visible) return
 
-    setSearchText('')
-    fetchPage(1, pagination.pageSize)
-
-    // sessionStorage 선택 복원
-    const savedKeys = JSON.parse(sessionStorage.getItem(storageKeyKeys) || '[]')
-    setSelectedRowKeys(savedKeys)
-
-    const savedDetails = JSON.parse(sessionStorage.getItem(storageKeyDetail) || '[]')
-    setSelectedDetails(savedDetails)
-
-    // 부족한 상세 로드
-    const toLoad = savedKeys.filter(
-      k => !savedDetails.some(d => String(d.product_no) === String(k))
-    )
-    if (toLoad.length > 0) {
-      Promise.all(
-        toLoad.map(k => api.get(`/api/${mallId}/products/${k}`).then(r => r.data))
-      )
-      .then(arr => setSelectedDetails(prev => [...prev, ...arr]))
-      .catch(err => {
-        console.error('[MorePrd] 선택 상품 상세 로드 실패', err)
-        message.error('선택 상품 상세 로드 실패')
-      })
-    }
-  }, [visible, target, tabIndex, mallId])
-
-  // 8) 체크박스 변경 시 상세 보충
-  useEffect(() => {
-    const missing = selectedRowKeys.filter(
-      k => !selectedDetails.find(d => d.product_no === k)
-    )
-    if (!missing.length) return
-
-    Promise.all(
-      missing.map(k => {
-        // 이미 로드된 리스트에서 찾고, 없으면 API 호출
-        const loc =
-          products.find(p => p.product_no === k) ||
-          searchResults.find(p => p.product_no === k) ||
-          selectedDetails.find(d => d.product_no === k)
-        return loc
-          ? Promise.resolve({ data: loc })
-          : api.get(`/api/${mallId}/products/${k}`)
-      })
-    )
-    .then(resps => setSelectedDetails(prev => [...prev, ...resps.map(r => r.data)]))
-    .catch(err => {
-      console.error('[MorePrd] 상세 추가 로드 실패', err)
-      message.error('선택 상품 상세 추가 로드 실패')
-    })
-  }, [selectedRowKeys, products, searchResults, selectedDetails, mallId])
-
-  // 9) 페이지 변경
-  const onTableChange = (page, pageSize) => {
+  const handleTableChange = (newPagination) => {
+    const { current, pageSize } = newPagination;
     if (searchText) {
-      const start = (page - 1) * pageSize
-      setProducts(searchResults.slice(start, start + pageSize))
-      setPagination({ current: page, pageSize, total: searchResults.length })
+      const start = (current - 1) * pageSize;
+      setProducts(searchResults.slice(start, start + pageSize));
+      setPagination(prev => ({ ...prev, current, pageSize }));
     } else {
-      fetchPage(page, pageSize)
+      fetchPage(current, pageSize);
     }
-  }
+  };
 
-  // 10) rowSelection
   const rowSelection = {
     selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
     preserveSelectedRowKeys: true,
-    onChange: keys => setSelectedRowKeys(keys),
-  }
+  };
 
-  // 11) 드래그 순서 변경
-  const onDragEnd = useCallback(
-    result => {
-      if (!result.destination) return
-      const arr = Array.from(selectedRowKeys)
-      const [m] = arr.splice(result.source.index, 1)
-      arr.splice(result.destination.index, 0, m)
-      setSelectedRowKeys(arr)
-    },
-    [selectedRowKeys]
-  )
+  const onDragEnd = useCallback(result => {
+    if (!result.destination) return;
+    const items = Array.from(selectedRowKeys);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setSelectedRowKeys(items);
+  }, [selectedRowKeys]);
 
-  // 12) 테이블 컬럼
+  const handleOk = useCallback(() => {
+    const orderedSelectedProducts = selectedRowKeys
+      .map(key => selectedDetails.find(p => p.product_no === key))
+      .filter(Boolean);
+    onOk(orderedSelectedProducts);
+  }, [selectedRowKeys, selectedDetails, onOk]);
+
   const columns = [
-    { title: '번호',     dataIndex: 'product_no', width: 80 },
-    { title: '상품명',   dataIndex: 'product_name', width: 200 },
-    {
-      title: '판매가',
-      dataIndex: 'price',
-      width: 120,
-      render: v => `${Number(v).toLocaleString()}원`,
-    },
-    {
-      title: '썸네일',
-      dataIndex: 'list_image',
-      width: 80,
-      render: src => <Thumbnail src={src} />,
-    },
-  ]
+    { title: '번호', dataIndex: 'product_no', width: 80 },
+    { title: '상품명', dataIndex: 'product_name' },
+    { title: '판매가', dataIndex: 'price', width: 120, render: v => `${Number(v).toLocaleString()}원` },
+    { title: '썸네일', dataIndex: 'list_image', width: 80, render: src => <Thumbnail src={src} /> },
+  ];
 
   return (
     <Modal
-      title={target === 'direct' ? '상품 직접 등록' : `탭 ${tabIndex + 1} 등록`}
+      title="상품 직접 등록"
       open={visible}
-      width={840}
+      width={1000}
       onCancel={onCancel}
-      onOk={() => onOk(selectedRowKeys.map(k => Number(k)))}
-      okText="추가"
+      onOk={handleOk}
+      okText="선택 완료"
       cancelText="닫기"
+      destroyOnClose
     >
-      <Input.Search
-        placeholder="상품명 검색"
-        allowClear
-        enterButton
-        onSearch={q => {
-          setSearchText(q)
-          q.trim() ? fetchAllAndFilter(q) : fetchPage(1, pagination.pageSize)
-        }}
-        style={{ marginBottom: 16 }}
-      />
-
-      <Table
-        rowKey="product_no"
-        loading={loading}
-        dataSource={products}
-        columns={columns}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-          pageSizeOptions: ['10','20','50','100'],
-          onChange: onTableChange,
-        }}
-        rowSelection={rowSelection}
-        scroll={{ y: 300 }}
-      />
-
-      {selectedRowKeys.length > 0 && (
-        <>
-          <h4 style={{ marginTop: 24 }}>선택된 상품 (드래그해서 순서 변경)</h4>
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="sel-list">
-              {prov => (
-                <div
-                  ref={prov.innerRef}
-                  {...prov.droppableProps}
-                  style={{
-                    maxHeight: 250,
-                    overflowY: 'auto',
-                    border: '1px solid #f0f0f0',
-                    borderRadius: 4,
-                    padding: 8,
-                    marginTop: 8,
-                  }}
-                >
-                  {selectedRowKeys.map((key, idx) => {
-                    const prod = selectedDetails.find(d => d.product_no === key) || {}
-                    return (
-                      <Draggable key={key} draggableId={String(key)} index={idx}>
-                        {dProv => (
-                          <div
-                            ref={dProv.innerRef}
-                            {...dProv.draggableProps}
-                            {...dProv.dragHandleProps}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              padding: '8px',
-                              marginBottom: 4,
-                              background: '#fff',
-                              border: '1px solid #eee',
-                              borderRadius: 4,
-                              ...dProv.draggableProps.style,
-                            }}
-                          >
-                            <Thumbnail src={prod.list_image} />
-                            <div style={{ flex: 1, marginLeft: 12 }}>
-                              <div><strong>번호:</strong> {prod.product_no}</div>
-                              <div><strong>이름:</strong> {prod.product_name}</div>
-                              <div><strong>판매가:</strong> {prod.price != null ? `${Number(prod.price).toLocaleString()}원` : '-'}</div>
-                            </div>
-                            <Button
-                              danger
-                              size="small"
-                              onClick={() =>
-                                setSelectedRowKeys(prev => prev.filter(x => x !== key))
-                              }
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div>
+          <Input.Search
+            placeholder="상품명 검색"
+            allowClear
+            enterButton
+            onSearch={q => {
+              const query = q.trim();
+              setSearchText(query);
+              if (query) {
+                fetchAllAndFilter(query);
+              } else {
+                setSearchResults([]);
+                fetchPage(1, pagination.pageSize);
+              }
+            }}
+            style={{ marginBottom: 16 }}
+          />
+          <Table
+            rowKey="product_no"
+            loading={loading}
+            dataSource={products}
+            columns={columns}
+            pagination={pagination}
+            onChange={handleTableChange}
+            rowSelection={rowSelection}
+            scroll={{ y: 350 }}
+          />
+        </div>
+        <div>
+          <h4>선택된 상품 ({selectedRowKeys.length}개)</h4>
+          <p>드래그하여 노출 순서를 변경할 수 있습니다.</p>
+          {selectedRowKeys.length > 0 ? (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="selected-products">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    style={{ height: 450, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 4, padding: 8 }}
+                  >
+                    {selectedRowKeys.map((key, index) => {
+                      const prod = selectedDetails.find(d => d.product_no === key) || {};
+                      return (
+                        <Draggable key={key} draggableId={String(key)} index={index}>
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              style={{
+                                display: 'flex', alignItems: 'center', padding: 8, marginBottom: 8,
+                                background: '#fff', border: '1px solid #eee', borderRadius: 4,
+                                ...provided.draggableProps.style,
+                              }}
                             >
-                              취소
-                            </Button>
-                          </div>
-                        )}
-                      </Draggable>
-                    )
-                  })}
-                  {prov.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        </>
-      )}
+                              <Thumbnail src={prod.list_image} />
+                              <div style={{ flex: 1, marginLeft: 12, fontSize: '12px' }}>
+                                <div>{prod.product_name}</div>
+                                <div style={{ color: '#888' }}>{Number(prod.price).toLocaleString()}원</div>
+                              </div>
+                              <Button
+                                danger
+                                type="text"
+                                size="small"
+                                onClick={() => setSelectedRowKeys(prev => prev.filter(k => k !== key))}
+                              >
+                                제외
+                              </Button>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          ) : (
+            <div style={{ height: 450, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', borderRadius: 4 }}>
+              왼쪽 테이블에서 상품을 선택하세요.
+            </div>
+          )}
+        </div>
+      </div>
     </Modal>
-  )
+  );
 }
