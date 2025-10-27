@@ -82,8 +82,7 @@ export default function EventDetail() {
       return;
     }
 
-    let html = `\n\n`;
-    html += `\n\n`;
+    let html = `<!--@layout(/layout/basic/layout.html)-->\n\n`;
     html += `<div id="evt-root"></div>\n\n`;
 
     const allBlocks = event.content?.blocks || [];
