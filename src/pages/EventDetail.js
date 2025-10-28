@@ -123,25 +123,25 @@ export default function EventDetail() {
 
     /* 상품명 폰트 굵기 및 색상 변경 */
     .prd_name {
-      font-weight: 500; /* 예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능*/
-      color: #000000; /* 예: 검은색 */
+      font-weight: 500!important;; /* 예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능*/
+      color: #000000!important; /* 예: 검은색 */
     }
 
     /* 할인율 텍스트 굵기 및 색상 변경 */
     .sale_percent, .prd_coupon_percent {
-      font-weight: bold; /* 예: bold */
+      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
       color: #ff4d4f !important; /* 예: 빨간색 */
     }
 
     /* 최종 가격 폰트 굵기 및 색상 변경 */
     .sale_price, .prd_coupon {
-      font-weight: bold; /* 예: bold */
+      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
       color: #000000 !important; /* 예: 검은색 */
     }
 
     /* 원래 가격(줄 그어진 가격) 폰트 굵기 및 색상 변경 */
     .original_price {
-      font-weight: 400; /* 예: 400 (기본) */
+      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
       color: #999999 !important; /* 예: 회색 */
     }
 `;
