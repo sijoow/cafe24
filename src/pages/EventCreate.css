@@ -240,4 +240,49 @@
   border-radius: 4px;
 }
 
-/* (이하 다른 모든 CSS 코드는 기존과 동일합니다) */
+
+/* --- 새로운 블록 헤더 스타일 --- */
+.preview-block-container {
+  margin-bottom: 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background-color: #ffffff;
+  transition: all 0.2s ease-in-out;
+}
+
+.preview-block-container.selected {
+  border-color: #fe6326;
+  box-shadow: 0 0 0 2px rgba(254, 99, 38, 0.2);
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.block-header .block-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #595959;
+}
+
+.block-header .block-title .anticon {
+  color: #8c8c8c;
+  font-size: 16px;
+}
+
+.block-content {
+  padding: 16px;
+}
+
+.block-content.image-content {
+  padding: 0;
+}
