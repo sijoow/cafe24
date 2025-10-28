@@ -63,7 +63,7 @@ function renderGrid(cols, products = []) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap: 16, maxWidth: 800, margin: '24px auto' }}>
       {itemsToRender.map((p, i) => (
-        <div key={p?.product_no || i} style={{ overflow: 'hidden', border: '1px solid #e8e8e8', background: '#fff', borderRadius: '6px' }}>
+        <div key={p?.product_no || i} style={{ overflow: 'hidden', background: '#fff', borderRadius: '6px' }}>
           <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
             {p?.list_image ? (<img src={p.list_image} alt={p.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />)}
           </div>
@@ -464,12 +464,12 @@ export default function EventCreate() {
             )}
             
             <Space style={{ marginTop: 12, flexWrap: 'wrap' }}>
-                <Button icon={<LinkOutlined />} type={addingMode && addType === 'link' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('URL을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('link'); setAddingMode(true); setNotification('클릭 시 원하는 주소의 페이지로 이동이 되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 영역을 설정하고 URL 주소를 입력하세요)'); }}>URL 추가</Button>
-                <Button icon={<TagOutlined />} type={addingMode && addType === 'coupon' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('쿠폰을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('coupon'); setAddingMode(true); setNotification('해당 부분을 클릭 시 쿠폰이 다운되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 설정 후 쿠폰을 적용하세요)'); }}>쿠폰 추가</Button>
-                <Button icon={<ShoppingCartOutlined />} onClick={() => { setAddingMode(false); setNotification(null); setEditingProductBlock(null); setProductBlockModalVisible(true); }}>상품 추가</Button>
-                <Button icon={<YoutubeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openVideoModal(); }}>YouTube 추가</Button>
-                <Button icon={<FontSizeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openTextModal(); }}>텍스트 추가</Button>
-            </Space>
+               <Button icon={<LinkOutlined />} type={addingMode && addType === 'link' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('URL을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('link'); setAddingMode(true); setNotification('클릭 시 원하는 주소의 페이지로 이동이 되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 영역을 설정하고 URL 주소를 입력하세요)'); }}>URL 추가</Button>
+               <Button icon={<TagOutlined />} type={addingMode && addType === 'coupon' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('쿠폰을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('coupon'); setAddingMode(true); setNotification('해당 부분을 클릭 시 쿠폰이 다운되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 설정 후 쿠폰을 적용하세요)'); }}>쿠폰 추가</Button>
+               <Button icon={<ShoppingCartOutlined />} onClick={() => { setAddingMode(false); setNotification(null); setEditingProductBlock(null); setProductBlockModalVisible(true); }}>상품 추가</Button>
+               <Button icon={<YoutubeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openVideoModal(); }}>YouTube 추가</Button>
+               <Button icon={<FontSizeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openTextModal(); }}>텍스트 추가</Button>
+             </Space>
             
             {addingMode && (
               <Alert
@@ -492,7 +492,7 @@ export default function EventCreate() {
             </Upload.Dragger>
           </div>
           <div style={{ flex: 1, minWidth: 0, border: '1px solid #f0f0f0', borderRadius: 8, padding: '16px', background: '#fafafa' }}>
-            <h3 style={{ marginTop: 0 }}>미리보기</h3>
+            <h3 style={{ marginTop: 0 ,textAlign:'center'}}>{isPreviewMode ? '미리보기 모드' : '편집 모드'}</h3>
             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
               {blocks.map(b => {
                 const isSelected = selectedId === b.id;
