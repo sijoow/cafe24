@@ -67,7 +67,7 @@ function renderGrid(cols, products = []) {
           <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
             {p?.list_image ? (<img src={p.list_image} alt={p.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />)}
           </div>
-          <div style={{ padding: '12px', minHeight: '90px' }}>
+          <div style={{ paddingTop:'10px', minHeight: '90px' }}>
             <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>{p?.product_name || `상품명 ${i + 1}`}</div>
             {p?.price != null && (<div style={{ fontWeight: 'bold', fontSize: priceFontSize, marginTop: '4px' }}>{Number(p.price).toLocaleString()}원</div>)}
           </div>
@@ -242,7 +242,7 @@ export default function EventCreate() {
     if (mallId) {
       localStorage.setItem('mallId', mallId);
     } else {
-      msgApi.warning('쇼핑몰 ID(mallId)가 URL에 없습니다. 앱을 통해 접속해주세요.');
+      msgApi.warning(' 앱을 통해 접속해주세요.');
     }
   }, [mallId, msgApi]);
 
@@ -527,7 +527,7 @@ export default function EventCreate() {
                           <Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button>
                       </div>
                       <div className="block-content image-content" onMouseDown={addingMode && isSelected ? onMouseDown : undefined} onMouseMove={addingMode && isSelected ? onMouseMove : undefined} onMouseUp={addingMode && isSelected ? onMouseUp : undefined} style={{cursor: addingMode && isSelected ? 'crosshair':'default', position:'relative', width: '100%'}}>
-                        <img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }} draggable={false} onDragStart={e => e.preventDefault()} />
+                        <img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block'}} draggable={false} onDragStart={e => e.preventDefault()} />
                         {(b.regions || []).map(r => {
                           const isCoupon = !!r.coupon;
                           const style = { position: 'absolute', left: `${r.xRatio*100}%`, top: `${r.yRatio*100}%`, width: `${r.wRatio*100}%`, height: `${r.hRatio*100}%`, border: `2px dashed ${isCoupon ? '#ff6347' : '#fe6326'}`, cursor: 'pointer', background: isCoupon ? 'rgba(255, 99, 71, 0.2)' : 'rgba(24, 144, 255, 0.2)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start' };
