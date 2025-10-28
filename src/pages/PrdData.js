@@ -7,7 +7,6 @@ import api from '../axios';
 import './NormalSection.css'
 
 const { useBreakpoint } = Grid;
-const SITE_BASE = 'https://yogibo.kr';
 
 export default function PrdData() {
   const screens = useBreakpoint();
@@ -21,91 +20,7 @@ export default function PrdData() {
   const [data, setData]                   = useState([]);
   const [loading, setLoading]             = useState(false);
 
-  // ─── helper: 정규화 (앞부분 skin-..., 숫자/슬래시 제거, 쿼리/해시 제거, trim) ─────────
-  const normalizePath = (urlCandidate) => {
-    if (!urlCandidate) return '/';
-    // 절대 URL이면 pathname만 추출해서 정규화 (쿼리/해시 제거)
-    if (/^https?:\/\//i.test(urlCandidate)) {
-      try {
-        const p = new URL(urlCandidate);
-        urlCandidate = p.pathname || '';
-      } catch (e) {
-        urlCandidate = String(urlCandidate);
-      }
-    }
-
-    let s = String(urlCandidate).trim();
-
-    // 쿼리나 해시 제거
-    s = s.split(/[?#]/)[0];
-
-    // remove leading slashes
-    s = s.replace(/^\/+/, '');
-
-    if (!s) return '/';
-
-    // strip trailing slashes
-    s = s.replace(/\/+$/, '');
-
-    // patterns to strip repeatedly from the start:
-    const patterns = [
-      /^skin-mobile\/?/i,
-      /^skin-[^\/]+\/?/i,
-      /^\d+\/?/
-    ];
-
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const p of patterns) {
-        if (p.test(s)) {
-          s = s.replace(p, '');
-          changed = true;
-        }
-      }
-    }
-
-    if (!s) return '/';
-    if (!s.startsWith('/')) s = '/' + s;
-    return s;
-  };
-
-  const displayLabelForUrl = (u) => {
-    if (!u) return '-';
-    if (/^https?:\/\//i.test(u)) return u;
-    return normalizePath(u);
-  };
-
-  // copy helper: 복사 (절대 URL이면 그대로, 아니면 SITE_BASE + path)
-  const copyToClipboard = async (urlCandidate) => {
-    if (!urlCandidate) {
-      message.warning('복사할 링크가 없습니다.');
-      return;
-    }
-    const full = /^https?:\/\//i.test(urlCandidate) ? urlCandidate : `${SITE_BASE}${normalizePath(urlCandidate)}`;
-    try {
-      await navigator.clipboard.writeText(full);
-      message.success(`복사되었습니다: ${full}`);
-    } catch (e) {
-      message.error('클립보드에 복사하지 못했습니다.');
-    }
-  };
-
-  // open helper: 새 탭으로 열기
-  const openInNewTab = (urlCandidate) => {
-    if (!urlCandidate) {
-      message.warning('열 링크가 없습니다.');
-      return;
-    }
-    const full = /^https?:\/\//i.test(urlCandidate) ? urlCandidate : `${SITE_BASE}${normalizePath(urlCandidate)}`;
-    try {
-      window.open(full, '_blank');
-    } catch (e) {
-      message.error('새 창을 열 수 없습니다.');
-    }
-  };
-
-  // ─── 1) 이벤트 목록 로드 ─────────────────────────────────----
+  // ─── 1) 이벤트 목록 로드 ─────────────────────────────────────
   useEffect(() => {
     if (!mallId) return;
     api.get(`/api/${mallId}/events`)
@@ -136,15 +51,10 @@ export default function PrdData() {
     if (selectedEvent && minDate) {
       fetchPerformance();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent, minDate]);
 
   // ─── 3) 상품 클릭 퍼포먼스 조회 ───────────────────────────────────
   const fetchPerformance = async () => {
-    if (!mallId || !selectedEvent) {
-      message.warning('이벤트를 선택해주세요.');
-      return;
-    }
     setLoading(true);
     try {
       const start = minDate.format('YYYY-MM-DD');
@@ -160,23 +70,12 @@ export default function PrdData() {
         }
       );
 
-      // 방어적으로 productUrl/url/link 필드가 있으면 정규화해서 추가
-      const mapped = (perf || []).map(item => {
-        const rawUrl = item.productUrl || item.url || item.link || '';
-        const normalized = rawUrl ? normalizePath(rawUrl) : '';
-        return {
-          ...item,
-          _rawUrl: rawUrl,
-          normalizedUrl: normalized,
-        };
-      });
-
       // 클릭수 내림차순 정렬
-      const sorted = mapped.slice().sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
+      const sorted = (perf || []).slice().sort((a, b) => b.clicks - a.clicks);
       setData(sorted);
     } catch (err) {
       console.error('[PRODUCT PERFORMANCE ERROR]', err);
-      message.error('상품 퍼포먼스 조회 실패');
+      //message.error('상품 퍼포먼스 조회 실패');
       setData([]);
     } finally {
       setLoading(false);
@@ -234,25 +133,10 @@ export default function PrdData() {
           { title: '순위',       key: 'rank',      render: (_t, _r, i) => i + 1 },
           { title: '상품번호',   dataIndex: 'productNo',   key: 'productNo' },
           { title: '상품명',     dataIndex: 'productName', key: 'productName' },
-          {
-            title: '링크',
-            dataIndex: 'normalizedUrl',
-            key: 'normalizedUrl',
-            render: (val, record) => {
-              if (!val) return '-';
-              const display = displayLabelForUrl(record._rawUrl || val);
-              return (
-                <Space size="small" wrap>
-                  <span style={{ maxWidth: 200, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{display}</span>
-                  <Button size="small" onClick={() => openInNewTab(record._rawUrl || val)}>열기</Button>
-                  <Button size="small" onClick={() => copyToClipboard(record._rawUrl || val)}>복사</Button>
-                </Space>
-              );
-            }
-          },
           { title: '클릭수',     dataIndex: 'clicks',      key: 'clicks', align: 'right',
-            sorter: (a, b) => (a.clicks || 0) - (b.clicks || 0), defaultSortOrder: 'descend'
+            sorter: (a, b) => a.clicks - b.clicks, defaultSortOrder: 'descend'
           },
+          // 클릭율은 제거하셨으니 컬럼에서 빼두었습니다
         ]}
       />
     </Card>
