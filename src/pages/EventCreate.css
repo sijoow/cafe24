@@ -1,266 +1,123 @@
 /* src/pages/EventCreate.css */
 
-/* 카드 레이아웃 */
-.event-create-card {
-  margin: 0 auto;
-  min-height: 80vh;
-}
-
-/* 이미지 업로드 드래거 박스 */
-.dragger {
-  background: #fafafa;
-  border: 1px dashed #d9d9d9;
-  max-width: 1400px;
-  margin: 0 auto 24px;
-}
-
-/* 썸네일 리스트 */
+/* --- 콘텐츠 구성 (썸네일 목록) --- */
 .thumb-list {
-  display: flex;
-  gap: 8px;
-  padding: 8px 0;
-  overflow-x: auto;
-  white-space: nowrap;
-  max-width: 1400px;
-  margin: 0 auto 16px;
+  display: flex; /* 가로 정렬 */
+  gap: 12px; /* 아이템 간격 */
+  
+  /* ✨ 여기가 수정된 부분입니다 ✨ */
+  flex-wrap: wrap; /* 내용이 넘치면 다음 줄로 자연스럽게 이동 */
+  
+  padding-bottom: 16px;
+  align-items: flex-start; /* 아이템들을 위쪽 기준으로 정렬 */
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 16px;
 }
 
-/* 썸네일 아이템 */
+/* 썸네일 아이템 기본 스타일 */
 .thumb-item {
-  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100px;
   height: 80px;
-  position: relative;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
+  border: 2px solid #d9d9d9;
+  border-radius: 8px;
+  background-color: #fafafa;
+  cursor: grab;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+  padding: 8px;
+  color: rgba(0, 0, 0, 0.65);
 }
 
+/* 선택된 썸네일 아이템 */
 .thumb-item.active {
   border-color: #fe6326 !important;
+  box-shadow: 0 0 0 2px rgba(254, 99, 38, 0.2);
 }
 
-.thumb-item img {
+/* 드래그 중인 썸네일 아이템 */
+.thumb-item.is-dragging {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+}
+
+/* 아이콘과 텍스트가 있는 블록 (상품, 비디오, 텍스트) */
+.thumb-item .anticon {
+  font-size: 28px;
+  color: #8c8c8c;
+}
+
+.thumb-item span {
+  margin-top: 4px;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* 이미지 블록 썸네일 */
+.thumb-item.image {
+  padding: 0;
+}
+.thumb-item.image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
+/* 상품 블록 썸네일 */
+.thumb-item.product_group {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+}
+.thumb-item.product_group.active {
+  border-color: #1677ff !important;
+}
+.thumb-item.product_group .anticon,
+.thumb-item.product_group span {
+  color: #1677ff;
+}
+
+/* 비디오 블록 썸네일 */
+.thumb-item.video {
+  background-color: #fff1f0;
+  border-color: #ffa39e;
+}
+.thumb-item.video.active {
+  border-color: #ff4d4f !important;
+}
+.thumb-item.video .anticon,
+.thumb-item.video span {
+  color: #ff4d4f;
+}
+
+/* 텍스트 블록 썸네일 */
+.thumb-item.text {
+  background-color: #f6ffed;
+  border-color: #b7eb8f;
+}
+.thumb-item.text.active {
+  border-color: #52c41a !important;
+}
+.thumb-item.text .anticon,
+.thumb-item.text span {
+  color: #52c41a;
+}
+
 
 /* 썸네일 삭제 버튼 */
 .thumb-delete {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 2px;
-  padding: 2px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.thumb-list {
-  /* IE/Edge */
-  -ms-overflow-style: none;
-  /* Firefox */
-  scrollbar-width: none;
-}
-
-.thumb-list::-webkit-scrollbar {
-  display: none;
-  /* Chrome, Safari, Opera */
-}
-
-/* 매핑 이미지 컨테이너 */
-.mapping-container {
-  position: relative;
-  margin-top: 16px;
-  text-align: center;
-}
-
-/* 매핑 대상 이미지 */
-.mapping-image {
-  width: 100%;
-  display: block;
-  user-drag: none;
-}
-
-/* 드래그 박스 (영역 선택) */
-.drag-box {
-  position: absolute;
-  border: 2px dashed #fe6326;
-  background: rgba(24, 144, 255, 0.2);
-  pointer-events: none;
-}
-
-/* 매핑된 영역 */
-.mapped-region {
-  position: absolute;
-  box-sizing: border-box;
-}
-
-/* 상품 그리드 미리보기 */
-.preview-grid {
-  display: grid;
-  gap: 10px;
-  max-width: 800px;
-  margin: 24px auto 0;
-}
-
-.placeholder-box {
-  background: #f0f0f0;
-  height: 120px;
-  border-radius: 4px;
-}
-
-/* Segmented 버튼 균등 분할 */
-.full-seg .ant-segmented-item {
-  flex: 1;
-  text-align: center;
-}
-
-.preview-tabs .ant-btn {
-  flex: 1;
-}
-
-@media (max-width: 500px) {
-
-  .event-create-card {
-    width: 95% !important;
-    margin: 0 auto !important;
-    margin-top: 20px !important;
-  }
-
-  .tabPlusCategory .ant-space .ant-space-item {
-    width: 95% !important;
-    margin: 0 auto !important;
-    text-align: center;
-  }
-
-  .tabPlusCategory .ant-btn {
-    max-width: 150px;
-  }
-
-  .tabPlusCategory .ant-space {
-    background: #fff;
-  }
-
-  /*상품등록 직접상품등록 버튼*/
-  .goodsSingleButton {
-    margin-top: 10px !important;
-  }
-
-  .tabListPlus .ant-space-item {
-    width: 100%;
-    background: #fff;
-  }
-
-  .tabListPlus .ant-space {
-    padding-block: 10px !important;
-  }
-
-  .tabListPlus .ant-space-gap-row-small {
-    background: #fff;
-  }
-
-  /*썸네일*/
-  .thumb-list {
-    flex-direction: row !important;
-  }
-
-  .sumTumb {
-    flex-direction: row !important;
-  }
-}
-
-
-
-
-
-/* src/pages/EventCreate.css */
-
-.thumb-list {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px;
-  margin-bottom: 16px;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-  background-color: #fcfcfc;
-  align-items: center;
-  min-height: 94px;
-}
-
-.thumb-item {
-  position: relative;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  width: 100px;
-  min-width: 100px;
-  height: 70px;
-  overflow: hidden;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  font-size: 12px;
-  color: #595959;
-  box-sizing: border-box;
-  background-color: #f5f5f5;
-}
-
-.thumb-item.active {
-  border-color: #1677ff;
-  border-width: 2px;
-}
-
-.thumb-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumb-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1.2;
-  text-align: center;
-  padding: 4px;
-}
-
-.thumb-placeholder .anticon {
-  font-size: 24px;
-  margin-bottom: 2px;
-}
-
-.thumb-placeholder.video .anticon {
-  color: #ff0000;
-}
-
-.thumb-placeholder.text .anticon {
-  color: #262626;
-}
-
-.thumb-placeholder.product .anticon {
-  color: #ff8716;
-}
-
-.thumb-delete {
-  position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
   border-radius: 50%;
-  padding: 3px;
+  padding: 4px;
   font-size: 10px;
   cursor: pointer;
   z-index: 10;
@@ -275,156 +132,10 @@
   opacity: 1;
 }
 
-.ant-upload-drag {
-  height: auto !important;
-}
-
-
-.thumb-placeholder.product {
-  background-color: #e6f7ff;
-}
-
-.thumb-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1.2;
-  text-align: center;
-  padding: 4px;
-}
-
-
-/* src/pages/EventCreate.css */
-
-/* --- 썸네일 목록 스타일 --- */
-.thumb-list {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-bottom: 16px;
-  align-items: flex-start;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 16px;
-  overflow-y: scroll;
-}
-
-.thumb-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  background-color: #fafafa;
-  cursor: grab;
-  overflow: hidden;
-  transition: all 0.2s ease-in-out;
-  box-sizing: border-box;
-  padding: 8px;
-  color: rgba(0, 0, 0, 0.65);
-}
-
-.thumb-item.active {
-  border-color: #1890ff;
-}
-
-.thumb-item .anticon {
-  font-size: 32px;
-  color: #8c8c8c;
-}
-
-.thumb-item span {
-  margin-top: 8px;
-  font-size: 13px;
-  text-align: center;
-  line-height: 1.2;
-}
-
-/* 블록 타입별 색상 */
-.thumb-item.product_group {
-  background-color: #e6f7ff;
-  border-color: #91d5ff;
-}
-
-.thumb-item.product_group .anticon,
-.thumb-item.product_group span {
-  color: #1890ff;
-}
-
-.thumb-item.video {
-  background-color: #fff1f0;
-  border-color: #ff7875;
-}
-
-.thumb-item.video .anticon,
-.thumb-item.video span {
-  color: #ff4d4f;
-}
-
-.thumb-item.text {
-  background-color: #e6fffb;
-  border-color: #87e8de;
-}
-
-.thumb-item.text .anticon,
-.thumb-item.text span {
-  color: #13c2c2;
-}
-
-.thumb-item.image {
-  background-color: #f9f9f9;
-  padding: 0;
-  border-color: #fe6326;
-}
-
-.thumb-item.image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumb-item.image .anticon,
-.thumb-item.image span {
-  display: none;
-}
-
-.thumb-delete {
-  position: absolute;
-  top: 0px;
-  right: 4px;
-  font-size: 16px;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
-  background-color: rgba(0, 0, 0, 0.7);
-  border-radius: 50%;
-  z-index: 10;
-  transition: color 0.2s ease;
-  width: 25px;
-  height: 25px;
-}
-
-.thumb-item.image>.anticon,
-.thumb-item.image>span svg {
-  display: block;
-}
-
-.thumb-item .anticon {
-  font-size: 18px;
-  color: #fe753f
-}
-
-
-/* --- 새로운 블록 헤더 스타일 --- */
+/* --- 편집/미리보기 블록 헤더 스타일 --- */
 .preview-block-container {
   margin-bottom: 16px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid #e8e8e8;
   border-radius: 8px;
   background-color: #ffffff;
   transition: all 0.2s ease-in-out;
@@ -466,3 +177,67 @@
 .block-content.image-content {
   padding: 0;
 }
+
+/* --- 기타 --- */
+.ant-upload-drag {
+  height: auto !important;
+}
+
+/* EventCreate.css */
+
+/* --- 콘텐츠 구성 (썸네일 목록) --- */
+.thumb-list {
+  display: flex; /* 가로 정렬을 위해 flex 유지 */
+  gap: 12px;
+  
+  /* ✨ 1. 줄바꿈 방지 (가장 중요!) */
+  flex-wrap: nowrap; 
+
+  /* ✨ 2. 내용이 넘치면 가로 스크롤 생성 */
+  overflow-x: auto;
+
+  /* ✨ 3. 스크롤바가 아이템을 가리지 않도록 아래쪽 여백 추가 */
+  padding: 12px; /* 위아래, 좌우 여백을 넉넉하게 줍니다 */
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 16px;
+  min-height: 110px; /* 목록이 비어있어도 최소 높이 유지 */
+  align-items: center;
+}
+
+/* ✨ 썸네일 아이템이 줄어들지 않도록 설정 */
+.thumb-item {
+  position: relative;
+  flex-shrink: 0; 
+  /* (이하 기존 스타일은 그대로 유지) */
+  width: 100px;
+  height: 80px;
+  border: 2px solid #d9d9d9;
+  border-radius: 8px;
+  cursor: grab;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background-color: #fafafa;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* (선택 사항) 스크롤바 디자인을 더 예쁘게 만듭니다 */
+.thumb-list::-webkit-scrollbar {
+  height: 8px;
+}
+.thumb-list::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}
+.thumb-list::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+  border-radius: 4px;
+}
+
+/* (이하 다른 모든 CSS 코드는 기존과 동일합니다) */
