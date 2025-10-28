@@ -114,37 +114,37 @@ export default function EventDetail() {
 
   // ✅ [수정] CSS 팁 내용 변경
   const cssTips = `/* --- 상품 그리드 디자인 예시 <style> 태그로 감싸서 붙여넣으세요.--- */
-    
-    /*상품 아이콘 위치 지정 */
-    .prd_icons{position:absolute; top:0!important;right:0!important} /*왼쪽 상단*/
-    .prd_icons{position:absolute; bottom:0!important;right:0!important} /*왼쪽 하단*/
-    .prd_icons{position:absolute; top:0!important;left:0!important} /*왼쪽 상단*/
-    .prd_icons{position:absolute; bottom:0!important;left:0!important} /*왼쪽 하단*/
+      
+      /*상품 아이콘 위치 지정 */
+      .prd_icons{position:absolute; top:0!important;right:0!important} /*왼쪽 상단*/
+      .prd_icons{position:absolute; bottom:0!important;right:0!important} /*왼쪽 하단*/
+      .prd_icons{position:absolute; top:0!important;left:0!important} /*오른쪽 상단*/
+      .prd_icons{position:absolute; bottom:0!important;left:0!important} /*오른쪽 하단*/
 
-    /* 상품명 폰트 굵기 및 색상 변경 */
-    .prd_name {
-      font-weight: 500!important;; /* 예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능*/
-      color: #000000!important; /* 예: 검은색 */
-    }
+      /* 상품명 폰트 굵기 및 색상 변경 */
+      .prd_name {
+        font-weight: 500!important;; /* 예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능*/
+        color: #000000!important; /* 예: 검은색 */
+      }
 
-    /* 할인율 텍스트 굵기 및 색상 변경 */
-    .sale_percent, .prd_coupon_percent {
-      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
-      color: #ff4d4f !important; /* 예: 빨간색 */
-    }
+      /* 할인율 텍스트 굵기 및 색상 변경 */
+      .sale_percent, .prd_coupon_percent {
+        font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
+        color: #ff4d4f !important; /* 예: 빨간색 */
+      }
 
-    /* 최종 가격 폰트 굵기 및 색상 변경 */
-    .sale_price, .prd_coupon {
-      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
-      color: #000000 !important; /* 예: 검은색 */
-    }
+      /* 최종 가격 폰트 굵기 및 색상 변경 */
+      .sale_price, .prd_coupon {
+        font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
+        color: #000000 !important; /* 예: 검은색 */
+      }
 
-    /* 원래 가격(줄 그어진 가격) 폰트 굵기 및 색상 변경 */
-    .original_price {
-      font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
-      color: #999999 !important; /* 예: 회색 */
-    }
-`;
+      /* 원래 가격(줄 그어진 가격) 폰트 굵기 및 색상 변경 */
+      .original_price {
+        font-weight: 500!important;; /*  예: 500  600 700 800 숫자가 커질수록 굵기가 조절 가능 */
+        color: #999999 !important; /* 예: 회색 */
+      }
+  `;
 
   return (
     <>
