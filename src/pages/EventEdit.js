@@ -63,11 +63,11 @@ function renderGrid(cols, products = []) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap: 16, maxWidth: 800, margin: '24px auto' }}>
       {itemsToRender.map((p, i) => (
-        <div key={p?.product_no || i} style={{ overflow: 'hidden', border: '1px solid #e8e8e8', background: '#fff', borderRadius: '6px' }}>
+        <div key={p?.product_no || i} style={{ overflow: 'hidden', background: '#fff'}}>
           <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
             {p?.list_image ? (<img src={p.list_image} alt={p.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />)}
           </div>
-          <div style={{ padding: '12px', minHeight: '90px' }}>
+          <div style={{ paddingTop:'10px', minHeight: '90px' }}>
             <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>{p?.product_name || `상품명 ${i + 1}`}</div>
             {p?.price != null && (<div style={{ fontWeight: 'bold', fontSize: priceFontSize, marginTop: '4px' }}>{Number(p.price).toLocaleString()}원</div>)}
           </div>
