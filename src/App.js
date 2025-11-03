@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import { Routes, Route } from 'react-router-dom';
 
+// 1. InstallationChecker를 import 합니다.
+import InstallationChecker from './components/InstallationChecker';
 
 import Sidebar   from './components/Sidebar';
 import AppHeader from './components/AppHeader';
@@ -44,6 +46,7 @@ export default function App() {
   // ── 모바일: OverlayLayout ─────────────────────────────
   if (isMobile) {
     return (
+      <InstallationChecker>
       <OverlayLayout>
         <Routes>
           <Route index element={<Dashboard />} />
@@ -60,7 +63,8 @@ export default function App() {
           <Route path="admin" element={<Admin    />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
-      </OverlayLayout>
+        </OverlayLayout>
+        </InstallationChecker>
     );
   }
 
@@ -69,6 +73,7 @@ export default function App() {
   const COLLAPSED_WIDTH  = 80;
 
   return (
+  <InstallationChecker>
     <AntLayout style={{ minHeight: '100vh' }}>
       <Sider
         breakpoint="md"
@@ -121,6 +126,7 @@ export default function App() {
           </Routes>
         </Content>
       </AntLayout>
-    </AntLayout>
+      </AntLayout>
+    </InstallationChecker>
   );
 }
