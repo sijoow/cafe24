@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const API_BASE =
   process.env.REACT_APP_API_BASE_URL ||
-  'https://onimon.shop';
+  'https://port-0-cafe24api-am952nltee6yr6.sel5.cloudtype.app/';
 
 const api = axios.create({
   baseURL: API_BASE,
