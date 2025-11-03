@@ -26,7 +26,8 @@ import OverlayLayout from './components/OverLayout';
 import Redirect from './pages/Redirect'
 import Admin    from './pages/Admin';
 import PrdData from './pages/PrdData';
-
+//무조건 실행
+import InstallationChecker from './components/InstallationChecker';
 
 
 const { Sider, Content } = AntLayout;
@@ -44,6 +45,7 @@ export default function App() {
   // ── 모바일: OverlayLayout ─────────────────────────────
   if (isMobile) {
     return (
+      <InstallationChecker>
       <OverlayLayout>
         <Routes>
           <Route index element={<Dashboard />} />
@@ -61,6 +63,7 @@ export default function App() {
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </OverlayLayout>
+  </InstallationChecker>
     );
   }
 
@@ -92,7 +95,7 @@ export default function App() {
           onToggle={() => setCollapsed(prev => !prev)}
         />
       </Sider>
-
+     <InstallationChecker>
       <AntLayout
         style={{
           marginLeft: collapsed ? COLLAPSED_WIDTH : SIDER_WIDTH,
@@ -123,5 +126,6 @@ export default function App() {
         </Content>
       </AntLayout>
     </AntLayout>
+ </InstallationChecker>
   );
 }
