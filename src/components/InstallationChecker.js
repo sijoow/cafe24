@@ -1,10 +1,12 @@
-// src/components/InstallationChecker.jsx (최초 1회만 실행하는 최종본)
+// src/components/InstallationChecker.jsx (무한 루프 수정 최종본)
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, Outlet } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import api from '../axios';
 
-// (ErrorDisplay 컴포넌트는 그대로 둡니다)
+/**
+ * 에러 메시지를 표시할 간단한 컴포넌트
+ */
 function ErrorDisplay({ title, message }) {
   return (
     <div style={{ 
@@ -22,43 +24,43 @@ function ErrorDisplay({ title, message }) {
   );
 }
 
-export default function InstallationChecker() {
+export default function InstallationChecker({ children }) {
+  // 'checking'(검사중), 'ready'(준비됨), 'error'(오류) 3가지 상태로 관리
   const [status, setStatus] = useState('checking');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // 에러 정보
   const location = useLocation();
-  // 중복 실행 방지 Ref
-  const checkRan = useRef(false);
+  const isChecking = useRef(false); // 중복 검사 방지
 
   useEffect(() => {
-    // 1. /redirect 경로는 검사 안 함 (Redirect.jsx가 처리)
+    // 1. /redirect 경로는 이 검사기가 아닌 Redirect.jsx가 처리
     if (location.pathname === '/redirect') {
       setStatus('ready');
       return;
     }
 
-    // 2. 이미 검사를 실행했으면 중복 실행 방지
-    if (checkRan.current) return;
+    // 2. 이미 검사가 진행 중이면 중복 실행 방지
+    if (isChecking.current) return;
 
     const checkInstallation = async () => {
-      // 3. 검사 시작을 표시 (최초 1회)
-      checkRan.current = true;
-      setStatus('checking'); 
+      isChecking.current = true;
+      setStatus('checking'); // 페이지 이동 시 다시 'checking' 상태로
       
       try {
         const mallId = localStorage.getItem('mallId');
         
+        // 3. [핵심 수정] mallId가 없으면 리다이렉트 대신 에러 상태로 변경
         if (!mallId) {
-          // 4. mallId 없으면 에러 표시하고 중단 (리다이렉트 안 함)
           console.error('[Checker] mallId가 없습니다. 검사를 중단합니다.');
           setError({ 
             title: '쇼핑몰 ID를 찾을 수 없습니다.', 
             message: '카페24 관리자 페이지에서 앱을 다시 실행해주세요.' 
           });
           setStatus('error');
-          return;
+          isChecking.current = false;
+          return; // ★ 리다이렉트(window.location)를 하지 않고 여기서 중단
         }
 
-        // 5. mallId가 있으면 서버에 설치 여부 확인
+        // 4. mallId가 있으면 서버에 설치 여부 확인
         const { data } = await api.get(`/api/${mallId}/mall`);
 
         if (data?.installed) {
@@ -75,18 +77,17 @@ export default function InstallationChecker() {
           setStatus('error');
         }
       } catch (err) {
-        // 6. [API 호출 오류]
+        // 5. [API 호출 오류]
         console.error("[Checker] 설치 확인 중 API 에러 발생", err);
         setError({ title: '서버 연결 오류', message: 'API 서버에 연결할 수 없습니다. 잠시 후 새로고침 해주세요.' });
         setStatus('error');
       }
+      isChecking.current = false;
     };
 
     checkInstallation();
 
-    // 7. [핵심 수정] 의존성 배열을 []로 변경합니다.
-    // 이렇게 하면 이 컴포넌트가 처음 마운트될 때 "단 한 번"만 실행됩니다.
-  }, []); 
+  }, [location.pathname]); // 페이지가 바뀔 때마다 다시 검사
 
 // --- 상태에 따라 다른 화면을 렌더링 ---
 
@@ -98,6 +99,6 @@ export default function InstallationChecker() {
     return <ErrorDisplay title={error.title} message={error.message} />;
   }
 
-  // status === 'ready'일 때만 자식 라우트(Outlet)를 렌더링
-  return <Outlet />;
+  // status === 'ready'일 때만 자식 컴포넌트(실제 앱)를 보여줌
+  return children;
 }
