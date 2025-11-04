@@ -1,4 +1,4 @@
-// src/components/InstallationChecker.jsx (수정본)
+// src/components/InstallationChecker.jsx (수정된 최종본)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -7,41 +7,35 @@ import api from '../axios';
 export default function InstallationChecker({ children }) {
   const [isReady, setIsReady] = useState(false);
   const location = useLocation();
-  // 중복 실행 방지를 위한 Ref
-  const checkRan = useRef(false);
+  // 현재 검사가 진행 중인지 확인 (중복 API 호출 방지)
+  const isChecking = useRef(false); 
 
   useEffect(() => {
-    // 1. 이미 검사를 실행했다면 중복 실행 방지
-    // 2. React 18 Strict Mode에서 두 번 실행되는 것을 방지
-    if (checkRan.current) return;
-    
-    // 3. /redirect 경로는 이 검사를 건너뜀 (Redirect.jsx가 스스로 처리)
+    // 1. /redirect 경로는 검사에서 제외 (Redirect.jsx가 일하도록 둔다)
     if (location.pathname === '/redirect') {
       setIsReady(true);
       return;
     }
 
-    // 검사 시작을 표시
-    checkRan.current = true;
+    // 2. 이미 다른 검사가 진행 중이면 중복 실행하지 않음
+    if (isChecking.current) return;
 
     const checkInstallation = async () => {
+      // 3. 검사 시작
+      isChecking.current = true;
+      setIsReady(false); // 페이지 이동 시 로딩 화면을 다시 보여줌
+
       try {
         const mallId = localStorage.getItem('mallId');
-        
-        // 4. mallId가 없는 경우 (요청사항)
+        
         if (!mallId) {
-          console.warn('[Checker] mallId가 없습니다. 메인 페이지로 이동합니다.');
-          // 이미 메인 페이지가 아니면 메인으로 이동
-          if (location.pathname !== '/') {
-            window.location.href = '/';
-          } else {
-            // 이미 메인 페이지라면, (깨질 수 있지만) 일단 로드 (루프 방지)
-            setIsReady(true);
-          }
+          // mallId가 없으면 설치가 불가능하므로, 설치 시작 페이지로 보냄
+          console.warn('[Checker] mallId가 없습니다. 설치를 위해 /redirect로 보냅니다.');
+          window.location.href = '/redirect';
           return;
         }
 
-        // 5. mallId가 있으면 서버에 설치 여부 확인
+        // 4. 서버에 설치 여부 확인 (가장 중요한 확인)
         const { data } = await api.get(`/api/${mallId}/mall`);
 
         if (data?.installed) {
@@ -52,29 +46,26 @@ export default function InstallationChecker({ children }) {
           console.warn('[Checker] 설치가 필요하여 설치 페이지로 이동합니다.');
           window.top.location.replace(data.installUrl);
         } else {
-          // [기타] 응답은 왔으나 installUrl이 없음 (비정상)
+          // [기타] 비정상 오류
           console.error('[Checker] 응답에 installUrl이 없습니다.', data);
-          setIsReady(true); // (깨질 수 있지만) 일단 로드
+          // 이 경우엔 /redirect로 보내서 mallId를 다시 파싱하게 함
+          window.location.href = '/redirect';
         }
 
       } catch (error) {
         console.error("[Checker] 설치 확인 중 에러 발생", error);
-        
-        // 6. API 호출 에러 발생 시 (요청사항)
-        console.warn('[Checker] 에러 발생. 메인 페이지로 이동합니다.');
-        if (location.pathname !== '/') {
-          window.location.href = '/';
-        } else {
-          // 이미 메인 페이지라면, (깨질 수 있지만) 일단 로드 (루프 방지)
-          setIsReady(true);
-        }
-      }
+        // 에러 발생 시에도 /redirect로 보내서 흐름을 재시작
+        window.location.href = '/redirect';
+      } finally {
+        // 5. 검사 종료
+        isChecking.current = false;
+      }
     };
 
     checkInstallation();
 
-    // 7. 의존성 배열을 []로 변경 -> 새로고침(마운트) 시 "단 한 번"만 실행
-  }, []); 
+    // 6. location.pathname이 바뀔 때마다(페이지 이동 시마다) 이 검사를 다시 실행
+  }, [location.pathname]); 
 
   if (!isReady) {
     return <div>앱 설치 상태를 확인하는 중입니다...</div>;
