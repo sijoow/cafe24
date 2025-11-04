@@ -1,91 +1,47 @@
-// src/pages/Redirect.jsx
+// src/pages/Redirect.jsx (수정된 최종본)
+
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../axios';
 
+/**
+ * 이 컴포넌트의 유일한 역할:
+ * 1. URL에서 mall_id, state 등을 파싱한다.
+ * 2. mall_id를 localStorage에 저장한다.
+ * 3. 메인 대시보드('/')로 사용자를 보낸다.
+ * * *절대* 설치 여부를 확인(api.get)하지 않습니다.
+ */
 export default function Redirect() {
-  const navigate = useNavigate();
-  const { search } = useLocation();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const ranRef = useRef(false);
 
-  // React 18 StrictMode에서 useEffect가 두 번 실행되는 문제 방지용
-  const ranRef = useRef(false);
+  useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
 
-  useEffect(() => {
-    if (ranRef.current) return;
-    ranRef.current = true;
+    const params = new URLSearchParams(search);
+    const mallId =
+      params.get('mall_id') ||
+      params.get('state') ||
+      params.get('mallId');
 
-    const run = async () => {
-      try {
-        const params = new URLSearchParams(search);
-        // mall_id, state, mallId 모두 수용
-        let mallId =
-          params.get('mall_id') ||
-          params.get('state') ||
-          params.get('mallId');
+    if (mallId) {
+      try {
+        // mallId를 localStorage에 저장합니다.
+        localStorage.setItem('mallId', mallId);
+      } catch (e) {
+        console.warn('[Redirect] localStorage set 실패', e);
+      }
+    } else {
+      console.error('[Redirect] mall_id를 찾을 수 없습니다.');
+    }
 
-        // 쿼리에 없으면 localStorage fallback (직접접속/새로고침 케이스)
-        if (!mallId) {
-          mallId = localStorage.getItem('mallId');
-        }
+    // 설치 여부를 묻지 말고, 무조건 메인 페이지로 보냅니다.
+    // 'InstallationChecker'가 메인 페이지에서 문지기 역할을 할 것입니다.
+    navigate('/', { replace: true });
 
-        if (!mallId) {
-          console.error('[Redirect] mall_id가 없습니다');
-          navigate('/', { replace: true });
-          return;
-        }
+  }, [search, navigate]);
 
-        // localStorage 저장 (axios 인터셉터에서 읽음)
-        try {
-          localStorage.setItem('mallId', mallId);
-        } catch (e) {
-          // 사파리 프라이빗 모드 등 예외 보호
-          console.warn('[Redirect] localStorage set 실패', e);
-        }
-
-        // 설치 여부 확인
-        const { data } = await api.get(`/api/${mallId}/mall`);
-
-        if (data?.installed) {
-          if (data.userId) localStorage.setItem('userId', data.userId);
-          if (data.userName) localStorage.setItem('userName', data.userName);
-          navigate('/', { replace: true });
-          return;
-        }
-
-        // 설치 필요: installUrl로 **최상단** 네비게이션 (임베디드 방지)
-        if (data?.installUrl) {
-          // 히스토리 남기지 않도록 replace 권장
-          if (window.top) {
-            window.top.location.replace(data.installUrl);
-          } else {
-            window.location.replace(data.installUrl);
-          }
-          return;
-        }
-
-        console.error('[Redirect] installUrl이 응답에 없습니다', data);
-        navigate('/', { replace: true });
-      } catch (err) {
-        // 네트워크/서버 오류 시 마지막 방어선:
-        // 1) mallId를 확보했다면 직접 설치 엔드포인트로 유도
-        // 2) 아니면 홈으로
-        console.warn('[Redirect] 설치 확인 실패', err);
-        const mallId = localStorage.getItem('mallId');
-        if (mallId) {
-          const fallback = `/install/${encodeURIComponent(mallId)}`;
-          if (window.top) {
-            window.top.location.replace(fallback);
-          } else {
-            window.location.replace(fallback);
-          }
-        } else {
-          navigate('/', { replace: true });
-        }
-      }
-    };
-
-    run();
-  }, [search, navigate]);
-
-  return null;
+  // 이 페이지는 사용자에게 보여지지 않습니다.
+  return null; 
 }
