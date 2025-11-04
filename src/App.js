@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Layout as AntLayout, Grid } from 'antd';
 import { Routes, Route } from 'react-router-dom';
 
-// 1. InstallationChecker를 import 합니다.
+// 1. InstallationChecker를 import 합니다.한번만
 import InstallationChecker from './components/InstallationChecker';
 
 import Sidebar   from './components/Sidebar';
