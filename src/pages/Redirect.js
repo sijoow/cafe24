@@ -1,47 +1,52 @@
-// src/pages/Redirect.jsx (수정된 최종본)
+// src/pages/Redirect.jsx (필수 수정 최종본)
 
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 /**
- * 이 컴포넌트의 유일한 역할:
- * 1. URL에서 mall_id, state 등을 파싱한다.
- * 2. mall_id를 localStorage에 저장한다.
- * 3. 메인 대시보드('/')로 사용자를 보낸다.
- * * *절대* 설치 여부를 확인(api.get)하지 않습니다.
+ * 이 컴포넌트의 유일한 역할 (API 호출 없음!):
+ * 1. URL에서 mall_id 파싱
+ * 2. mall_id를 localStorage에 저장 (영구)
+ * 3. "isInstalled: true"를 sessionStorage에 저장 (임시)
+ * 4. 앱의 메인 대시보드(/dashboard)로 즉시 이동
  */
 export default function Redirect() {
-  const navigate = useNavigate();
-  const { search } = useLocation();
-  const ranRef = useRef(false);
+        const navigate = useNavigate();
+        const { search } = useLocation();
+        const ranRef = useRef(false); // 중복 실행 방지
 
-  useEffect(() => {
-    if (ranRef.current) return;
-    ranRef.current = true;
+        useEffect(() => {
+                if (ranRef.current) return;
+                ranRef.current = true;
 
-    const params = new URLSearchParams(search);
-    const mallId =
-      params.get('mall_id') ||
-      params.get('state') ||
-      params.get('mallId');
+                const params = new URLSearchParams(search);
+                const mallId =
+                 params.get('mall_id') ||
+                 params.get('state') ||
+                 params.get('mallId');
 
-    if (mallId) {
-      try {
-        // mallId를 localStorage에 저장합니다.
-        localStorage.setItem('mallId', mallId);
-      } catch (e) {
-        console.warn('[Redirect] localStorage set 실패', e);
-      }
-    } else {
-      console.error('[Redirect] mall_id를 찾을 수 없습니다.');
-    }
+         if (mallId) {
+          try {
+        // 1. 영구 저장소에 mallId 저장
+         localStorage.setItem('mallId', mallId);
 
-    // 설치 여부를 묻지 말고, 무조건 메인 페이지로 보냅니다.
-    // 'InstallationChecker'가 메인 페이지에서 문지기 역할을 할 것입니다.
-    navigate('/', { replace: true });
+        // 2. [핵심] 임시 저장소에 "설치 성공" 플래그 저장
+        // InstallationChecker가 이 플래그를 보고 API 호출을 건너뜀
+        sessionStorage.setItem('isInstalled', 'true');
 
-  }, [search, navigate]);
+         } catch (e) {
+         console.warn('[Redirect] Storage 저장 실패', e);
+         }
+         } else {
+        console.error('[Redirect] URL에서 mall_id를 찾을 수 없습니다.');
+        }
 
-  // 이 페이지는 사용자에게 보여지지 않습니다.
-  return null; 
+        // 3. 설치가 확인된 사용자가 볼 첫 페이지(보호된 라우트)로 보냅니다.
+        // (공개 페이지인 '/'로 보내면 안 됩니다.)
+         navigate('/dashboard', { replace: true });
+
+        }, [search, navigate]);
+
+        // 이 페이지는 절대 사용자에게 보이면 안 됩니다.
+        return null; 
 }
