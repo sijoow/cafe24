@@ -14,6 +14,7 @@ import {
   TeamOutlined,
   ShareAltOutlined,
   ShoppingCartOutlined,    // 👈 여기 추가
+  ReadOutlined,
 } from '@ant-design/icons';
 import './Sidebar.css';
 
@@ -60,14 +61,25 @@ export default function Sidebar({ collapsed, onToggle }) {
           <Menu.Item key="stats:pageview" icon={<BarChartOutlined />}>
             <Link to="/stats/pageview">페이지뷰 통계</Link>
           </Menu.Item>
-          <Menu.Item key="stats:participation" icon={<TeamOutlined />}>
+          {/* 숨김(데이터 보존): 쿠폰 다운로드/주문 완료 통계 — 데이터가 충분치 않아 메뉴에서 임시 숨김. 아래 주석 해제 시 복구.
             <Link to="/stats/participation">쿠폰 다운로드 / 주문 완료 통계</Link>
           </Menu.Item>
+          */}
           <Menu.Item key="stats:environment" icon={<ShareAltOutlined />}>
             <Link to="/stats/environment">유입 환경</Link>
           </Menu.Item>
           <Menu.Item key="stats:prddata" icon={<ShoppingCartOutlined />}>
             <Link to="/stats/prddata">상품 클릭데이터</Link>
+          </Menu.Item>
+        </Menu.ItemGroup>
+
+        {/* 도움말 그룹 (하단) */}
+        <Menu.ItemGroup key="help" title="도움말">
+          <Menu.Item key="guide" icon={<ReadOutlined />}>
+            <Link to="/guide">이벤트 제작 사용설명서</Link>
+          </Menu.Item>
+          <Menu.Item key="stats-guide" icon={<BarChartOutlined />}>
+            <Link to="/stats-guide">통계 사용설명서</Link>
           </Menu.Item>
         </Menu.ItemGroup>
       </Menu>

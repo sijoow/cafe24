@@ -19,6 +19,8 @@ import InflowEnvironment from './pages/InflowEnvironment';
 import OverlayLayout from './components/OverLayout';
 import Admin from './pages/Admin';
 import PrdData from './pages/PrdData';
+import Guide from './pages/Guide';
+import StatsGuide from './pages/StatsGuide';
 import api from './axios'; // ❗ api import 추가
 
 
@@ -186,6 +188,8 @@ export default function App() {
           <Route path="stats/environment" element={<InflowEnvironment />} />
           <Route path="stats/prddata" element={<PrdData />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="guide" element={<Guide />} />
+          <Route path="stats-guide" element={<StatsGuide />} />
       </Route>
   );
 

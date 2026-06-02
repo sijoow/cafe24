@@ -1,18 +1,23 @@
 // src/pages/EventEdit.js
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import MorePrd from './MorePrd';
 import {
   Card, Input, Button, Select, Space, Upload, Form, message, Segmented, Modal,
-  InputNumber, Checkbox, ColorPicker, Alert, Grid, Divider, Tag, Tooltip,
+  InputNumber, Checkbox, ColorPicker, Alert, Grid, Divider, Tag, Tooltip, Tabs, Switch, DatePicker,
 } from 'antd';
+import dayjs from 'dayjs';
 import {
   UploadOutlined, DeleteOutlined, LinkOutlined, TagOutlined, VideoCameraAddOutlined,
   EditOutlined, FontSizeOutlined, BlockOutlined, ShoppingCartOutlined, YoutubeOutlined,
-  SaveOutlined, PlusOutlined, UnorderedListOutlined, PictureOutlined,
+  SaveOutlined, PlusOutlined, UnorderedListOutlined, PictureOutlined, EyeOutlined,
+  ExclamationCircleOutlined, SwapOutlined, ExpandOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../axios';
+import { renderGrid, CARD_TEMPLATES, SAMPLE_PRODUCTS } from '../components/productCard';
+import { ProductBlockModal, ImageSlideModal, ImageSlidePreview, TimesaleBanner, TIMESALE_BANNERS } from './EventCreate';
+import PopupImageRegionEditor from '../components/PopupImageRegionEditor';
 import './EventCreate.css'; // Create 페이지와 동일한 CSS 사용
 import sha256 from 'crypto-js/sha256';
 import encHex from 'crypto-js/enc-hex';
@@ -56,173 +61,9 @@ function YouTubeEmbed({ id, ratioW = 16, ratioH = 9, title = 'YouTube video', au
   );
 }
 
-function renderGrid(cols, products = []) {
-  const itemsToRender = products.length > 0 ? products : Array.from({ length: Math.min(cols * cols, 4) });
-  const titleFontSize = `${18 - cols}px`;
-  const priceFontSize = `${17 - cols}px`;
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap: 16, maxWidth: 800, margin: '24px auto' }}>
-      {itemsToRender.map((p, i) => (
-        <div key={p?.product_no || i} style={{ overflow: 'hidden', background: '#fff'}}>
-          <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
-            {p?.list_image ? (<img src={p.list_image} alt={p.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) : (<BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />)}
-          </div>
-          <div style={{ paddingTop:'10px', minHeight: '90px' }}>
-            <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>{p?.product_name || `상품명 ${i + 1}`}</div>
-            {p?.price != null && (<div style={{ fontWeight: 'bold', fontSize: priceFontSize, marginTop: '4px' }}>{Number(p.price).toLocaleString()}원</div>)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const GridPreview = ({ size, active, onClick }) => {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        padding: '8px',
-        border: `2px solid ${active ? '#fe6326' : '#d9d9d9'}`,
-        borderRadius: '8px',
-        width: '70px',
-        height: '70px',
-        backgroundColor: active ? '#fff7e6' : 'white',
-        transition: 'all 0.2s',
-      }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${size}, 1fr)`, gap: '4px', width: '32px', height: '32px', marginBottom: '4px' }}>
-        {Array.from({ length: size * size }).map((_, i) => (
-          <div key={i} style={{ backgroundColor: active ? '#fe6326' : '#d9d9d9', borderRadius: '2px' }}></div>
-        ))}
-      </div>
-      <span style={{ fontSize: '12px', fontWeight: active ? 'bold' : 'normal', color: active ? '#fe6326' : '#595959' }}>{size}×{size}</span>
-    </div>
-  );
-};
-
-function ProductBlockModal({ visible, onCancel, onOk, msgApi, isMobile, allCats, initialData }) {
-    const [form] = Form.useForm();
-    const [registerMode, setRegisterMode] = useState('direct');
-    const [gridSize, setGridSize] = useState(2);
-    const [layoutType, setLayoutType] = useState('single');
-    const [singleRoot, setSingleRoot] = useState(null);
-    const [singleSub, setSingleSub] = useState(null);
-    const roots = allCats.filter(c => c.category_depth === 1);
-    const [tabs, setTabs] = useState([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]);
-    const [activeColor, setActiveColor] = useState('#fe6326');
-    const [directProducts, setDirectProducts] = useState([]);
-    const [tabDirectProducts, setTabDirectProducts] = useState({});
-    const [morePrdVisible, setMorePrdVisible] = useState(false);
-    const [morePrdTarget, setMorePrdTarget] = useState('direct');
-    const [morePrdTabIndex, setMorePrdTabIndex] = useState(0);
-    const [initialSelected, setInitialSelected] = useState([]);
-
-    useEffect(() => {
-        if (visible && initialData) {
-            setRegisterMode(initialData.registerMode || 'direct');
-            setGridSize(initialData.gridSize || 2);
-            setLayoutType(initialData.layoutType || 'single');
-            if (initialData.registerMode === 'category') {
-                if (initialData.layoutType === 'single') { setSingleRoot(initialData.root ? String(initialData.root) : null); setSingleSub(initialData.sub ? String(initialData.sub) : null); }
-                else if (initialData.layoutType === 'tabs') { setTabs(initialData.tabs || [{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor(initialData.activeColor || '#fe6326'); }
-            } else if (initialData.registerMode === 'direct') {
-                if (initialData.layoutType === 'single') { setDirectProducts(initialData.directProducts || []); }
-                else if (initialData.layoutType === 'tabs') { setTabDirectProducts(initialData.tabDirectProducts || {}); setTabs(initialData.tabs || [{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor(initialData.activeColor || '#fe6326'); }
-            }
-        } else if (visible) { form.resetFields(); setRegisterMode('direct'); setGridSize(2); setLayoutType('single'); setSingleRoot(null); setSingleSub(null); setTabs([{ title: '', root: null, sub: null }, { title: '', root: null, sub: null }]); setActiveColor('#fe6326'); setDirectProducts([]); setTabDirectProducts({}); }
-    }, [visible, initialData, form]);
-
-    const handleRegisterModeChange = useCallback((val) => { setRegisterMode(val); setLayoutType('single'); }, []);
-    const handleLayoutTypeChange = useCallback((val) => { setLayoutType(val); }, []);
-    
-    const addTab = useCallback(() => { if (tabs.length < 4) setTabs(ts => [...ts, { title: '', root: null, sub: null }]); }, [tabs.length]);
-    const updateTab = useCallback((i, key, val) => { setTabs(ts => { const a = [...ts]; a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) }; return a; }); }, []);
-    const removeTab = useCallback((index) => { if (tabs.length > 2) setTabs(prev => prev.filter((_, i) => i !== index)); }, [tabs.length]);
-    const openMorePrd = useCallback((target, tabIndex = 0) => { setMorePrdTarget(target); setInitialSelected(target === 'direct' ? directProducts : (tabDirectProducts[tabIndex] || [])); setMorePrdTabIndex(tabIndex); setMorePrdVisible(true); }, [directProducts, tabDirectProducts]);
-    
-    const handleMorePrdOk = useCallback((selected) => { 
-        if (morePrdTarget === 'direct') setDirectProducts(selected);
-        else setTabDirectProducts(prev => ({ ...prev, [morePrdTabIndex]: selected })); 
-        setMorePrdVisible(false); 
-    }, [morePrdTarget, morePrdTabIndex]);
-    
-    const handleOk = useCallback(() => {
-        if (registerMode === 'direct') {
-            if (layoutType === 'single' && (!directProducts || directProducts.length === 0)) {
-                return msgApi.warning('단품 상품을 1개 이상 등록해주세요.');
-            }
-            if (layoutType === 'tabs') {
-                const allTabsHaveProducts = tabs.every((tab, i) => (tabDirectProducts[i] || []).length > 0);
-                if (!allTabsHaveProducts) {
-                    return msgApi.warning('모든 탭에 상품을 1개 이상 등록해주세요.');
-                }
-            }
-        }
-        
-        const blockData = { id: initialData?.id || Date.now().toString() + Math.random(), type: 'product_group', registerMode, gridSize, layoutType };
-        if (registerMode === 'category') {
-            if (layoutType === 'single') { blockData.root = singleRoot; blockData.sub = singleSub; }
-            else { blockData.tabs = tabs; blockData.activeColor = activeColor; }
-        } else if (registerMode === 'direct') {
-            if (layoutType === 'single') { blockData.directProducts = directProducts; }
-            else { blockData.tabDirectProducts = tabDirectProducts; blockData.tabs = tabs; blockData.activeColor = activeColor; }
-        }
-        onOk(blockData); 
-        onCancel();
-    }, [registerMode, gridSize, layoutType, singleRoot, singleSub, tabs, activeColor, directProducts, tabDirectProducts, onOk, onCancel, initialData, msgApi]);
-
-    return (
-        <Modal open={visible} title={initialData ? "상품 블록 편집" : "상품 블록 추가"} onCancel={onCancel} onOk={handleOk} okText={initialData ? "수정" : "추가"} cancelText="취소" width={isMobile ? '90%' : 700} destroyOnClose>
-            <Form form={form} layout="vertical">
-                <h4 style={{ marginTop: 0 }}>1. 상품 등록 방식</h4>
-                <Segmented 
-                    options={[
-                        { label: '상품 검색하여 추가', value: 'direct' }, 
-                        { label: '카테고리 지정하여 불러오기', value: 'category' }
-                    ]} 
-                    value={registerMode} 
-                    onChange={handleRegisterModeChange} 
-                    block 
-                    style={{ marginBottom: 8 }} 
-                />
-                <Alert 
-                    message={registerMode === 'direct' ? '원하는 상품을 직접 찾아 개별적으로 노출할 수 있습니다.' : '선택한 카테고리의 상품들을 자동으로 불러와 노출합니다.'}
-                    type="info"
-                    style={{ marginBottom: 24 }}
-                />
-                
-                <h4>2. 노출 방식</h4>
-                <Segmented options={[{ label: '단품', value: 'single' }, { label: '탭', value: 'tabs' }]} value={layoutType} onChange={handleLayoutTypeChange} block />
-                <div style={{ marginTop: '8px', color: '#888', fontSize: '12px', minHeight: '32px', marginBottom: '12px' }}>
-                    {layoutType === 'single'
-                        ? '선택한 상품들을 하나의 목록으로 쭉 나열하여 보여줍니다.'
-                        : '여러 개의 탭을 만들어, 각 탭마다 다른 상품 목록을 보여줄 수 있습니다.'
-                    }
-                </div>
-
-                <h4>3. 세부 설정</h4>
-                {registerMode === 'direct' && layoutType === 'single' && (<Button type={directProducts.length > 0 ? 'primary' : 'dashed'} onClick={() => openMorePrd('direct')} style={{ marginTop: 0 }}>{directProducts.length ? `상품 ${directProducts.length}개 등록됨` : '상품 직접 등록'}</Button>)}
-                {registerMode === 'direct' && layoutType === 'tabs' && (<>{tabs.map((t, i) => (<div key={i}><Space size="middle" style={{ marginTop: 8, alignItems: 'center' }}><Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={e => updateTab(i, 'title', e.target.value)} /><Button type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'} onClick={() => openMorePrd('tab', i)}>{(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}</Button>{tabs.length > 2 && (<DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />)}</Space></div>))}<Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}><PlusOutlined /> 탭 추가</Button><Space style={{ marginTop: 12, alignItems: 'center' }}><span>활성 탭 색:</span><ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} /></Space><div style={{ marginTop: '8px', color: '#888', fontSize: '12px' }}>원하시는 색상을 선택하여 활성화된 탭의 색상을 변경할 수 있습니다.</div></>)}
-                {registerMode === 'category' && layoutType === 'single' && (<Space style={{ marginTop: 0 }}><Select placeholder="대분류" style={{ width: 180 }} value={singleRoot} onChange={setSingleRoot}>{roots.map(r => (<Option key={r.category_no} value={String(r.category_no)}>{r.category_name}</Option>))}</Select><Select placeholder="소분류" style={{ width: 180 }} value={singleSub} onChange={setSingleSub} disabled={!singleRoot}>{allCats.filter(c => c.category_depth === 2 && String(c.parent_category_no) === singleRoot).map(s => (<Option key={s.category_no} value={String(s.category_no)}>{s.category_name}</Option>))}</Select></Space>)}
-                {registerMode === 'category' && layoutType === 'tabs' && (<>{tabs.map((t, i) => (<div key={i}><Space size="middle" style={{ marginTop: 8, alignItems: 'center' }}><Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={e => updateTab(i, 'title', e.target.value)} /><Select placeholder="대분류" style={{ width: 140 }} value={t.root} onChange={v => updateTab(i, 'root', v)}>{roots.map(r => (<Option key={r.category_no} value={String(r.category_no)}>{r.category_name}</Option>))}</Select><Select placeholder="소분류" style={{ width: 140 }} value={t.sub} onChange={v => updateTab(i, 'sub', v)} disabled={!t.root}>{allCats.filter(c => c.category_depth === 2 && String(c.parent_category_no) === t.root).map(s => (<Option key={s.category_no} value={String(s.category_no)}>{s.category_name}</Option>))}</Select>{tabs.length > 2 && (<DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }}/>)}</Space></div>))}<Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 4}><PlusOutlined /> 탭 추가</Button><Space style={{ marginTop: 12, alignItems: 'center' }}><span>활성 탭 색:</span><ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} /></Space><div style={{ marginTop: '8px', color: '#888', fontSize: '12px' }}>원하시는 색상을 선택하여 활성화된 탭의 색상을 변경할 수 있습니다.</div></>)}
-                
-                <h4 style={{ marginTop: 24 }}>4. 그리드 사이즈</h4>
-                <Space style={{ marginBottom: 16 }}>
-                    {[2, 3, 4].map(n => (
-                        <GridPreview key={n} size={n} active={gridSize === n} onClick={() => setGridSize(n)} />
-                    ))}
-                </Space>
-            </Form>
-            {morePrdVisible && <MorePrd visible={morePrdVisible} initialSelected={initialSelected} onOk={handleMorePrdOk} onCancel={() => setMorePrdVisible(false)} />}
-        </Modal>
-    );
-}
+// renderGrid / CARD_TEMPLATES 는 ../components/productCard 로 분리 (미리보기 3개 화면 공유)
+// ProductBlockModal / ImageSlideModal / ImageSlidePreview / TimesaleBanner / TIMESALE_BANNERS 는
+// EventCreate.js 에서 import (생성/수정 페이지 공유). 아래 로컬 정의는 제거됨.
 
 // =================================================================
 // --- Main EventEdit Component ---
@@ -253,18 +94,50 @@ export default function EventEdit() {
   const [allCats, setAllCats] = useState([]);
   const [couponOptions, setCouponOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  
+  const [eventCouponNos, setEventCouponNos] = useState([]);
+  const [pageMaxWidth, setPageMaxWidth] = useState(null);
+  const [pageMaxWidthInput, setPageMaxWidthInput] = useState(null);
+  // 카테고리 모드 블록 미리보기용 상품 (categoryNo -> products[])
+  const [categoryProductsMap, setCategoryProductsMap] = useState({});
+
   const [previewActiveTabs, setPreviewActiveTabs] = useState({});
-  
+  const [isPreviewMode, setIsPreviewMode] = useState(false); // 미리보기 모드 상태
+
   const [productBlockModalVisible, setProductBlockModalVisible] = useState(false);
   const [editingProductBlock, setEditingProductBlock] = useState(null);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [textModalVisible, setTextModalVisible] = useState(false);
-  
+  const [noticeModalVisible, setNoticeModalVisible] = useState(false);
+  const [noticeImagePreview, setNoticeImagePreview] = useState('');
+  const [noticeImageFile, setNoticeImageFile] = useState(undefined);
+  // 타임세일(기간할인 표시) — 읽기 전용 Benefits 기반
+  const [timesaleModalVisible, setTimesaleModalVisible] = useState(false);
+  const [benefitsList, setBenefitsList] = useState([]);
+  const [timesaleProductsMap, setTimesaleProductsMap] = useState({}); // blockId -> products[] (미리보기용)
+  // 타임세일 개편: 탭(기간할인/쿠폰할인) + 모드(Cafe24 불러오기/직접 입력)
+  const [tsType, setTsType] = useState('benefit'); // 'benefit'(기간할인) | 'coupon'(쿠폰할인)
+  const [tsMode, setTsMode] = useState('select'); // 'select'(Cafe24 불러오기) | 'manual'(직접 입력)
+  const [couponsList, setCouponsList] = useState([]);
+  const [tsManualProducts, setTsManualProducts] = useState([]); // 직접 등록 상품 객체
+  const [tsManualRange, setTsManualRange] = useState(null); // [dayjs, dayjs]
+  const [tsMorePrdVisible, setTsMorePrdVisible] = useState(false);
+  const [tsSelectProducts, setTsSelectProducts] = useState([]); // 선택한 기간할인/쿠폰의 실제 상품(미리보기용)
+
+  // 이미지 슬라이드(스와이퍼) 블록
+  const [imageSlideVisible, setImageSlideVisible] = useState(false);
+  const [imageSlideInit, setImageSlideInit] = useState(null);
+  const openImageSlide = (block = null) => { setImageSlideInit(block); setImageSlideVisible(true); };
+  const handleImageSlideOk = (blockData) => {
+    setBlocks(prev => prev.some(b => b.id === blockData.id) ? prev.map(b => b.id === blockData.id ? blockData : b) : [...prev, blockData]);
+    setSelectedId(blockData.id);
+  };
+
   const [addingMode, setAddingMode] = useState(false);
   const [addType, setAddType] = useState(null);
+  const [popupImages, setPopupImages] = useState([]);
+  const [popupShowClose, setPopupShowClose] = useState(true);
   const [pendingRegion, setPendingRegion] = useState(null);
   const [dragStartPos, setDragStart] = useState(null);
   const [dragCurrent, setDragCurrent] = useState(null);
@@ -275,19 +148,32 @@ export default function EventEdit() {
   const [editForm] = Form.useForm();
   const [videoForm] = Form.useForm();
   const [textForm] = Form.useForm();
+  const [noticeForm] = Form.useForm();
+  const [timesaleForm] = Form.useForm();
   const imgRef = useRef(null);
   const couponSelectRef = useRef(null);
   const couponEditSelectRef = useRef(null);
+  const tsBannerStyle = Form.useWatch('bannerStyle', timesaleForm);
+  const tsTitle = Form.useWatch('title', timesaleForm);
+  const tsShowCd = Form.useWatch('showCountdown', timesaleForm);
+  const tsGrid = Form.useWatch('gridSize', timesaleForm);
+  const tsTemplate = Form.useWatch('cardTemplate', timesaleForm);
+  const tsBenefitNo = Form.useWatch('benefitNo', timesaleForm);
+  const tsCouponNo = Form.useWatch('couponNo', timesaleForm);
 
   useEffect(() => {
     if (!mallId || !id) return;
 
     api.get(`/api/${mallId}/categories/all`).then(res => setAllCats(res.data)).catch(() => msgApi.error('카테고리 불러오기 실패'));
-    api.get(`/api/${mallId}/coupons`).then(res => setCouponOptions(res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)` })))).catch(() => msgApi.error('쿠폰 불러오기 실패'));
+    api.get(`/api/${mallId}/coupons`).then(res => setCouponOptions(res.data.map(c => ({ value: c.coupon_no, label: `${c.coupon_name} (${c.benefit_percentage}%)`, discountPercent: Number(c.benefit_percentage) || 0 })))).catch(() => msgApi.error('쿠폰 불러오기 실패'));
+    api.get(`/api/${mallId}/benefits`).then(res => { const arr = Array.isArray(res.data) ? res.data : (res.data?.benefits || []); setBenefitsList(arr.filter(b => b.benefit_type === 'DP')); }).catch(() => {});
 
     api.get(`/api/${mallId}/events/${id}`)
       .then(({ data: ev }) => {
         setTitle(ev.title || '');
+        setEventCouponNos(ev.couponNos || []);
+        setPageMaxWidth(ev.pageMaxWidth || null);
+        setPageMaxWidthInput(ev.pageMaxWidth || null);
         const loadedBlocks = (ev.content?.blocks || []).map(b => ({ ...b, id: b.id || b._id || `${b.type}-${Math.random()}` }));
         setBlocks(loadedBlocks);
         if (loadedBlocks.length > 0) {
@@ -299,6 +185,39 @@ export default function EventEdit() {
         navigate(-1);
       });
   }, [mallId, id, navigate, msgApi]);
+
+  // 이벤트 전체 쿠폰의 최대 할인율(%) — 미리보기 할인 추정용
+  const previewDiscountPercent = useMemo(() => {
+    if (!eventCouponNos.length) return 0;
+    return Math.max(0, ...eventCouponNos.map(no => couponOptions.find(o => o.value === no)?.discountPercent || 0));
+  }, [eventCouponNos, couponOptions]);
+
+  // 탭 이동 region 대상 옵션
+  const tabTargetOptions = useMemo(() => {
+    const opts = [];
+    blocks.forEach((b, bi) => {
+      if (b.type !== 'product_group' || b.layoutType !== 'tabs') return;
+      (b.tabs || []).forEach((t, i) => { opts.push({ value: `${b.id}::${i}`, label: `상품 블록 ${bi + 1} → 탭${i + 1}${t.title ? ` (${t.title})` : ''}` }); });
+    });
+    return opts;
+  }, [blocks]);
+
+  // 카테고리 모드 블록의 categoryNo 를 모아 미리보기용 상품을 prefetch (동일 번호 1회)
+  useEffect(() => {
+    if (!mallId) return;
+    const needed = new Set();
+    blocks.forEach(b => {
+      if (b.type !== 'product_group' || b.registerMode !== 'category') return;
+      if (b.layoutType === 'single') { const no = b.sub || b.root; if (no) needed.add(String(no)); }
+      else if (b.layoutType === 'tabs') { (b.tabs || []).forEach(t => { const no = t.sub || t.root; if (no) needed.add(String(no)); }); }
+    });
+    needed.forEach(no => {
+      if (categoryProductsMap[no]) return;
+      api.get(`/api/${mallId}/categories/${no}/products`, { params: { limit: 300 } })
+        .then(res => { const arr = Array.isArray(res.data) ? res.data : (res.data?.products || []); setCategoryProductsMap(prev => ({ ...prev, [no]: arr })); })
+        .catch(() => setCategoryProductsMap(prev => ({ ...prev, [no]: [] })));
+    });
+  }, [mallId, blocks, categoryProductsMap]);
 
   const uploadProps = {
     accept: 'image/*',
@@ -353,12 +272,24 @@ export default function EventEdit() {
 
   const selectedBlock = blocks.find(b => b.id === selectedId);
 
+  // 미리보기용: 탭별 그리드 컬럼 수 + 표시 상품 목록(직접/카테고리)
+  const getPreviewCols = (b, idx) => (b.layoutType === 'tabs' && b.tabGridSizes && b.tabGridSizes[idx] != null) ? b.tabGridSizes[idx] : b.gridSize;
+  const getPreviewProducts = (b, idx) => {
+    if (b.registerMode === 'direct') {
+      return b.layoutType === 'tabs' ? ((b.tabDirectProducts || {})[idx] || []) : (b.directProducts || []);
+    }
+    let catNo;
+    if (b.layoutType === 'tabs') { const t = (b.tabs || [])[idx] || {}; catNo = t.sub || t.root; }
+    else { catNo = b.sub || b.root; }
+    return catNo ? (categoryProductsMap[String(catNo)] || []) : [];
+  };
+
   const onMouseDown = e => { if (!imgRef.current) return; const { left, top } = imgRef.current.getBoundingClientRect(); setDragStart({ x: e.clientX - left, y: e.clientY - top }); setDragCurrent({ x: e.clientX - left, y: e.clientY - top }); };
   const onMouseMove = e => { if (!dragStartPos) return; const { left, top } = imgRef.current.getBoundingClientRect(); setDragCurrent({ x: e.clientX - left, y: e.clientY - top }); };
   const onMouseUp = () => { if (!dragStartPos || !dragCurrent) { setDragStart(null); setDragCurrent(null); return; } const { clientWidth: W, clientHeight: H } = imgRef.current; const x = Math.min(dragStartPos.x, dragCurrent.x); const y = Math.min(dragStartPos.y, dragCurrent.y); const w = Math.abs(dragCurrent.x - dragStartPos.x); const h = Math.abs(dragCurrent.y - dragStartPos.y); if (w < 5 || h < 5) { setDragStart(null); setDragCurrent(null); return; } const region = { id: Date.now().toString(), xRatio: x / W, yRatio: y / H, wRatio: w / W, hRatio: h / H, }; setPendingRegion(region); setMapModalVisible(true); setDragStart(null); setDragCurrent(null); };
-  const saveRegion = () => { if (!pendingRegion) return; mapForm.validateFields().then(vals => { const updated = { ...pendingRegion }; if (addType === 'link') { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; updated.href = href; delete updated.coupon; } else { updated.coupon = (vals.coupon || []).join(','); delete updated.href; } setBlocks(prev => prev.map(b => b.id === selectedId && b.type === 'image' ? { ...b, regions: [...(b.regions || []), updated] } : b)); setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); setNotification(null); }).catch(info => console.log('Validate Failed:', info)); };
-  const openEditRegion = r => { setEditingRegion(r); setEditModalVisible(true); if (r.coupon) editForm.setFieldsValue({ coupon: r.coupon.split(',') }); else editForm.setFieldsValue({ href: r.href }); };
-  const applyEditRegion = () => { editForm.validateFields().then(vals => { setBlocks(prev => prev.map(b => { if (b.id !== selectedId || b.type !== 'image') return b; const regions = (b.regions || []).map(r => { if (r.id !== editingRegion.id) return r; if (r.coupon != null) { return { ...r, coupon: (vals.coupon || []).join(','), href: undefined }; } else { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; return { ...r, href, coupon: undefined }; } }); return { ...b, regions }; })); setEditModalVisible(false); setEditingRegion(null); }).catch(info => console.log('Validate Failed:', info)); };
+  const saveRegion = () => { if (!pendingRegion) return; mapForm.validateFields().then(vals => { const updated = { ...pendingRegion }; if (addType === 'link') { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; updated.href = href; delete updated.coupon; delete updated.tabTarget; delete updated.popup; } else if (addType === 'tab') { const [blockId, idxStr] = String(vals.tabTarget || '').split('::'); const tabIndex = parseInt(idxStr, 10); if (!blockId || !isFinite(tabIndex)) return msgApi.error('이동할 탭을 선택하세요.'); updated.tabTarget = { blockId, tabIndex }; delete updated.href; delete updated.coupon; delete updated.popup; } else if (addType === 'popup') { const imgs = popupImages.filter(p => p.url); if (imgs.length === 0) return msgApi.error('팝업 이미지를 1장 이상 추가하세요.'); updated.popup = { images: imgs, interval: 3000, showCloseButton: popupShowClose }; delete updated.href; delete updated.coupon; delete updated.tabTarget; } else { updated.coupon = (vals.coupon || []).join(','); delete updated.href; delete updated.tabTarget; delete updated.popup; } setBlocks(prev => prev.map(b => b.id === selectedId && b.type === 'image' ? { ...b, regions: [...(b.regions || []), updated] } : b)); setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); setPopupImages([]); mapForm.resetFields(); setNotification(null); }).catch(info => console.log('Validate Failed:', info)); };
+  const openEditRegion = r => { setEditingRegion(r); setEditModalVisible(true); if (r.coupon) editForm.setFieldsValue({ coupon: r.coupon.split(',') }); else if (r.tabTarget) editForm.setFieldsValue({ tabTarget: `${r.tabTarget.blockId}::${r.tabTarget.tabIndex}` }); else if (r.popup) { setPopupImages(r.popup.images || []); setPopupShowClose(r.popup.showCloseButton !== false); } else editForm.setFieldsValue({ href: r.href }); };
+  const applyEditRegion = () => { editForm.validateFields().then(vals => { setBlocks(prev => prev.map(b => { if (b.id !== selectedId || b.type !== 'image') return b; const regions = (b.regions || []).map(r => { if (r.id !== editingRegion.id) return r; if (r.coupon != null) { return { ...r, coupon: (vals.coupon || []).join(','), href: undefined, tabTarget: undefined, popup: undefined }; } else if (r.tabTarget) { const [blockId, idxStr] = String(vals.tabTarget || '').split('::'); const tabIndex = parseInt(idxStr, 10); if (!blockId || !isFinite(tabIndex)) return r; return { ...r, tabTarget: { blockId, tabIndex }, href: undefined, coupon: undefined, popup: undefined }; } else if (r.popup) { const imgs = popupImages.filter(p => p.url); if (imgs.length === 0) return r; return { ...r, popup: { images: imgs, interval: r.popup.interval ?? 3000, showCloseButton: popupShowClose }, href: undefined, coupon: undefined, tabTarget: undefined }; } else { let href = (vals.href || '').trim(); if (!/^https?:\/\//.test(href)) href = 'https://' + href; return { ...r, href, coupon: undefined, tabTarget: undefined, popup: undefined }; } }); return { ...b, regions }; })); setEditModalVisible(false); setEditingRegion(null); setPopupImages([]); }).catch(info => console.log('Validate Failed:', info)); };
   const deleteRegion = () => { setBlocks(prev => prev.map(b => { if (b.id !== selectedId || b.type !== 'image') return b; return { ...b, regions: (b.regions || []).filter(r => r.id !== editingRegion.id) }; })); setEditModalVisible(false); setEditingRegion(null); };
   
   const addProductBlock = (blockData) => { if (editingProductBlock) { setBlocks(blocks.map(b => b.id === editingProductBlock.id ? { ...blockData } : b)); } else { setBlocks(prev => [...prev, blockData]); setSelectedId(blockData.id); } setEditingProductBlock(null); setProductBlockModalVisible(false); };
@@ -366,7 +297,171 @@ export default function EventEdit() {
   const submitVideo = () => { videoForm.validateFields().then(vals => { const { urlOrId, w = 16, h = 9, autoplay = false } = vals; const vid = getYouTubeId(urlOrId); if (!vid) return msgApi.error('유효한 YouTube 링크/ID가 아닙니다.'); const sel = blocks.find(b => b.id === selectedId); if (sel?.type === 'video') { setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, youtubeId: vid, ratio: { w, h }, autoplay, loop: autoplay } : b)); } else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, type: 'video', youtubeId: vid, ratio: { w, h }, autoplay, loop: autoplay }]); setSelectedId(id); } setVideoModalVisible(false); }).catch(info => console.log('Validate Failed:', info)); };
   const openTextModal = (blockToEdit = null) => { setAddingMode(false); setNotification(null); setSelectedId(blockToEdit?.id || null); if (blockToEdit) { textForm.setFieldsValue({ text: blockToEdit.text, ...blockToEdit.style }); } else { textForm.resetFields(); } setTextModalVisible(true); };
   const submitText = () => { textForm.validateFields().then(vals => { const { text, ...style } = vals; const sel = blocks.find(b => b.id === selectedId); if (sel?.type === 'text') { setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, text, style } : b)); } else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, type: 'text', text, style }]); setSelectedId(id); } setTextModalVisible(false); }).catch(info => console.log('Validate Failed:', info)); };
-  
+
+  // 이벤트 유의사항 블록 (event_notice)
+  const openNoticeModal = (blockToEdit = null) => {
+    setAddingMode(false); setNotification(null);
+    setSelectedId(blockToEdit?.id || null);
+    if (blockToEdit && blockToEdit.type === 'event_notice') {
+      const ns = blockToEdit.noticeStyle || {};
+      noticeForm.setFieldsValue({ noticeTitle: blockToEdit.noticeTitle || '이벤트 유의사항', noticeText: blockToEdit.noticeText || '', background: ns.background || '', color: ns.color || '#444444', fontSize: ns.fontSize ?? 14, lineHeight: ns.lineHeight ?? 1.7, letterSpacing: ns.letterSpacing ?? 0, padding: ns.padding ?? 16 });
+      setNoticeImagePreview(blockToEdit.noticeImage || '');
+      setNoticeImageFile(blockToEdit.noticeImageFile);
+    } else {
+      noticeForm.setFieldsValue({ noticeTitle: '이벤트 유의사항', noticeText: '', background: '', color: '#444444', fontSize: 14, lineHeight: 1.7, letterSpacing: 0, padding: 16 });
+      setNoticeImagePreview(''); setNoticeImageFile(undefined);
+    }
+    setNoticeModalVisible(true);
+  };
+  const submitNotice = () => {
+    const vals = noticeForm.getFieldsValue();
+    const { noticeTitle, noticeText, background, color, fontSize, lineHeight, letterSpacing, padding } = vals;
+    if (!noticeImagePreview && !noticeText?.trim()) { return msgApi.warning('이미지나 본문 텍스트 중 하나는 입력하세요.'); }
+    const sel = blocks.find(b => b.id === selectedId);
+    const patch = { noticeTitle: (noticeTitle || '이벤트 유의사항').trim(), noticeText: (noticeText || '').trim(), noticeImage: noticeImagePreview || undefined, noticeImageFile, noticeStyle: { background: background || undefined, color: color || undefined, fontSize: typeof fontSize === 'number' ? fontSize : undefined, lineHeight: typeof lineHeight === 'number' ? lineHeight : undefined, letterSpacing: typeof letterSpacing === 'number' ? letterSpacing : undefined, padding: typeof padding === 'number' ? padding : undefined } };
+    if (sel?.type === 'event_notice') { setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, ...patch } : b)); }
+    else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, type: 'event_notice', ...patch }]); setSelectedId(id); }
+    setNoticeModalVisible(false);
+  };
+
+  // 팝업 영역 (popup)
+  const addPopupImage = (file) => {
+    if (popupImages.length >= 10) { msgApi.warning('팝업 이미지는 최대 10장까지 가능합니다.'); return; }
+    if (file.size / 1024 / 1024 > 10) { msgApi.error('이미지는 10MB 이하여야 합니다.'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => { setPopupImages(prev => [...prev, { url: e.target?.result || '', file }]); };
+    reader.readAsDataURL(file);
+  };
+  const removePopupImage = (idx) => setPopupImages(prev => prev.filter((_, i) => i !== idx));
+  const movePopupImage = (from, to) => setPopupImages(prev => { if (to < 0 || to >= prev.length) return prev; const arr = [...prev]; const [m] = arr.splice(from, 1); arr.splice(to, 0, m); return arr; });
+  const renderPopupEditor = () => (
+    <div>
+      <div style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>팝업에 띄울 이미지를 1~10장 추가하세요. 2장 이상이면 자동 순환(슬라이드)되고, 각 이미지에 링크를 걸 수 있습니다. 닫기 버튼은 자동 포함.</div>
+      <Space style={{ marginBottom: 10 }} wrap>
+        <Upload accept="image/*" multiple showUploadList={false} beforeUpload={(file) => { addPopupImage(file); return false; }}>
+          <Button icon={<UploadOutlined />} disabled={popupImages.length >= 10}>팝업 이미지 추가 ({popupImages.length}/10)</Button>
+        </Upload>
+        <Checkbox checked={popupShowClose} onChange={(e) => setPopupShowClose(e.target.checked)}>우상단 X 닫기 버튼 표시 (끄면 닫기 영역으로만 닫힘)</Checkbox>
+      </Space>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {popupImages.map((p, i) => (
+          <div key={i} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>팝업 이미지 {i + 1}</span>
+              <span style={{ flex: 1 }} />
+              <Button size="small" onClick={() => movePopupImage(i, i - 1)} disabled={i === 0}>↑</Button>
+              <Button size="small" onClick={() => movePopupImage(i, i + 1)} disabled={i === popupImages.length - 1}>↓</Button>
+              <Button size="small" danger onClick={() => removePopupImage(i)}>이미지 삭제</Button>
+            </div>
+            <PopupImageRegionEditor src={p.url} regions={p.regions || []} onChange={(regions) => setPopupImages(prev => prev.map((pp, idx) => (idx === i ? { ...pp, regions } : pp)))} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // 타임세일(기간할인 표시) 블록 — Cafe24 기간할인을 골라 카운트다운 + 할인가 노출 (생성 아님, 읽기)
+  const openTimesaleModal = (blockToEdit = null) => {
+    setAddingMode(false); setNotification(null);
+    setSelectedId(blockToEdit?.id || null);
+    if (blockToEdit && blockToEdit.type === 'timesale') {
+      setTsType(blockToEdit.promoType || (blockToEdit.couponNo ? 'coupon' : 'benefit'));
+      setTsMode(blockToEdit.manual ? 'manual' : 'select');
+      setTsManualProducts(blockToEdit.manualProducts || []);
+      setTsManualRange(blockToEdit.endDate ? [blockToEdit.startDate ? dayjs(blockToEdit.startDate) : null, dayjs(blockToEdit.endDate)] : null);
+      timesaleForm.setFieldsValue({ benefitNo: blockToEdit.benefitNo, couponNo: blockToEdit.couponNo, title: blockToEdit.title, showCountdown: blockToEdit.showCountdown !== false, gridSize: blockToEdit.gridSize || 2, cardTemplate: blockToEdit.cardTemplate || 'badge', bannerStyle: blockToEdit.bannerStyle || 'dark' });
+    } else {
+      setTsType('benefit'); setTsMode('select'); setTsManualProducts([]); setTsManualRange(null);
+      timesaleForm.setFieldsValue({ benefitNo: undefined, couponNo: undefined, title: '', showCountdown: true, gridSize: 2, cardTemplate: 'badge', bannerStyle: 'dark' });
+    }
+    setTimesaleModalVisible(true);
+  };
+  const submitTimesale = async () => {
+    const vals = timesaleForm.getFieldsValue();
+    let title = (vals.title || '').trim();
+    let endDate = null, startDate = null, productNos = [], benefitNo = null, couponNo = null, manualProducts = null;
+
+    if (tsMode === 'manual') {
+      productNos = tsManualProducts.map(p => Number(p.product_no)).filter(Boolean);
+      if (productNos.length === 0) return msgApi.warning('표시할 상품을 직접 등록해주세요.');
+      if (!tsManualRange || !tsManualRange[1]) return msgApi.warning('타임세일 종료일을 선택해주세요.');
+      startDate = tsManualRange[0] ? tsManualRange[0].toISOString() : null;
+      endDate = tsManualRange[1].toISOString();
+      manualProducts = tsManualProducts.map(p => ({ product_no: p.product_no, product_name: p.product_name, price: p.price, sale_price: p.sale_price, benefit_price: p.benefit_price, list_image: p.list_image, image_medium: p.image_medium }));
+      if (!title) title = '타임세일';
+    } else if (tsType === 'benefit') {
+      if (!vals.benefitNo) return msgApi.warning('표시할 기간할인을 선택하세요. (또는 "직접 입력"을 이용하세요)');
+      benefitNo = vals.benefitNo;
+      let benefit = benefitsList.find(b => String(b.benefit_no) === String(vals.benefitNo));
+      try { const { data } = await api.get(`/api/${mallId}/benefits/${vals.benefitNo}`); if (data) benefit = data; } catch (e) {}
+      const ps = (benefit && benefit.period_sale) || {};
+      productNos = (ps.product_list || []).map(Number).filter(Boolean);
+      if (productNos.length === 0) return msgApi.warning('이 기간할인에 지정된 대상 상품이 없습니다. "직접 입력"으로 상품·기간을 등록해주세요.');
+      startDate = benefit?.benefit_start_date || null; endDate = benefit?.benefit_end_date || null;
+      if (!title) title = benefit?.benefit_name || '타임세일';
+    } else { // coupon
+      if (!vals.couponNo) return msgApi.warning('표시할 쿠폰을 선택하세요. (또는 "직접 입력"을 이용하세요)');
+      couponNo = vals.couponNo;
+      const coupon = couponsList.find(c => String(c.coupon_no) === String(vals.couponNo)) || {};
+      const plist = coupon.available_product_list || [];
+      productNos = (Array.isArray(plist) ? plist : []).map(Number).filter(Boolean);
+      if (productNos.length === 0) return msgApi.warning('이 쿠폰의 대상 상품을 자동으로 가져오지 못했어요. "직접 입력"으로 상품·기간을 등록해주세요.');
+      endDate = coupon.available_end_date || coupon.issued_end_date || null;
+      if (!title) title = coupon.coupon_name || '쿠폰 타임세일';
+    }
+
+    const patch = {
+      type: 'timesale', promoType: tsType, manual: tsMode === 'manual',
+      benefitNo, couponNo, title, startDate, endDate, productNos, manualProducts,
+      showCountdown: vals.showCountdown !== false, gridSize: vals.gridSize || 2, cardTemplate: vals.cardTemplate || 'badge', bannerStyle: vals.bannerStyle || 'dark',
+    };
+    const sel = blocks.find(b => b.id === selectedId);
+    if (sel?.type === 'timesale') setBlocks(prev => prev.map(b => b.id === sel.id ? { ...b, ...patch } : b));
+    else { const id = Date.now().toString() + Math.random(); setBlocks(prev => [...prev, { id, ...patch }]); setSelectedId(id); }
+    setTimesaleModalVisible(false);
+  };
+
+  // 쿠폰할인 탭 — Cafe24 쿠폰 목록 로드 (1회)
+  useEffect(() => {
+    if (timesaleModalVisible && tsType === 'coupon' && couponsList.length === 0 && mallId) {
+      api.get(`/api/${mallId}/coupons`).then(r => setCouponsList(r.data?.coupons || (Array.isArray(r.data) ? r.data : []))).catch(() => {});
+    }
+  }, [timesaleModalVisible, tsType, mallId, couponsList.length]);
+
+  // 타임세일 "Cafe24에서 불러오기" — 선택한 기간할인/쿠폰의 실제 대상 상품 일부를 미리보기로 로드
+  useEffect(() => {
+    if (!timesaleModalVisible || tsMode !== 'select' || !mallId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let nos = [];
+        if (tsType === 'benefit' && tsBenefitNo) {
+          const { data } = await api.get(`/api/${mallId}/benefits/${tsBenefitNo}`);
+          nos = ((data?.period_sale?.product_list) || []).map(Number).filter(Boolean).slice(0, 4);
+        } else if (tsType === 'coupon' && tsCouponNo) {
+          const c = couponsList.find(x => String(x.coupon_no) === String(tsCouponNo));
+          nos = ((c?.available_product_list) || []).map(Number).filter(Boolean).slice(0, 4);
+        }
+        if (nos.length === 0) { if (!cancelled) setTsSelectProducts([]); return; }
+        const arr = await Promise.all(nos.map(no => api.get(`/api/${mallId}/products/${no}`).then(r => r.data).catch(() => null)));
+        if (!cancelled) setTsSelectProducts(arr.filter(Boolean));
+      } catch (e) { if (!cancelled) setTsSelectProducts([]); }
+    })();
+    return () => { cancelled = true; };
+  }, [timesaleModalVisible, tsMode, tsType, tsBenefitNo, tsCouponNo, mallId, couponsList]);
+
+  // 타임세일 블록 미리보기용 상품 prefetch (blockId -> products[])
+  useEffect(() => {
+    if (!mallId) return;
+    blocks.forEach(b => {
+      if (b.type !== 'timesale' || timesaleProductsMap[b.id]) return;
+      const nos = (b.productNos || []).slice(0, 20);
+      if (!nos.length) { setTimesaleProductsMap(prev => ({ ...prev, [b.id]: [] })); return; }
+      Promise.all(nos.map(no => api.get(`/api/${mallId}/products/${no}`).then(r => r.data).catch(() => null)))
+        .then(arr => setTimesaleProductsMap(prev => ({ ...prev, [b.id]: arr.filter(Boolean) })));
+    });
+  }, [mallId, blocks, timesaleProductsMap]);
+
   const handleSave = async () => {
     if (!title.trim()) return msgApi.error('이벤트 제목을 입력하세요.');
     if (blocks.length === 0) return msgApi.error('콘텐츠 블록을 하나 이상 추가하세요.');
@@ -387,17 +482,52 @@ export default function EventEdit() {
 
     setSubmitting(true);
     try {
+        const uploadPopupRegions = async (regions) => {
+          if (!regions || !regions.some(r => r.popup?.images?.length)) return regions;
+          return Promise.all(regions.map(async r => {
+            if (!r.popup?.images?.length) return r;
+            const images = await Promise.all(r.popup.images.map(async img => {
+              if (!img.url || /^https?:\/\//.test(img.url)) return { url: img.url, href: img.href, regions: img.regions };
+              let blob = img.file;
+              if (!blob) blob = await (await fetch(img.url)).blob();
+              const fd = new FormData();
+              fd.append('file', blob, `popup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`);
+              const { data } = await api.post(`/api/${mallId}/uploads/image`, fd);
+              return { url: data.url, href: img.href, regions: img.regions };
+            }));
+            return { ...r, popup: { ...r.popup, images } };
+          }));
+        };
         const uploadedBlocks = await Promise.all(
             blocks.map(async b => {
+                const regions = await uploadPopupRegions(b.regions);
                 if (b.type === 'image' && b.file) {
                     const formData = new FormData();
                     formData.append('file', b.file);
                     const { data } = await api.post(`/api/${mallId}/uploads/image`, formData);
                     const { file, hash, ...rest } = b;
-                    return { ...rest, src: data.url };
+                    return { ...rest, regions, src: data.url };
                 }
-                const { file, hash, ...rest } = b;
-                return rest;
+                if (b.type === 'image_slide' && Array.isArray(b.images)) {
+                    const images = await Promise.all(b.images.map(async img => {
+                        if (!img.file || /^https?:\/\//.test(img.src || '')) return { src: img.src, href: img.href || '' };
+                        const fd = new FormData();
+                        fd.append('file', img.file);
+                        const { data } = await api.post(`/api/${mallId}/uploads/image`, fd);
+                        return { src: data.url, href: img.href || '' };
+                    }));
+                    const { file, hash, noticeImageFile, ...rest } = b;
+                    return { ...rest, images };
+                }
+                if (b.type === 'event_notice' && b.noticeImageFile) {
+                    const formData = new FormData();
+                    formData.append('file', b.noticeImageFile);
+                    const { data } = await api.post(`/api/${mallId}/uploads/image`, formData);
+                    const { file, hash, noticeImageFile, ...rest } = b;
+                    return { ...rest, noticeImage: data.url };
+                }
+                const { file, hash, noticeImageFile, ...rest } = b;
+                return { ...rest, regions };
             })
         );
 
@@ -405,6 +535,8 @@ export default function EventEdit() {
             title,
             content: { blocks: uploadedBlocks },
             images: uploadedBlocks.filter(b => b.type === 'image').map(i => ({ _id: i.id, src: i.src, regions: i.regions })),
+            couponNos: eventCouponNos,
+            pageMaxWidth: pageMaxWidth || null,
         };
 
         await api.put(`/api/${mallId}/events/${id}`, payload);
@@ -426,6 +558,9 @@ export default function EventEdit() {
         title="이벤트 페이지 수정" 
         extra={
             <Space>
+                <Button icon={isPreviewMode ? <EditOutlined /> : <EyeOutlined />} onClick={() => setIsPreviewMode(!isPreviewMode)}>
+                    {isPreviewMode ? '편집모드로 돌아가기' : '미리보기'}
+                </Button>
                 <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`/${mallId}/event/list`)}>목록으로</Button>
                 <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={submitting} disabled={!mallId}>
                     수정 완료
@@ -437,6 +572,28 @@ export default function EventEdit() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3>제목</h3>
             <Input placeholder="이벤트 제목을 입력하세요" value={title} onChange={e => setTitle(e.target.value)} />
+
+            <h3 style={{ marginTop: 20, marginBottom: 4 }}>💸 이벤트 적용 쿠폰</h3>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>선택한 쿠폰이 적용된 가격(혜택가)으로 상품이 표시됩니다. 쿠폰이 적용되지 않는 상품은 정가로 표시.</p>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: '#d32f2f', fontWeight: 600, lineHeight: 1.5 }}>
+              ⚠ 라이브 페이지에 쿠폰을 노출하려면 여기 목록에 반드시 추가해야 합니다. 추가하지 않은 쿠폰은 cafe24 에 자동 적용 가능 여부와 상관없이 위젯에 표시되지 않습니다.<br />
+              쿠폰을 추가/삭제한 뒤 저장만 하면 라이브 페이지에 자동 반영됩니다 (HTML 재배포 불필요).<br />
+              아직 오픈되지 않은(예: 6/1 시작) 쿠폰은 목록에 없어도 <b>쿠폰 번호를 직접 입력 후 Enter</b> 로 미리 추가할 수 있습니다.
+            </p>
+            <Select mode="tags" placeholder="쿠폰 선택, 또는 미오픈 쿠폰 번호 입력 후 Enter" options={couponOptions} optionFilterProp="label" tokenSeparators={[',']} value={eventCouponNos} onChange={setEventCouponNos} style={{ width: '100%' }} allowClear />
+
+            <h3 style={{ marginTop: 20, marginBottom: 4 }}>↔ 페이지 최대 너비</h3>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
+              이벤트 페이지 전체(이미지·영상·유의사항·상품)의 웹 최대 너비입니다. 비워두면 기본 800px. 예: 1400<br />
+              값을 바꾼 뒤 <b>적용</b>을 누르면 미리보기에 반영됩니다. (라이브 반영은 하단 저장 버튼)
+            </p>
+            <Space align="center" wrap>
+              <InputNumber min={320} max={2400} step={20} placeholder="800" value={pageMaxWidthInput ?? undefined} onChange={(v) => setPageMaxWidthInput(typeof v === 'number' ? v : null)} onPressEnter={() => { setPageMaxWidth(pageMaxWidthInput); msgApi.success(`미리보기에 ${pageMaxWidthInput || 800}px 로 적용했습니다.`); }} style={{ width: 140 }} addonAfter="px" />
+              <Button type="primary" onClick={() => { setPageMaxWidth(pageMaxWidthInput); msgApi.success(`미리보기에 ${pageMaxWidthInput || 800}px 로 적용했습니다.`); }}>적용</Button>
+              <Button size="small" onClick={() => { setPageMaxWidthInput(null); setPageMaxWidth(null); msgApi.success('기본 너비(800px)로 적용했습니다.'); }}>기본(800)으로</Button>
+              {(pageMaxWidthInput ?? null) !== (pageMaxWidth ?? null) ? (<span style={{ fontSize: 12, color: '#fa8c16' }}>변경됨 — [적용]을 눌러 미리보기에 반영하세요</span>) : (<span style={{ fontSize: 12, color: '#999' }}>현재 적용: {pageMaxWidth || 800}px</span>)}
+            </Space>
+
             <Divider />
             <h3>콘텐츠 구성</h3>
             {blocks.length > 0 && (
@@ -457,6 +614,9 @@ export default function EventEdit() {
                               {block.type === 'video' && <><YoutubeOutlined /><span>영상 블록</span></>}
                               {block.type === 'text' && <><FontSizeOutlined /><span>텍스트 블록</span></>}
                               {block.type === 'product_group' && <><ShoppingCartOutlined /><span>상품 블록</span></>}
+                              {block.type === 'event_notice' && <><ExclamationCircleOutlined /><span>유의사항</span></>}
+                              {block.type === 'timesale' && <><ClockCircleOutlined /><span>타임세일</span></>}
+                              {block.type === 'image_slide' && <><PictureOutlined /><span>이미지 슬라이드</span></>}
                               <DeleteOutlined className="thumb-delete" onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }}/>
                             </div>
                           )}
@@ -469,12 +629,21 @@ export default function EventEdit() {
               </DragDropContext>
             )}
             
-            <Space style={{ marginTop: 12, flexWrap: 'wrap' }}>
-                <Button icon={<LinkOutlined />} type={addingMode && addType === 'link' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('URL을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('link'); setAddingMode(true); setNotification('클릭 시 원하는 주소의 페이지로 이동이 되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 영역을 설정하고 URL 주소를 입력하세요)'); }}>URL 추가</Button>
-                <Button icon={<TagOutlined />} type={addingMode && addType === 'coupon' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('쿠폰을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('coupon'); setAddingMode(true); setNotification('해당 부분을 클릭 시 쿠폰이 다운되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 설정 후 쿠폰을 적용하세요)'); }}>쿠폰 추가</Button>
-                <Button icon={<ShoppingCartOutlined />} onClick={() => { setAddingMode(false); setNotification(null); setEditingProductBlock(null); setProductBlockModalVisible(true); }}>상품 추가</Button>
+            <div style={{ marginTop: 12, marginBottom: 4, fontSize: 12, fontWeight: 600, color: '#555' }}>콘텐츠 블록 추가</div>
+            <Space style={{ flexWrap: 'wrap' }}>
+                <Button type="primary" ghost icon={<ShoppingCartOutlined />} onClick={() => { setAddingMode(false); setNotification(null); setEditingProductBlock(null); setProductBlockModalVisible(true); }}>상품 추가</Button>
+                <Button icon={<ClockCircleOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openTimesaleModal(); }}>타임세일 추가</Button>
+                <Button icon={<PictureOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openImageSlide(); }}>이미지 슬라이드 추가</Button>
                 <Button icon={<YoutubeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openVideoModal(); }}>YouTube 추가</Button>
                 <Button icon={<FontSizeOutlined />} onClick={() => { setAddingMode(false); setNotification(null); openTextModal(); }}>텍스트 추가</Button>
+                <Button icon={<ExclamationCircleOutlined />} onClick={() => openNoticeModal()}>이벤트 유의사항 추가</Button>
+            </Space>
+            <div style={{ marginTop: 12, marginBottom: 4, fontSize: 12, fontWeight: 600, color: '#555' }}>이미지 영역 기능 <span style={{ fontWeight: 'normal', color: '#999' }}>· 이미지 블록을 선택한 뒤 이미지 위에서 드래그</span></div>
+            <Space style={{ flexWrap: 'wrap' }}>
+                <Button icon={<LinkOutlined />} type={addingMode && addType === 'link' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('URL을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('link'); setAddingMode(true); setNotification('클릭 시 원하는 주소의 페이지로 이동이 되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 영역을 설정하고 URL 주소를 입력하세요)'); }}>URL 추가</Button>
+                <Button icon={<TagOutlined />} type={addingMode && addType === 'coupon' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('쿠폰을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('coupon'); setAddingMode(true); setNotification('해당 부분을 클릭 시 쿠폰이 다운되는 기능 (이미지에서 원하는 부분을 마우스 좌클릭 드래그를 통해 설정 후 쿠폰을 적용하세요)'); }}>쿠폰 추가</Button>
+                <Button icon={<SwapOutlined />} type={addingMode && addType === 'tab' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('탭 이동을 추가할 이미지 블록을 선택하세요.'); return; } if (tabTargetOptions.length === 0) { msgApi.info('먼저 탭(tabs) 방식의 상품 블록을 추가하세요.'); return; } setAddType('tab'); setAddingMode(true); setNotification('이미지에서 영역을 드래그한 뒤, 클릭 시 이동할 상품 탭을 선택하세요.'); }}>탭 이동 추가</Button>
+                <Button icon={<ExpandOutlined />} type={addingMode && addType === 'popup' ? 'primary' : 'default'} onClick={() => { if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('팝업을 추가할 이미지 블록을 선택하세요.'); return; } setAddType('popup'); setAddingMode(true); setPopupImages([]); setPopupShowClose(true); setNotification('이미지에서 영역을 드래그한 뒤, 팝업에 띄울 이미지(1~10장)를 추가하세요.'); }}>팝업 영역 추가</Button>
             </Space>
 
             {addingMode && (
@@ -498,34 +667,145 @@ export default function EventEdit() {
             </Upload.Dragger>
           </div>
           <div style={{ flex: 1, minWidth: 0, border: '1px solid #f0f0f0', borderRadius: 8, padding: '16px', background: '#fafafa' }}>
-            <h3 style={{ marginTop: 0 }}>미리보기</h3>
-            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
+            <h3 style={{ marginTop: 0, textAlign: 'center' }}>{isPreviewMode ? '미리보기 모드' : '편집 모드'}</h3>
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden', paddingRight: 8, maxWidth: pageMaxWidth || 800, margin: '0 auto' }}>
               {blocks.map(b => {
                 const isSelected = selectedId === b.id;
-                if (b.type === 'image') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><PictureOutlined /><strong>이미지 블록</strong></div><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></div><div className="block-content image-content" onMouseDown={addingMode && isSelected ? onMouseDown : undefined} onMouseMove={addingMode && isSelected ? onMouseMove : undefined} onMouseUp={addingMode && isSelected ? onMouseUp : undefined} style={{cursor: addingMode && isSelected ? 'crosshair':'default', position:'relative', width: '100%'}}><img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }} draggable={false} onDragStart={e => e.preventDefault()} /> {(b.regions || []).map(r => { const isCoupon = !!r.coupon; const style = { position: 'absolute', left: `${r.xRatio*100}%`, top: `${r.yRatio*100}%`, width: `${r.wRatio*100}%`, height: `${r.hRatio*100}%`, border: `2px dashed ${isCoupon ? '#ff6347' : '#fe6326'}`, cursor: 'pointer', background: isCoupon ? 'rgba(255, 99, 71, 0.2)' : 'rgba(24, 144, 255, 0.2)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start' }; return (<div key={r.id} onClick={(e) => { e.stopPropagation(); openEditRegion(r); }} style={style}><span style={{ background: isCoupon ? '#ff6347' : '#fe6326', color: 'white', fontSize: '10px', padding: '1px 4px', borderRadius: '2px', lineHeight: 1, fontWeight: 'bold', margin: '1px' }}>{isCoupon ? '쿠폰' : 'URL'}</span></div>); })} {isSelected && dragStartPos && dragCurrent && <div style={{position:'absolute', left: Math.min(dragStartPos.x, dragCurrent.x), top: Math.min(dragStartPos.y, dragCurrent.y), width: Math.abs(dragCurrent.x-dragStartPos.x), height:Math.abs(dragCurrent.y-dragStartPos.y), border:'1px dashed #999', background:'rgba(200,200,200,0.2)'}} />}</div></div> );
-                if (b.type === 'video') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><YoutubeOutlined /><strong>영상 블록</strong></div><Space><Button type="link" size="small" onClick={() => openVideoModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space></div><div className="block-content"><YouTubeEmbed id={b.youtubeId} ratioW={b.ratio?.w} ratioH={b.ratio?.h} autoplay={b.autoplay} loop={b.loop} /></div></div> );
-                if (b.type === 'text') return ( <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}><div className="block-header"><div className="block-title"><FontSizeOutlined /><strong>텍스트 블록</strong></div><Space><Button type="link" size="small" onClick={() => openTextModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space></div><div className="block-content" style={{ margin: `${b.style?.mt || 0}px 0 ${b.style?.mb || 0}px` }}><div style={{ textAlign: b.style?.align || 'center', fontSize: b.style?.fontSize || 18, fontWeight: b.style?.fontWeight || 'normal', color: b.style?.color || '#333', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: escapeHtml(b.text).replace(/\n/g, '<br/>') }} /></div></div> );
-                if (b.type === 'product_group') {
-                    const activeTabIndex = previewActiveTabs[b.id] || 0;
-                    let productsToDisplay = [];
-                    if (b.registerMode === 'direct') {
-                        if (b.layoutType === 'tabs') { productsToDisplay = b.tabDirectProducts?.[activeTabIndex] || []; } 
-                        else { productsToDisplay = b.directProducts || []; }
-                    }
-                    return (
-                        <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
-                            <div className="block-header">
-                                <div className="block-title"><ShoppingCartOutlined /><strong>상품 블록</strong></div>
-                                <Space><Button type="link" size="small" onClick={() => { setEditingProductBlock(b); setProductBlockModalVisible(true); }}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
-                            </div>
-                            <div className="block-content">
-                                {b.layoutType === 'tabs' && (<div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{(b.tabs || []).map((tab, i) => (<Button key={i} style={{ flex: 1, borderColor: i === activeTabIndex ? b.activeColor || '#fe6326' : undefined, backgroundColor: i === activeTabIndex ? b.activeColor || '#fe6326' : '#fff', color: i === activeTabIndex ? '#fff' : 'inherit' }} onClick={() => setPreviewActiveTabs(prev => ({ ...prev, [b.id]: i }))}>{tab.title || `탭 ${i + 1}`}</Button>))}</div>)}
-                                {b.registerMode === 'direct' ? renderGrid(b.gridSize, productsToDisplay) : (<div style={{ padding: '40px 20px', textAlign: 'center', color: '#888', background: '#f0f0f0', border: '1px dashed #d9d9d9', borderRadius: 4 }}>카테고리 상품은 실제 페이지에서 노출됩니다.</div>)}
-                            </div>
-                        </div>
+                if (isPreviewMode) {
+                  // --- 미리보기 모드 ---
+                  switch (b.type) {
+                    case 'image': return <img key={b.id} src={b.src} alt="preview" style={{ width: '100%', display: 'block', marginBottom: '8px' }} />;
+                    case 'video': return <div key={b.id} style={{ marginBottom: '16px' }}><YouTubeEmbed id={b.youtubeId} ratioW={b.ratio?.w} ratioH={b.ratio?.h} autoplay={b.autoplay} loop={b.loop} /></div>;
+                    case 'text': { const st = b.style || {}; return ( <div key={b.id} style={{ textAlign: st.align || 'center', margin: `${st.mt || 16}px 0 ${st.mb || 16}px` }}><div style={{ fontSize: st.fontSize || 18, fontWeight: st.fontWeight || 'normal', color: st.color || '#333', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: escapeHtml(b.text).replace(/\n/g, '<br/>') }} /></div>); }
+                    case 'event_notice': return (
+                      <div key={b.id} style={{ marginBottom: 8 }}>
+                        <div style={{ padding: '12px 16px', background: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 6, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>{b.noticeTitle || '이벤트 유의사항'}</span><span style={{ fontSize: 12 }}>▾</span></div>
+                        {b.noticeImage && <img src={b.noticeImage} alt="유의사항" style={{ maxWidth: '100%', display: 'block', marginTop: 8 }} />}
+                        {b.noticeText && <div style={{ marginTop: b.noticeImage ? 0 : 8, padding: b.noticeStyle?.padding ?? 16, background: b.noticeStyle?.background || 'transparent', color: b.noticeStyle?.color || '#444', fontSize: b.noticeStyle?.fontSize ?? 14, lineHeight: b.noticeStyle?.lineHeight ?? 1.7, letterSpacing: b.noticeStyle?.letterSpacing ? `${b.noticeStyle.letterSpacing}px` : undefined, whiteSpace: 'pre-wrap' }}>{b.noticeText}</div>}
+                      </div>
                     );
+                    case 'timesale': {
+                      const tprods = timesaleProductsMap[b.id] || [];
+                      return (
+                        <div key={b.id} style={{ marginBottom: 16 }}>
+                          <TimesaleBanner title={b.title} endDate={b.endDate} showCountdown={b.showCountdown} bannerStyle={b.bannerStyle} />
+                          {renderGrid(b.gridSize || 2, tprods, 0, b.cardTemplate || 'badge', {})}
+                        </div>
+                      );
+                    }
+                    case 'product_group': {
+                      const activeTabIndex = previewActiveTabs[b.id] || 0;
+                      const tabCols = b.tabsPerRow && b.tabsPerRow >= 2 ? b.tabsPerRow : ((b.tabs || []).length || 1);
+                      return (
+                          <div key={b.id} style={{ marginBottom: 16 }}>
+                              {b.layoutType === 'tabs' && (<div style={{ display: 'grid', gridTemplateColumns: `repeat(${tabCols}, 1fr)`, gap: 8, marginBottom: 8 }}>{(b.tabs || []).map((tab, i) => (<Button key={i} style={{ borderColor: i === activeTabIndex ? b.activeColor || '#fe6326' : undefined, backgroundColor: i === activeTabIndex ? b.activeColor || '#fe6326' : '#fff', color: i === activeTabIndex ? '#fff' : 'inherit' }} onClick={() => setPreviewActiveTabs(prev => ({ ...prev, [b.id]: i }))}>{tab.title || `탭 ${i + 1}`}</Button>))}</div>)}
+                              {renderGrid(getPreviewCols(b, activeTabIndex), getPreviewProducts(b, activeTabIndex), previewDiscountPercent, b.cardTemplate, { thumbRadius: b.thumbRadius, iconPosition: b.iconPosition, cardStyle: b.cardStyle, rolling: (b.layoutType === 'tabs' ? (b.tabRolling && b.tabRolling[activeTabIndex]) : b.rolling), soldOutNos: b.soldOutNos })}
+                          </div>
+                      );
+                    }
+                    case 'image_slide': return (<div key={b.id} style={{ marginBottom: 16 }}><ImageSlidePreview images={b.images} sw={b.swiper} /></div>);
+                    default: return null;
+                  }
+                } else {
+                  // --- 편집 모드 ---
+                  if (b.type === 'image') return (
+                    <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                      <div className="block-header">
+                          <div className="block-title"><PictureOutlined /><strong>이미지 블록</strong></div>
+                          <Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button>
+                      </div>
+                      <div className="block-content image-content" onMouseDown={addingMode && isSelected ? onMouseDown : undefined} onMouseMove={addingMode && isSelected ? onMouseMove : undefined} onMouseUp={addingMode && isSelected ? onMouseUp : undefined} style={{cursor: addingMode && isSelected ? 'crosshair':'default', position:'relative', width: '100%'}}>
+                        <img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block'}} draggable={false} onDragStart={e => e.preventDefault()} />
+                        {(b.regions || []).map(r => {
+                          const kind = r.coupon ? 'coupon' : r.tabTarget ? 'tab' : r.popup ? 'popup' : 'url';
+                          const c = { coupon: '#ff6347', tab: '#722ed1', popup: '#13c2c2', url: '#fe6326' }[kind];
+                          const label = { coupon: '쿠폰', tab: '탭', popup: '팝업', url: 'URL' }[kind];
+                          const style = { position: 'absolute', left: `${r.xRatio*100}%`, top: `${r.yRatio*100}%`, width: `${r.wRatio*100}%`, height: `${r.hRatio*100}%`, border: `2px dashed ${c}`, cursor: 'pointer', background: `${c}33`, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start' };
+                          return (<div key={r.id} onClick={(e) => { e.stopPropagation(); openEditRegion(r); }} style={style}><span style={{ background: c, color: 'white', fontSize: '10px', padding: '1px 4px', borderRadius: '2px', lineHeight: 1, fontWeight: 'bold', margin: '1px' }}>{label}</span></div>);
+                        })}
+                        {isSelected && dragStartPos && dragCurrent && <div style={{position:'absolute', left: Math.min(dragStartPos.x, dragCurrent.x), top: Math.min(dragStartPos.y, dragCurrent.y), width: Math.abs(dragCurrent.x-dragStartPos.x), height:Math.abs(dragCurrent.y-dragStartPos.y), border:'1px dashed #999', background:'rgba(200,200,200,0.2)'}} />}
+                      </div>
+                    </div>
+                  );
+                  if (b.type === 'video') return (
+                    <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                      <div className="block-header">
+                          <div className="block-title"><YoutubeOutlined /><strong>영상 블록</strong></div>
+                          <Space><Button type="link" size="small" onClick={() => openVideoModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                      </div>
+                      <div className="block-content"><YouTubeEmbed id={b.youtubeId} ratioW={b.ratio?.w} ratioH={b.ratio?.h} autoplay={b.autoplay} loop={b.loop} /></div>
+                    </div>
+                  );
+                  if (b.type === 'text') return (
+                    <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                      <div className="block-header">
+                          <div className="block-title"><FontSizeOutlined /><strong>텍스트 블록</strong></div>
+                          <Space><Button type="link" size="small" onClick={() => openTextModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                      </div>
+                      <div className="block-content" style={{ margin: `${b.style?.mt || 0}px 0 ${b.style?.mb || 0}px` }}>
+                        <div style={{ textAlign: b.style?.align || 'center', fontSize: b.style?.fontSize || 18, fontWeight: b.style?.fontWeight || 'normal', color: b.style?.color || '#333', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: escapeHtml(b.text).replace(/\n/g, '<br/>') }} />
+                      </div>
+                    </div>
+                  );
+                  if (b.type === 'event_notice') return (
+                    <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                      <div className="block-header">
+                        <div className="block-title"><ExclamationCircleOutlined /><strong>이벤트 유의사항</strong></div>
+                        <Space><Button type="link" size="small" onClick={() => openNoticeModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                      </div>
+                      <div className="block-content">
+                        <div style={{ padding: '10px 14px', background: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 6, fontWeight: 600, fontSize: 15, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>{b.noticeTitle || '이벤트 유의사항'}</span><span style={{ fontSize: 12 }}>▾</span></div>
+                        {b.noticeImage && <img src={b.noticeImage} alt="유의사항" style={{ maxWidth: '100%', display: 'block', marginTop: 10 }} />}
+                        {b.noticeText && <div style={{ marginTop: b.noticeImage ? 0 : 10, padding: b.noticeStyle?.padding ?? 16, background: b.noticeStyle?.background || 'transparent', color: b.noticeStyle?.color || '#444', fontSize: b.noticeStyle?.fontSize ?? 14, lineHeight: b.noticeStyle?.lineHeight ?? 1.7, letterSpacing: b.noticeStyle?.letterSpacing ? `${b.noticeStyle.letterSpacing}px` : undefined, whiteSpace: 'pre-wrap' }}>{b.noticeText}</div>}
+                      </div>
+                    </div>
+                  );
+                  if (b.type === 'timesale') {
+                    const tprods = timesaleProductsMap[b.id] || [];
+                    return (
+                      <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                        <div className="block-header">
+                          <div className="block-title"><ClockCircleOutlined /><strong>타임세일</strong></div>
+                          <Space><Button type="link" size="small" onClick={() => openTimesaleModal(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                        </div>
+                        <div className="block-content">
+                          <TimesaleBanner title={b.title} endDate={b.endDate} showCountdown={b.showCountdown} bannerStyle={b.bannerStyle} />
+                          {tprods.length === 0 ? <div style={{ padding: '24px', textAlign: 'center', color: '#888' }}>대상 상품 {b.productNos?.length || 0}개 — 라이브에서 할인가로 표시됩니다</div> : renderGrid(b.gridSize || 2, tprods, 0, b.cardTemplate || 'badge', {})}
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (b.type === 'image_slide') {
+                    return (
+                      <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                        <div className="block-header">
+                          <div className="block-title"><PictureOutlined /><strong>이미지 슬라이드</strong> <span style={{ fontSize: 12, color: '#999' }}>({(b.images || []).length}장)</span></div>
+                          <Space><Button type="link" size="small" onClick={() => openImageSlide(b)}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                        </div>
+                        <div className="block-content">
+                          <ImageSlidePreview images={b.images} sw={b.swiper} />
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (b.type === 'product_group') {
+                      const activeTabIndex = previewActiveTabs[b.id] || 0;
+                      const tabCols = b.tabsPerRow && b.tabsPerRow >= 2 ? b.tabsPerRow : ((b.tabs || []).length || 1);
+                      return (
+                          <div key={b.id} className={`preview-block-container ${isSelected ? 'selected' : ''}`}>
+                              <div className="block-header">
+                                  <div className="block-title"><ShoppingCartOutlined /><strong>상품 블록</strong></div>
+                                  <Space><Button type="link" size="small" onClick={() => { setEditingProductBlock(b); setProductBlockModalVisible(true); }}>편집</Button><Button type="link" size="small" danger onClick={() => deleteBlock(b.id)}>삭제</Button></Space>
+                              </div>
+                              <div className="block-content">
+                                  {b.layoutType === 'tabs' && (<div style={{ display: 'grid', gridTemplateColumns: `repeat(${tabCols}, 1fr)`, gap: 8, marginBottom: 8 }}>{(b.tabs || []).map((tab, i) => (<Button key={i} style={{ borderColor: i === activeTabIndex ? b.activeColor || '#fe6326' : undefined, backgroundColor: i === activeTabIndex ? b.activeColor || '#fe6326' : '#fff', color: i === activeTabIndex ? '#fff' : 'inherit' }} onClick={() => setPreviewActiveTabs(prev => ({ ...prev, [b.id]: i }))}>{tab.title || `탭 ${i + 1}`}</Button>))}</div>)}
+                                  {renderGrid(getPreviewCols(b, activeTabIndex), getPreviewProducts(b, activeTabIndex), previewDiscountPercent, b.cardTemplate, { thumbRadius: b.thumbRadius, iconPosition: b.iconPosition, cardStyle: b.cardStyle, rolling: (b.layoutType === 'tabs' ? (b.tabRolling && b.tabRolling[activeTabIndex]) : b.rolling), soldOutNos: b.soldOutNos })}
+                              </div>
+                          </div>
+                      );
+                  }
+                  return null;
                 }
-                return null;
               })}
             </div>
           </div>
@@ -533,10 +813,85 @@ export default function EventEdit() {
       </Card>
       
       <ProductBlockModal visible={productBlockModalVisible} onCancel={() => { setEditingProductBlock(null); setProductBlockModalVisible(false); }} onOk={addProductBlock} msgApi={msgApi} isMobile={isMobile} allCats={allCats} initialData={editingProductBlock} />
-      <Modal open={mapModalVisible} title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'} onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); }} onOk={saveRegion} okText="적용" cancelText="취소"><Form form={mapForm} layout="vertical">{addType === 'link' ? (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력해주세요.' }]}><Input placeholder="https://example.com" /></Form.Item>) : (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} placeholder="쿠폰 선택 또는 번호 입력" /></Form.Item>)}</Form></Modal>
-      <Modal open={editModalVisible} title="영역 편집" onCancel={() => setEditModalVisible(false)} footer={[<Button key="del" danger onClick={deleteRegion}>삭제</Button>,<Button key="cancel" onClick={() => setEditModalVisible(false)}>취소</Button>,<Button key="ok" type="primary" onClick={applyEditRegion}>적용</Button>,]}><Form form={editForm} layout="vertical">{editingRegion?.coupon ? (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponEditSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponEditSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} /></Form.Item>) : (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력하세요.' }]}><Input placeholder="https://example.com" /></Form.Item>)}</Form></Modal>
+      {imageSlideVisible && <ImageSlideModal visible={imageSlideVisible} initialData={imageSlideInit} onCancel={() => { setImageSlideVisible(false); setImageSlideInit(null); }} onOk={handleImageSlideOk} msgApi={msgApi} isMobile={isMobile} />}
+      <Modal open={mapModalVisible} width={addType === 'popup' ? 680 : 520} title={addType === 'link' ? 'URL 영역 설정' : addType === 'tab' ? '탭 이동 영역 설정' : addType === 'popup' ? '팝업 영역 설정' : '쿠폰 영역 설정'} onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); setPopupImages([]); mapForm.resetFields(); }} onOk={saveRegion} okText="적용" cancelText="취소"><Form form={mapForm} layout="vertical">{addType === 'link' ? (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력해주세요.' }]}><Input placeholder="https://example.com" /></Form.Item>) : addType === 'tab' ? (<Form.Item name="tabTarget" label="이동할 탭" rules={[{ required: true, message: '이동할 탭을 선택하세요.' }]}><Select options={tabTargetOptions} placeholder="이동할 상품 탭 선택" /></Form.Item>) : addType === 'popup' ? renderPopupEditor() : (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} placeholder="쿠폰 선택 또는 번호 입력" /></Form.Item>)}</Form></Modal>
+      <Modal open={editModalVisible} width={editingRegion?.popup ? 680 : 520} title="영역 편집" onCancel={() => { setEditModalVisible(false); setPopupImages([]); }} footer={[<Button key="del" danger onClick={deleteRegion}>삭제</Button>,<Button key="cancel" onClick={() => { setEditModalVisible(false); setPopupImages([]); }}>취소</Button>,<Button key="ok" type="primary" onClick={applyEditRegion}>적용</Button>,]}><Form form={editForm} layout="vertical">{editingRegion?.coupon ? (<Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}><Select ref={couponEditSelectRef} mode="tags" options={couponOptions} tokenSeparators={[',']} onSelect={() => couponEditSelectRef.current?.blur()} tagRender={({ label, closable, onClose }) => <Tag closable={closable} onClose={onClose}>{label}</Tag>} /></Form.Item>) : editingRegion?.tabTarget ? (<Form.Item name="tabTarget" label="이동할 탭" rules={[{ required: true, message: '이동할 탭을 선택하세요.' }]}><Select options={tabTargetOptions} placeholder="이동할 상품 탭 선택" /></Form.Item>) : editingRegion?.popup ? renderPopupEditor() : (<Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력하세요.' }]}><Input placeholder="https://example.com" /></Form.Item>)}</Form></Modal>
       <Modal open={videoModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='video') ? "영상 편집" : "영상 추가"} onCancel={() => setVideoModalVisible(false)} onOk={submitVideo} okText="적용" cancelText="취소"><Form form={videoForm} layout="vertical" initialValues={{w:16, h:9}}><Form.Item name="urlOrId" label="YouTube 링크 또는 영상 ID" rules={[{ required: true, message: 'YouTube 링크/ID를 입력하세요.' }]}><Input /></Form.Item><p style={{ fontSize: '12px', color: '#888', marginTop: '-12px', marginBottom: '16px' }}>원하는 유튜브 영상 오른쪽 버튼 '동영상 URL 복사'를 통해 영상을 추가할 수 있습니다.</p><Space><Form.Item name="w" label="비율 W" style={{marginBottom:0}}><InputNumber min={1} step={1} style={{width:100}}/></Form.Item><div style={{alignSelf:'end', padding:'0 6px 8px'}}>/</div><Form.Item name="h" label="비율 H" style={{marginBottom:0}}><InputNumber min={1} step={1} style={{width:100}}/></Form.Item></Space><Form.Item name="autoplay" valuePropName="checked" style={{marginTop:8}}><Checkbox>자동재생 (자동재생 시 반복이 자동 적용됩니다)</Checkbox></Form.Item></Form></Modal>
       <Modal open={textModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='text') ? "텍스트 편집" : "텍스트 추가"} onCancel={() => setTextModalVisible(false)} onOk={submitText} okText="적용" cancelText="취소"><Form form={textForm} layout="vertical" initialValues={{align:'center', fontSize:18, fontWeight:'normal', color:'#333333', mt:16, mb:16}}><Form.Item name="text" label="문구" rules={[{ required: true, message: '문구를 입력해주세요.' }]}><Input.TextArea rows={4} placeholder="문구를 입력하세요. 엔터는 줄바꿈으로 표시됩니다." /></Form.Item><Space wrap><Form.Item name="align" label="정렬" style={{marginBottom:0}}><Select style={{width:110}}><Option value="left">왼쪽</Option><Option value="center">가운데</Option><Option value="right">오른쪽</Option></Select></Form.Item><Form.Item name="fontSize" label="폰트크기" style={{marginBottom:0}}><InputNumber min={10} max={80} step={1} style={{width:110}}/></Form.Item><Form.Item name="fontWeight" label="굵기" style={{marginBottom:0}}><Select style={{width:110}}><Option value="normal">보통</Option><Option value="bold">굵게</Option></Select></Form.Item><Form.Item name="color" label="색상" style={{marginBottom:0}}><Input type="color" style={{width:60, padding:0, border:'none', background:'transparent'}}/></Form.Item><Form.Item name="mt" label="위 간격(px)" style={{marginBottom:0}}><InputNumber min={0} step={1} style={{width:120}}/></Form.Item><Form.Item name="mb" label="아래 간격(px)" style={{marginBottom:0}}><InputNumber min={0} step={1} style={{width:120}}/></Form.Item></Space></Form></Modal>
+      <Modal open={noticeModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='event_notice') ? "이벤트 유의사항 편집" : "이벤트 유의사항 추가"} onCancel={() => setNoticeModalVisible(false)} onOk={submitNotice} okText="적용" cancelText="취소" width={600}>
+        <Form form={noticeForm} layout="vertical" initialValues={{ noticeTitle: '이벤트 유의사항', color:'#444444', fontSize:14, lineHeight:1.7, letterSpacing:0, padding:16 }}>
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="텍스트 입력 또는 이미지 영역을 통해 유의사항에 대한 디자인 작업을 해주세요. (이미지·본문 중 하나만 입력해도 됩니다)" />
+          <Form.Item name="noticeTitle" label="토글 버튼 제목" rules={[{ required: true, message: '버튼 제목을 입력하세요.' }]}><Input placeholder="예: 이벤트 유의사항" /></Form.Item>
+          <Form.Item label="유의사항 이미지 (선택)">
+            <Upload accept="image/*" showUploadList={false} beforeUpload={(file) => { if (file.size/1024/1024 > 10) { msgApi.error('이미지는 10MB 이하여야 합니다.'); return Upload.LIST_IGNORE; } const reader = new FileReader(); reader.onload = (e) => { setNoticeImagePreview(e.target?.result || ''); setNoticeImageFile(file); }; reader.readAsDataURL(file); return false; }}>
+              <Button icon={<UploadOutlined />}>{noticeImagePreview ? '이미지 변경' : '이미지 업로드'}</Button>
+            </Upload>
+            {noticeImagePreview && (<div style={{ marginTop: 10, position: 'relative', display: 'inline-block' }}><img src={noticeImagePreview} alt="유의사항 미리보기" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 4, border: '1px solid #f0f0f0' }} /><Button size="small" danger onClick={() => { setNoticeImagePreview(''); setNoticeImageFile(undefined); }} style={{ position: 'absolute', top: 4, right: 4 }}>제거</Button></div>)}
+          </Form.Item>
+          <Form.Item name="noticeText" label="본문 텍스트 (선택)"><Input.TextArea rows={8} placeholder="유의사항 본문을 입력하세요. 엔터로 줄바꿈." /></Form.Item>
+          <Divider style={{ margin: '12px 0' }}>본문 스타일</Divider>
+          <Space wrap>
+            <Form.Item name="background" label="배경색" style={{ marginBottom: 8 }}><Input type="color" style={{ width: 60, padding: 0, border: 'none', background: 'transparent' }} /></Form.Item>
+            <Form.Item name="color" label="글자색" style={{ marginBottom: 8 }}><Input type="color" style={{ width: 60, padding: 0, border: 'none', background: 'transparent' }} /></Form.Item>
+            <Form.Item name="fontSize" label="폰트 크기(px)" style={{ marginBottom: 8 }}><InputNumber min={10} max={32} step={1} style={{ width: 100 }} /></Form.Item>
+            <Form.Item name="lineHeight" label="줄 간격" style={{ marginBottom: 8 }}><InputNumber min={1} max={3} step={0.1} style={{ width: 100 }} /></Form.Item>
+            <Form.Item name="letterSpacing" label="자간(px)" style={{ marginBottom: 8 }}><InputNumber min={-2} max={5} step={0.1} style={{ width: 100 }} /></Form.Item>
+            <Form.Item name="padding" label="패딩(px)" style={{ marginBottom: 8 }}><InputNumber min={0} max={64} step={2} style={{ width: 100 }} /></Form.Item>
+          </Space>
+          <div style={{ fontSize: 12, color: '#888', lineHeight: 1.5 }}>라이브 페이지에서 토글 버튼 클릭 시 슬라이드 다운으로 이미지 + 본문이 펼쳐집니다. 이미지나 본문 중 하나만 입력해도 됩니다.</div>
+        </Form>
+      </Modal>
+      <Modal open={timesaleModalVisible} title={(selectedId && blocks.find(b=>b.id===selectedId)?.type==='timesale') ? "타임세일 편집" : "타임세일 추가"} onCancel={() => setTimesaleModalVisible(false)} onOk={submitTimesale} okText="적용" cancelText="취소" width={620}>
+        <Tabs activeKey={tsType} onChange={(k) => setTsType(k)} items={[{ key: 'benefit', label: '① 기간할인' }, { key: 'coupon', label: '② 쿠폰할인' }]} />
+        <Segmented block options={[{ label: 'Cafe24에서 불러오기', value: 'select' }, { label: '직접 입력', value: 'manual' }]} value={tsMode} onChange={setTsMode} style={{ marginBottom: 14 }} />
+        <Form form={timesaleForm} layout="vertical" initialValues={{ showCountdown: true, gridSize: 2, cardTemplate: 'badge', bannerStyle: 'dark' }}>
+          {tsMode === 'select' && tsType === 'benefit' && (<>
+            <Alert type="info" showIcon style={{ marginBottom: 14 }} message="Cafe24 기간할인을 선택하면 종료까지 카운트다운 + 자동 할인가로 상품이 표시됩니다." />
+            <Form.Item name="benefitNo" label="표시할 기간할인 선택">
+              <Select placeholder={benefitsList.length ? '진행/예정 기간할인 선택' : '기간할인이 없습니다 — 직접 입력을 이용하세요'} showSearch optionFilterProp="label" options={benefitsList.map(b => ({ value: b.benefit_no, label: `${b.benefit_name} (${(b.benefit_start_date || '').slice(0, 10)} ~ ${(b.benefit_end_date || '').slice(0, 10)})` }))} />
+            </Form.Item>
+          </>)}
+          {tsMode === 'select' && tsType === 'coupon' && (<>
+            <Alert type="info" showIcon style={{ marginBottom: 14 }} message="쿠폰을 선택하면 그 쿠폰이 적용되는 상품을 불러와 쿠폰 할인가로 표시합니다. (상품 목록을 못 가져오면 직접 입력을 이용하세요)" />
+            <Form.Item name="couponNo" label="표시할 쿠폰 선택">
+              <Select placeholder={couponsList.length ? '쿠폰 선택' : '쿠폰을 불러오는 중 / 없음 — 직접 입력을 이용하세요'} showSearch optionFilterProp="label" options={couponsList.map(c => ({ value: c.coupon_no, label: `${c.coupon_name || c.coupon_no}${c.available_end_date ? ` (~${String(c.available_end_date).slice(0, 10)})` : ''}` }))} />
+            </Form.Item>
+          </>)}
+          {tsMode === 'manual' && (<>
+            <Alert type="warning" showIcon style={{ marginBottom: 14 }} message="직접 입력 — 기간/상품을 자동으로 못 가져올 때" description="대상 상품을 직접 등록하고, 타임세일 시작·종료일을 직접 지정하세요. (할인가는 Cafe24에 적용된 실제 가격으로 표시)" />
+            <Form.Item label="대상 상품 직접 등록" required>
+              <Button type={tsManualProducts.length ? 'primary' : 'dashed'} onClick={() => setTsMorePrdVisible(true)}>{tsManualProducts.length ? `상품 ${tsManualProducts.length}개 등록됨 (변경)` : '상품 직접 등록'}</Button>
+            </Form.Item>
+            <Form.Item label="타임세일 기간 (시작 ~ 종료)" required>
+              <DatePicker.RangePicker showTime value={tsManualRange} onChange={setTsManualRange} style={{ width: '100%' }} format="YYYY-MM-DD HH:mm" />
+            </Form.Item>
+          </>)}
+          <Form.Item name="title" label="배너 제목 (비우면 자동)"><Input placeholder="예: ⏰ 오늘만 타임세일" /></Form.Item>
+          <Form.Item name="showCountdown" valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>종료까지 카운트다운 표시</Checkbox></Form.Item>
+          <Form.Item name="bannerStyle" label="배너 디자인" style={{ marginBottom: 8 }}>
+            <Segmented options={Object.keys(TIMESALE_BANNERS).map(k => ({ value: k, label: TIMESALE_BANNERS[k].label }))} />
+          </Form.Item>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>↓ 배너 미리보기 (예시 카운트다운)</div>
+            <TimesaleBanner title={tsTitle} endDate={(tsMode === 'manual' && tsManualRange && tsManualRange[1]) ? tsManualRange[1].valueOf() : (Date.now() + 2 * 86400000 + 3 * 3600000)} showCountdown={tsShowCd} bannerStyle={tsBannerStyle} />
+          </div>
+          <Space wrap>
+            <Form.Item name="gridSize" label="그리드" style={{ marginBottom: 0 }}><Select style={{ width: 100 }} options={[{ label: '2×2', value: 2 }, { label: '3×3', value: 3 }, { label: '4×4', value: 4 }]} /></Form.Item>
+            <Form.Item name="cardTemplate" label="카드 디자인" style={{ marginBottom: 0 }}><Select style={{ width: 220 }} options={CARD_TEMPLATES.map(t => ({ value: t.value, label: t.label }))} /></Form.Item>
+          </Space>
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>↓ 예시 상품 카드 미리보기</div>
+            {(() => {
+              const cols = tsGrid || 2;
+              const picked = tsMode === 'manual' ? tsManualProducts : tsSelectProducts;
+              const tprev = picked.length ? picked.slice(0, cols) : Array.from({ length: cols }, (_, i) => SAMPLE_PRODUCTS[i % SAMPLE_PRODUCTS.length]);
+              return renderGrid(cols, tprev, 0, tsTemplate || 'badge', {});
+            })()}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: '#fa8c16' }}>※ 할인가는 Cafe24에 적용된 실제 가격으로 표시되며, 기간이 끝나면 자동으로 원가로 돌아갑니다.</div>
+        </Form>
+        {tsMorePrdVisible && <MorePrd visible={tsMorePrdVisible} initialSelected={tsManualProducts} onOk={(prods) => { setTsManualProducts(Array.isArray(prods) ? prods : []); setTsMorePrdVisible(false); }} onCancel={() => setTsMorePrdVisible(false)} />}
+      </Modal>
     </>
   );
 }

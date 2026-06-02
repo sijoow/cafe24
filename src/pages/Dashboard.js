@@ -26,6 +26,9 @@ dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 
+// 같은 이벤트가 여러 URL에 설치되는 경우가 많아, 기본은 "전체(합산)"으로 본다.
+const ALL_URLS = '__ALL__';
+
 export default function Dashboard() {
   const [mallId, setMallId] = useState(null);
   useEffect(() => {
@@ -126,8 +129,8 @@ export default function Dashboard() {
       .then(res => {
         const list = res.data || [];
         setUrls(list);
-        // 목록이 있으면 첫 번째 항목을 자동으로 선택합니다.
-        setSelectedUrl(list.length > 0 ? list[0] : null);
+        // 기본은 "전체(합산)" — 여러 URL에 깔려도 중복 없이 이벤트 총합을 보여준다.
+        setSelectedUrl(ALL_URLS);
       })
       .catch(() => message.error('설치된 페이지 URL 목록을 불러오지 못했습니다.'));
 
@@ -176,8 +179,9 @@ export default function Dashboard() {
     const params = {
       start_date: `${s}T00:00:00+09:00`,
       end_date:   `${e}T23:59:59.999+09:00`,
-      url:        selectedUrl
     };
+    // "전체(합산)"이면 url 필터를 빼서 백엔드가 이벤트 전체를 합산하도록 한다.
+    if (selectedUrl && selectedUrl !== ALL_URLS) params.url = selectedUrl;
 
     const visReq   = api.get(`/api/${mallId}/analytics/${selectedEvent}/visitors-by-date`, { params });
     const devReq   = api.get(`/api/${mallId}/analytics/${selectedEvent}/devices-by-date`,    { params });
@@ -301,6 +305,9 @@ export default function Dashboard() {
     }]
   };
 
+  // 이벤트 페이지 이동/복사용 대표 URL: 특정 URL을 골랐으면 그 URL, "전체(합산)"이면 가장 최근 URL(목록 맨 위)
+  const repUrl = (selectedUrl && selectedUrl !== ALL_URLS) ? selectedUrl : (urls[0] || '');
+
   return (
     <Space direction="vertical" style={{ width: '100%', padding: 24, gap: 24 }} className="dashbord">
       <Card>
@@ -315,12 +322,12 @@ export default function Dashboard() {
             />
           </Col>
           <Col>
-            <Select 
-              placeholder="페이지 선택" 
-              options={urls.map(u => ({ label: u, value: u }))} 
-              value={selectedUrl} 
-              onChange={setSelectedUrl} 
-              style={{ width: 240 }} 
+            <Select
+              placeholder="페이지 선택"
+              options={[{ label: '전체(합산)', value: ALL_URLS }, ...urls.map(u => ({ label: u, value: u }))]}
+              value={selectedUrl}
+              onChange={setSelectedUrl}
+              style={{ width: 260 }}
             />
           </Col>
           <Col>
@@ -336,25 +343,25 @@ export default function Dashboard() {
           </Col>
           
           <Col>
-            <Tooltip title={(!siteBaseUrl || !selectedUrl) ? '홈페이지 주소와 페이지를 모두 선택해주세요.' : ''}>
+            <Tooltip title={(!siteBaseUrl || !repUrl) ? '홈페이지 주소와 페이지를 모두 선택해주세요.' : ''}>
               <Button
                 type="primary"
                 icon={<LinkOutlined />}
-                disabled={!siteBaseUrl || !selectedUrl}
-                onClick={() => { if (siteBaseUrl && selectedUrl) window.open(siteBaseUrl + selectedUrl, '_blank'); }}
+                disabled={!siteBaseUrl || !repUrl}
+                onClick={() => { if (siteBaseUrl && repUrl) window.open(siteBaseUrl + repUrl, '_blank'); }}
               >
                 이벤트 페이지 이동
               </Button>
             </Tooltip>
           </Col>
           <Col>
-            <Tooltip title={(!siteBaseUrl || !selectedUrl) ? '홈페이지 주소와 페이지를 모두 선택해주세요.' : ''}>
+            <Tooltip title={(!siteBaseUrl || !repUrl) ? '홈페이지 주소와 페이지를 모두 선택해주세요.' : ''}>
               <Button
                 icon={<CopyOutlined />}
-                disabled={!siteBaseUrl || !selectedUrl}
+                disabled={!siteBaseUrl || !repUrl}
                 onClick={() => {
-                  if (siteBaseUrl && selectedUrl) {
-                    navigator.clipboard.writeText(siteBaseUrl + selectedUrl);
+                  if (siteBaseUrl && repUrl) {
+                    navigator.clipboard.writeText(siteBaseUrl + repUrl);
                     message.success('링크가 복사되었습니다.');
                   }
                 }}
